@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CubeRackStudio 操作説明</title>
+
+  <style>
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:#f9fafb;
+      color:#111827;
+      line-height:1.7;
+    }
+
+    header{
+      position:sticky;
+      top:0;
+      background:rgba(249,250,251,0.9);
+      backdrop-filter: blur(8px);
+      border-bottom:1px solid #e5e7eb;
+      padding:14px 16px;
+      z-index:10;
+    }
+
+    .wrap{ max-width: 920px; margin: 0 auto; padding: 16px; }
+    h1{ font-size:20px; margin:0; font-weight:800; }
+    .sub{ color:#6b7280; font-size:12px; margin-top:4px; }
+
+    .toc{
+      background:#fff;
+      border:1px solid #e5e7eb;
+      border-radius:12px;
+      padding:12px 14px;
+      margin:16px 0;
+    }
+    .toc a{ color:#1d4ed8; text-decoration:none; }
+    .toc a:hover{ text-decoration:underline; }
+
+    section{
+      background:#fff;
+      border:1px solid #e5e7eb;
+      border-radius:12px;
+      padding:14px 16px;
+      margin:12px 0;
+      scroll-margin-top: 90px; /* アンカーで見出しが隠れない */
+    }
+
+    h2{ font-size:16px; margin:0 0 8px; }
+    ul, ol{ margin:8px 0 0; padding-left:1.2em; }
+    p{ margin:10px 0 0; }
+
+    code{
+      background:#f3f4f6;
+      padding:2px 6px;
+      border-radius:6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+    }
+
+    figure{ margin:12px 0 0; }
+    figcaption{ font-size:12px; color:#6b7280; margin-top:6px; }
+
+    img{
+      width:100%;
+      border-radius:12px;
+      border:1px solid #e5e7eb;
+      display:block;
+    }
+
+    /* 小さなUI部品用の画像サイズ（左寄せ） */
+    .img-small{
+      max-width: 320px;
+      margin: 8px 0;
+      display: block;
+    }
+
+    .note{
+      background:#eff6ff;
+      border:1px solid #bfdbfe;
+      color:#1e3a8a;
+      padding:10px 12px;
+      border-radius:12px;
+      font-size:12px;
+      margin-top:10px;
+    }
+
+    .footer{ color:#6b7280; font-size:11px; padding:18px 0; }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="wrap" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+      <div>
+        <h1>CubeRackStudio 操作説明</h1>
+        <div class="sub">このページは「操作方法」と「よくある手順」をまとめた説明書です。</div>
+      </div>
+
+      <a href="index.html" style="font-size:12px; color:#2563eb; text-decoration:none;">
+        アプリに戻る
+      </a>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- 目次：指定の順番 -->
+    <nav class="toc">
+      <strong>目次</strong>
+      <ul>
+        <li><a href="#overview">1. 画面の見方</a></li>
+        <li><a href="#mouse">2. マウス操作</a></li>
+        <li><a href="#file">3. ファイル（保存 / 読み込み）</a></li>
+        <li><a href="#edit">4. 編集操作（Undo / Redo / Reset / グリッド / 操作ヘルプ）</a></li>
+        <li><a href="#parts">5. パーツ追加（Beam / Pole）</a></li>
+        <li><a href="#colorchart">6. カラーチャート</a></li>
+        <li><a href="#dimension">7. 寸法を表示</a></li>
+        <li><a href="#autolayout">8. 自動レイアウトツール</a></li>
+        <li><a href="#estimate">9. 見積の見方（部材明細）</a></li>
+      </ul>
+    </nav>
+
+    <!-- 1. 画面の見方 -->
+    <section id="overview">
+      <h2>1. 画面の見方</h2>
+      <ul>
+        <li><strong>左側：3D 画面</strong>…ラック構成を立体で確認します</li>
+        <li><strong>右側：操作パネル</strong>…部材選択、長さ、見積り表示を行います</li>
+      </ul>
+
+      <figure>
+        <img src="help-assets/ui-overview.png" alt="画面全体の概要" />
+        <figcaption>画面全体（左：3D表示エリア / 右：操作パネル）</figcaption>
+      </figure>
+    </section>
+
+    <!-- 2. マウス操作 -->
+    <section id="mouse">
+      <h2>2. マウス操作</h2>
+
+      <ul>
+        <li><strong>左ボタン + クリック</strong>：選択 / 追加などの決定</li>
+        <li><strong>中ボタン + ドラッグ</strong>：視点を回転します</li>
+        <li><strong>右ボタン + ドラッグ</strong>：画面を平行移動します</li>
+        <li><strong>ホイール</strong>：ズームイン / アウトします</li>
+      </ul>
+
+      <div class="note">
+        マウス設定やタッチパッド操作により動作が異なる場合があります。
+      </div>
+    </section>
+
+    <!-- 3. ファイル（保存 / 読み込み） -->
+    <section id="file">
+      <h2>3. ファイル（保存 / 読み込み）</h2>
+      <p>右パネル上部の「ファイル」からデザインを保存 / 読み込みできます。</p>
+      <ul>
+        <li><strong>上書き保存</strong>：現在のデザインを上書き保存します</li>
+        <li><strong>名前を付けて保存</strong>：別名で保存します</li>
+        <li><strong>開く</strong>：保存したデザインを読み込みます</li>
+      </ul>
+      <div class="note">
+        ※ ブラウザや環境によって、保存 / 読み込みの挙動が異なる場合があります。
+      </div>
+    </section>
+
+    <!-- 4. 編集操作 -->
+    <section id="edit">
+      <h2>4. 編集操作（Undo / Redo / Reset / グリッド / 操作ヘルプ）</h2>
+      <ul>
+        <li><strong>Undo</strong>：1つ前の状態に戻します（<code>Ctrl + Z</code>）</li>
+        <li><strong>Redo</strong>：やり直します（<code>Ctrl + Y</code>）</li>
+        <li><strong>Reset</strong>：すべて削除して初期状態に戻します</li>
+        <li><strong>グリッドON/OFF</strong>：床グリッドの表示を切り替えます</li>
+        <li><strong>操作ヘルプ</strong>：画面内の簡易ヘルプを表示します</li>
+      </ul>
+      <div class="note">
+        迷ったらまず <strong>Undo</strong> が安全です。Reset は最後の手段にしてください。
+      </div>
+    </section>
+
+    <!-- 5. パーツ追加 -->
+    <section id="parts">
+      <h2>5. パーツ追加（Beam / Pole）</h2>
+      <ol>
+        <li>右パネルで <strong>Beam / Pole</strong> を選択</li>
+        <li><strong>長さプリセット</strong> を選択</li>
+        <li>3D画面の <strong>ジョイント（球）</strong> をクリックして追加</li>
+      </ol>
+
+      <figure>
+        <img src="help-assets/part-switch.png" alt="Beam/Poleスイッチ" class="img-small" />
+        <figcaption>Beam / Pole 切り替えスイッチ</figcaption>
+      </figure>
+
+      <div class="note">
+        補足：プリセットに無い長さを使う場合は「オーダー」をONにして mm を入力します（詳細は追記予定）。
+      </div>
+    </section>
+
+    <!-- 6. カラーチャート -->
+    <section id="colorchart">
+      <h2>6. カラーチャート</h2>
+      <figure>
+  <img src="help-assets/colorchart.png" class="img-small" alt="カラーチャート" />
+  <figcaption>長さごとの部材カラーを確認できます</figcaption>
+</figure>
+
+      <p>
+        「カラーチャート」ボタンで、長さごとに割り当てられている色を確認できます。
+        部材色のルールを把握したいときに使います。
+      </p>
+    </section>
+
+    <!-- 7. 寸法を表示 -->
+    <section id="dimension">
+      <h2>7. 寸法を表示</h2>
+      <figure>
+  <img src="help-assets/dimension.png" class="img-small" alt="寸法表示" />
+  <figcaption>外寸と芯々寸法をポップアップで表示</figcaption>
+</figure>
+
+      <p>
+        「寸法を表示」を押すと、現在のフレームの外寸と芯々寸法がポップアップで確認できます。
+      </p>
+      <ul>
+        <li><strong>外寸</strong>：全体の大きさ（概算）</li>
+        <li><strong>芯々寸法</strong>：構造の中心間の寸法</li>
+      </ul>
+    </section>
+
+    <!-- 8. 自動レイアウトツール -->
+    <section id="autolayout">
+      <h2>8. 自動レイアウトツール</h2>
+      <figure>
+  <img src="help-assets/autolayout.png" class="img-small" alt="自動レイアウトツール" />
+  <figcaption>複数モジュールをまとめて自動配置できます</figcaption>
+</figure>
+
+      <p>
+        「自動レイアウトツールを開く」から、別画面のレイアウトツールを起動できます。
+        複数モジュールをまとめて配置したいときに使います。
+      </p>
+    </section>
+
+    <!-- 9. 見積の見方 -->
+    <section id="estimate">
+      <h2>9. 見積の見方（部材明細）</h2>
+
+      <p>
+        右パネル下部の「部材明細」には、現在配置されている部材の
+        <strong>数量</strong>と<strong>概算金額</strong>が自動で表示されます。
+      </p>
+
+      <p>パーツを追加・削除すると、見積は自動で更新されます。</p>
+
+      <ul>
+        <li><strong>部材名</strong>：使用しているパーツの種類</li>
+        <li><strong>数量</strong>：配置されている本数</li>
+        <li><strong>単価</strong>：1本あたりの価格</li>
+        <li><strong>小計</strong>：数量 × 単価</li>
+      </ul>
+
+      <p>
+        一覧の下には、すべての部材を合計した
+        <strong>合計金額（税込）</strong>が表示されます。
+      </p>
+
+      <div class="note">
+        この見積は<strong>参考価格（概算）</strong>です。実際の販売価格や仕様とは異なる場合があります。
+      </div>
+    </section>
+
+    <div class="footer">
+      更新する時は、画像を <code>help-assets/</code> に差し替えるだけでOKです。
+    </div>
+  </main>
+</body>
+</html>

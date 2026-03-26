@@ -1,0 +1,1661 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <link rel="icon" href="data:,">
+  <meta charset="UTF-8" />
+  <title>モジュール家具 見積り</title>
+
+  <style>
+    /* =========================================================
+       CubeRackStudio UI Skin (ID保持・見た目統一版)
+       - 既存ID/構造は維持（追加クラスのみ）
+       - 説明文の削除/移動を前提にレイアウト最適化
+       ========================================================= */
+
+    :root{
+      /* より洗練されたカラーパレット */
+      --bg:#f5f7fa;
+      --panel-bg:#ffffff;
+      --card-bg:#ffffff;
+      --text:#1a202c;
+      --muted:#64748b;
+      --muted-2:#94a3b8;
+      --border:#e2e8f0;
+      --border-2:#cbd5e1;
+
+      --primary:#3b82f6;
+      --primary-hover:#2563eb;
+      --primary-light:#eff6ff;
+      --danger:#ef4444;
+      --danger-hover:#dc2626;
+      --success:#10b981;
+      --warning:#f59e0b;
+
+      --ghost-bg:#f8fafc;
+      --ghost-border:#e2e8f0;
+      --ghost-hover:#f1f5f9;
+
+      /* より統一された角丸 */
+      --r-xs:6px;
+      --r-sm:8px;
+      --r-md:10px;
+      --r-lg:12px;
+      --r-xl:16px;
+      --r-pill:999px;
+
+      /* より体系的なスペーシング */
+      --sp-1:4px;
+      --sp-2:8px;
+      --sp-3:12px;
+      --sp-4:16px;
+      --sp-5:20px;
+      --sp-6:24px;
+
+      --panel-w:380px;
+      --control-h:44px;
+      --control-h-sm:36px;
+
+      /* より読みやすいフォントサイズ */
+      --font-1:11px;
+      --font-2:12px;
+      --font-3:13px;
+      --font-4:14px;
+      --font-5:15px;
+      --font-6:16px;
+
+      /* より洗練されたシャドウ */
+      --shadow-sm:0 1px 2px rgba(0,0,0,0.05);
+      --shadow-md:0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+      --shadow-lg:0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+      --shadow-card:0 1px 3px rgba(0,0,0,0.08);
+      --shadow-panel:0 0 0 1px rgba(0,0,0,0.05), 0 4px 6px rgba(0,0,0,0.05);
+      --shadow-float:0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+
+      --focus:0 0 0 3px rgba(59,130,246,0.12);
+      
+      /* トランジション */
+      --transition:all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    *{ box-sizing:border-box; }
+    html, body{ height:100%; }
+
+    body{
+      margin:0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif;
+      display:flex;
+      height:100vh;
+      overflow:hidden;
+      background:var(--bg);
+      color:var(--text);
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+    }
+
+    #view{
+      flex:1;
+      position:relative;
+      background:#111827;
+    }
+
+    #panel{
+      width:var(--panel-w);
+      padding:var(--sp-5);
+      background:var(--panel-bg);
+      border-left:1px solid var(--border);
+      box-shadow:var(--shadow-panel);
+      display:flex;
+      flex-direction:column;
+      gap:var(--sp-2);
+      overflow-y:auto;
+      scrollbar-width:thin;
+      scrollbar-color:var(--border) transparent;
+    }
+    #panel::-webkit-scrollbar{ width:6px; }
+    #panel::-webkit-scrollbar-track{ background:transparent; }
+    #panel::-webkit-scrollbar-thumb{ background:var(--border-2); border-radius:3px; }
+    #panel::-webkit-scrollbar-thumb:hover{ background:var(--muted-2); }
+
+    /* Card */
+    .card{
+      background:var(--card-bg);
+      border-radius:var(--r-lg);
+      padding:var(--sp-5);
+      box-shadow:var(--shadow-card);
+      border:1px solid var(--border);
+      transition:var(--transition);
+    }
+    .card:hover{
+      box-shadow:var(--shadow-md);
+    }
+
+    .card-header{
+      margin-bottom:0;
+      display:flex;
+      flex-direction:column;
+      align-items:flex-start;
+      gap:var(--sp-1);
+    }
+
+    h1{
+      font-size:var(--font-6);
+      margin:0;
+      font-weight:700;
+      letter-spacing:-0.01em;
+      color:var(--text);
+    }
+
+    .app-version{
+      font-size:var(--font-2);
+      color:var(--muted);
+      font-weight:500;
+      margin-top:2px;
+    }
+
+    .card-title{
+      font-size:var(--font-4);
+      font-weight:600;
+      margin:0 0 var(--sp-4);
+      color:var(--text);
+      letter-spacing:-0.01em;
+    }
+
+    /* Controls */
+    button{
+      cursor:pointer;
+      border-radius:var(--r-md);
+      border:1px solid transparent;
+      font-size:var(--font-3);
+      padding:0 var(--sp-4);
+      height:var(--control-h);
+      background:var(--ghost-bg);
+      color:var(--text);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      line-height:1;
+      user-select:none;
+      font-weight:500;
+      transition:var(--transition);
+      border-color:var(--border);
+    }
+    button:hover:not(:disabled){
+      background:var(--ghost-hover);
+      border-color:var(--border-2);
+      transform:translateY(-1px);
+    }
+    button:active:not(:disabled){
+      transform:translateY(0);
+    }
+    button:disabled{ 
+      opacity:.5; 
+      cursor:not-allowed;
+      transform:none !important;
+    }
+
+    .btn-primary{
+      background:var(--primary);
+      color:#fff;
+      border-color:var(--primary);
+      box-shadow:0 1px 2px rgba(59,130,246,0.2);
+    }
+    .btn-primary:hover:not(:disabled){ 
+      background:var(--primary-hover);
+      border-color:var(--primary-hover);
+      box-shadow:0 4px 6px rgba(59,130,246,0.25);
+    }
+
+    .btn-secondary{
+      background:var(--ghost-bg);
+      color:var(--text);
+      border-color:var(--border);
+    }
+    .btn-secondary:hover:not(:disabled){ 
+      background:var(--ghost-hover);
+      border-color:var(--border-2);
+    }
+
+    .btn-danger{
+      background:var(--danger);
+      color:#fff;
+      border-color:var(--danger);
+      box-shadow:0 1px 2px rgba(239,68,68,0.2);
+    }
+    .btn-danger:hover:not(:disabled){ 
+      background:var(--danger-hover);
+      border-color:var(--danger-hover);
+      box-shadow:0 4px 6px rgba(239,68,68,0.25);
+    }
+
+    .btn-ghost{
+      background:transparent;
+      color:var(--muted);
+      border-color:transparent;
+    }
+    .btn-ghost:hover:not(:disabled){ 
+      background:var(--ghost-hover);
+      color:var(--text);
+    }
+
+    .btn-small{
+      height:var(--control-h-sm);
+      padding:0 var(--sp-3);
+      font-size:var(--font-2);
+      border-radius:var(--r-md);
+      font-weight:500;
+    }
+
+    .btn-full{ 
+      width:100%; 
+      display:flex; 
+      justify-content:center;
+    }
+    .btn-flex{ 
+      flex:1; 
+    }
+
+    /* トグルボタン統一スタイル */
+    button.is-off,
+    .btn-toggle-off{
+      background:#e5e7eb !important;
+      color:var(--text) !important;
+      border-color:#d1d5db !important;
+    }
+    button.is-off:hover:not(:disabled),
+    .btn-toggle-off:hover:not(:disabled){
+      background:#d1d5db !important;
+      border-color:#9ca3af !important;
+    }
+    button.is-on,
+    .btn-toggle-on{
+      background:var(--primary) !important;
+      color:#fff !important;
+      border-color:var(--primary) !important;
+      box-shadow:0 1px 2px rgba(59,130,246,0.2) !important;
+    }
+    button.is-on:hover:not(:disabled),
+    .btn-toggle-on:hover:not(:disabled){
+      background:var(--primary-hover) !important;
+      border-color:var(--primary-hover) !important;
+      box-shadow:0 4px 6px rgba(59,130,246,0.25) !important;
+    }
+
+    input, select{
+      width:100%;
+      height:var(--control-h);
+      border-radius:var(--r-md);
+      border:1px solid var(--border);
+      background:#fff;
+      padding:0 var(--sp-4);
+      font-size:var(--font-3);
+      outline:none;
+      color:var(--text);
+      transition:var(--transition);
+    }
+    input::placeholder{ color:var(--muted-2); }
+    input:hover:not(:disabled), select:hover:not(:disabled){
+      border-color:var(--border-2);
+    }
+    input:focus, select:focus{
+      border-color:var(--primary);
+      box-shadow:var(--focus);
+      outline:none;
+    }
+
+    /* Rows */
+    .toolbar-row{ 
+      display:flex; 
+      gap:var(--sp-2); 
+    }
+    .utility-row{ 
+      display:flex; 
+      gap:var(--sp-2); 
+    }
+    .utility-row button{ 
+      flex:1; 
+      height:var(--control-h);
+      background:var(--ghost-bg);
+      border:1px solid var(--border);
+      font-weight:500;
+    }
+    .utility-row button:hover:not(:disabled){
+      background:var(--ghost-hover);
+      border-color:var(--border-2);
+    }
+
+    .save-row{ 
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap:var(--sp-2); 
+    }
+    .save-row button{ 
+      height:var(--control-h); 
+      white-space:nowrap; 
+      font-weight:500;
+      font-size:var(--font-2);
+      padding:0 var(--sp-3);
+    }
+
+    /* Undo/Redo button inner layout (label + hotkey) */
+    .btn-stack{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      line-height:1.2;
+      gap:2px;
+    }
+    .btn-stack .btn-label{
+      font-weight:600;
+      font-size:var(--font-3);
+      letter-spacing:-0.01em;
+    }
+    .btn-stack .btn-hotkey{
+      font-weight:500;
+      font-size:var(--font-1);
+      color:var(--muted);
+      opacity:0.8;
+    }
+    /* primary/danger等の上でも読めるように */
+    .btn-primary .btn-stack .btn-hotkey,
+    .btn-danger  .btn-stack .btn-hotkey{
+      color:rgba(255,255,255,0.85);
+    }
+
+    /* Panel buttons spacing in card */
+    .card .btn-full{ margin-top:var(--sp-3); }
+    
+    /* Material apply row - 横一列に収める */
+    .material-apply-row{
+      display:flex;
+      gap:var(--sp-2);
+      margin-top:var(--sp-3);
+      flex-wrap:nowrap;
+    }
+    .material-apply-row button{
+      flex:1;
+      min-width:0;
+      font-size:var(--font-2);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+/* =========================================================
+   4) パーツ追加：Beam/Pole スイッチ（正本・崩れない版）
+   - 文字の二重表示を根絶（font-size:0 で保険）
+   - テキストは grid セル中央固定
+   - ノブだけ absolute で移動
+   ========================================================= */
+
+.part-switch-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-bottom:10px;
+}
+
+/* ラベル自体に文字が出ないよう保険 */
+#part-switch.part-switch{
+  position:relative;
+  flex:1;
+  height:50px;
+  display:block;
+  font-size:0;     /* ★二重表示対策（謎テキスト/旧CSS混入を抑止） */
+  line-height:0;
+  cursor:pointer; /* クリック可能であることを示す */
+}
+
+#part-switch input{
+  position:absolute;
+  inset:0;
+  opacity:0;
+  width:100%;
+  height:100%;
+  margin:0;
+  cursor:pointer;
+  z-index:10; /* テキストやノブの上に配置してクリック可能にする */
+}
+
+/* slider が座標の基準 */
+#part-switch .part-switch-slider{
+  position:absolute;
+  inset:0;
+  border-radius:999px;
+  border:1px solid #cbd5e1;
+  background:#e5e7eb;
+  overflow:hidden;
+
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  align-items:center;
+
+  cursor:pointer;
+  pointer-events:none; /* inputがクリック可能になるように */
+
+  /* ★余計なテキストを出さない保険 */
+  font-size:0;
+  line-height:0;
+}
+
+/* ノブ（左右余白を完全対称） */
+#part-switch .part-switch-knob{
+  position:absolute;
+  top:4px;
+  left:4px;
+  width:calc(50% - 8px);
+  height:calc(100% - 8px);
+  border-radius:999px;
+  background:#1d4ed8;
+  transform:translateX(0);
+  transition:transform 0.18s ease;
+  z-index:1;
+  pointer-events:none;
+}
+
+/* テキスト（各セル中央固定） */
+#part-switch .part-switch-text{
+  z-index:3;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  user-select:none;
+  pointer-events:none;
+
+  /* ★ここで文字サイズを定義（sliderの font-size:0 の上書き） */
+  font-size:15px;
+  line-height:1;
+  font-weight:800;
+  color:#374151;
+}
+
+/* gridセル固定 */
+#part-switch .part-switch-text-left{ grid-column:1; }
+#part-switch .part-switch-text-right{ grid-column:2; }
+
+/* Pole 側：ノブを右へ */
+#part-switch.is-pole .part-switch-knob{
+  transform:translateX(100%);
+}
+
+/* アクティブ側だけ白文字 */
+#part-switch:not(.is-pole) .part-switch-text-left{ color:#fff; }
+#part-switch.is-pole .part-switch-text-right{ color:#fff; }
+
+/* Pole 側の背景 */
+#part-switch.is-pole .part-switch-slider{
+  background:#dbeafe;
+  border-color:#93c5fd;
+}
+
+/* ★疑似要素が原因で文字が出るケースを根絶 */
+#part-switch::before,
+#part-switch::after,
+#part-switch *::before,
+#part-switch *::after{
+  content:none !important;
+  display:none !important;
+}
+
+/* 板の種類トグルスイッチ（part-switchと同じスタイル） */
+#board-switch.part-switch{
+  position:relative;
+  flex:1;
+  height:50px;
+  display:block;
+  font-size:0;
+  line-height:0;
+  cursor:pointer;
+}
+
+#board-switch input{
+  position:absolute;
+  inset:0;
+  opacity:0;
+  width:100%;
+  height:100%;
+  margin:0;
+  cursor:pointer;
+  z-index:10;
+}
+
+#board-switch .part-switch-slider{
+  position:absolute;
+  inset:0;
+  border-radius:999px;
+  border:1px solid #cbd5e1;
+  background:#e5e7eb;
+  overflow:hidden;
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  align-items:center;
+  cursor:pointer;
+  pointer-events:none;
+  font-size:0;
+  line-height:0;
+}
+
+#board-switch .part-switch-knob{
+  position:absolute;
+  top:4px;
+  left:4px;
+  width:calc(50% - 8px);
+  height:calc(100% - 8px);
+  border-radius:999px;
+  background:#1d4ed8;
+  transform:translateX(0);
+  transition:transform 0.18s ease;
+  z-index:1;
+  pointer-events:none;
+}
+
+#board-switch .part-switch-text{
+  z-index:3;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  user-select:none;
+  pointer-events:none;
+  font-size:15px;
+  line-height:1;
+  font-weight:800;
+  color:#374151;
+}
+
+#board-switch .part-switch-text-left{ grid-column:1; }
+#board-switch .part-switch-text-right{ grid-column:2; }
+
+/* 壁板側：ノブを右へ */
+#board-switch.is-panel .part-switch-knob{
+  transform:translateX(100%);
+}
+
+/* アクティブ側だけ白文字 */
+#board-switch:not(.is-panel) .part-switch-text-left{ color:#fff; }
+#board-switch.is-panel .part-switch-text-right{ color:#fff; }
+
+/* 壁板側の背景 */
+#board-switch.is-panel .part-switch-slider{
+  background:#dbeafe;
+  border-color:#93c5fd;
+}
+
+/* ★疑似要素が原因で文字が出るケースを根絶 */
+#board-switch::before,
+#board-switch::after,
+#board-switch *::before,
+#board-switch *::after{
+  content:none !important;
+  display:none !important;
+}
+
+
+    /* Parts length preset */
+    .length-row label{
+      display:block;
+      font-size:var(--font-2);
+      margin-bottom:var(--sp-1);
+      color:#4b5563;
+      font-weight:900;
+    }
+    #length-select{ background:#f9fafb; }
+
+    /* Help note moved between preset & order (single column, no two-column) */
+    .note-between{
+      margin-top:var(--sp-2);
+      font-size:var(--font-2);
+      color:var(--muted);
+      line-height:1.4;
+      background:#f3f4f6;
+      border:1px solid #eef2f7;
+      border-radius:var(--r-xs);
+      padding:10px 12px;
+    }
+
+    /* 説明文（背景色なし、一列表示） */
+    .note-inline{
+      margin-top:var(--sp-2);
+      font-size:10px;
+      color:var(--muted);
+      line-height:1.3;
+      padding:0;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    /* Order UI */
+    .order-row{
+      margin-top:var(--sp-2);
+      display:flex;
+      gap:var(--sp-2);
+      align-items:stretch;
+    }
+
+    .order-mode-btn{
+      flex:0 0 120px;
+      height:var(--control-h);
+      border-radius:var(--r-md);
+      border:1px solid #d1d5db;
+      font-weight:900;
+      font-size:var(--font-4);
+      padding:0;
+      cursor:pointer;
+      user-select:none;
+    }
+    .order-mode-btn.is-off{ 
+      background:#e5e7eb; 
+      color:var(--text); 
+      border-color:#d1d5db;
+    }
+    .order-mode-btn.is-off:hover:not(:disabled){
+      background:#d1d5db;
+      border-color:#9ca3af;
+    }
+    .order-mode-btn.is-on{ 
+      background:var(--primary); 
+      color:#fff; 
+      border-color:var(--primary);
+      box-shadow:0 1px 2px rgba(59,130,246,0.2);
+    }
+    .order-mode-btn.is-on:hover:not(:disabled){
+      background:var(--primary-hover);
+      border-color:var(--primary-hover);
+      box-shadow:0 4px 6px rgba(59,130,246,0.25);
+    }
+
+    .order-length-input{
+      flex:1;
+      min-width:0;
+      height:var(--control-h);
+      border-radius:var(--r-lg);
+      border:1px solid #cbd5e1;
+      padding:0 var(--sp-4);
+      font-size:18px;
+      background:#fff;
+      text-align:right;
+    }
+    .order-length-input::placeholder{ text-align:right; color:var(--muted-2); }
+    .order-mode-btn.is-off + .order-length-input{ background:#f3f4f6; color:var(--muted-2); }
+
+    /* Edit Connector Card */
+    #edit-connector-card .card-title{ margin-bottom:var(--sp-3); }
+
+    #edit-connector-card .row{
+      display:flex;
+      flex-direction:column;
+      gap:var(--sp-2);
+      padding:10px 0;
+    }
+
+    #edit-connector-card .label{
+      font-size:var(--font-2);
+      color:var(--muted-2);
+      font-weight:900;
+    }
+
+    /* “変更前” placeholder message */
+    #edit-connector-card #len-before{
+      background:#f9fafb;
+      font-weight:800;
+    }
+    #edit-connector-card #len-before::placeholder{
+      color:var(--muted);
+      font-weight:700;
+      font-size:12px;
+    }
+
+    #length-mode-btn{
+      width:100%;
+      height:var(--control-h);
+      border-radius:var(--r-lg);
+    }
+
+    #edit-connector-card .seg{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:var(--sp-3);
+      width:100%;
+    }
+
+    #edit-connector-card .seg-item{
+      position:relative;
+      border:1px solid var(--border);
+      border-radius:var(--r-lg);
+      background:#f3f4f6;
+      overflow:hidden;
+      height:38px;
+    }
+    #edit-connector-card .seg-item input{
+      position:absolute;
+      inset:0;
+      opacity:0;
+      margin:0;
+      cursor:pointer;
+    }
+    #edit-connector-card .seg-item span{
+      display:grid;
+      place-items:center;
+      height:100%;
+      font-weight:900;
+      font-size:15px;
+      color:var(--text);
+      user-select:none;
+      pointer-events:none;
+    }
+    #edit-connector-card .seg-item:has(input:checked){
+      background:var(--primary);
+      border-color:var(--primary-hover);
+    }
+    #edit-connector-card .seg-item:has(input:checked) span{ color:#fff; }
+
+    #edit-connector-card .is-hidden{ display:none !important; }
+
+    #apply-len-btn{
+      width:100%;
+      height:44px;
+      border-radius:var(--r-xl);
+      border:none;
+      background:var(--primary);
+      color:#fff;
+      font-weight:900;
+      font-size:var(--font-4);
+      cursor:pointer;
+      transition:var(--transition);
+    }
+    #apply-len-btn:hover{ background:var(--primary-hover); }
+    #apply-len-btn:active{ background:var(--primary-hover); transform:translateY(1px); }
+
+    #edit-connector-card details.row{ padding:6px 0 2px; }
+    #edit-connector-card .details-summary{
+      cursor:pointer;
+      color:#374151;
+      font-weight:900;
+      padding:6px 0;
+    }
+    #edit-connector-card .details-body{
+      margin-top:var(--sp-2);
+      border-top:1px solid #eef2f7;
+      padding-top:var(--sp-2);
+    }
+    #edit-connector-card .row.inner{ padding:6px 0 0; }
+
+    /* Parts Table / Total */
+    #parts-table{
+      width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      margin-top:var(--sp-3);
+      font-size:12.5px;
+      overflow:hidden;
+      border-radius:var(--r-sm);
+      border:1px solid #eef2f7;
+    }
+
+    #parts-table thead th{
+      text-align:left;
+      font-size:11.5px;
+      color:var(--muted);
+      letter-spacing:.02em;
+      padding:10px 10px;
+      border-bottom:1px solid var(--border-2);
+      background:#f9fafb;
+      white-space:nowrap;
+    }
+
+    #parts-table tbody td{
+      padding:10px 10px;
+      border-bottom:1px solid #eef2f7;
+      vertical-align:middle;
+      background:#fff;
+    }
+    #parts-table tbody tr:hover td{ background:#f9fafb; }
+    #parts-table tbody tr:last-child td{ border-bottom:none; }
+
+    #parts-table th:nth-child(2),
+    #parts-table th:nth-child(3),
+    #parts-table th:nth-child(4),
+    #parts-table th:nth-child(5),
+    #parts-table td:nth-child(2),
+    #parts-table td:nth-child(3),
+    #parts-table td:nth-child(4),
+    #parts-table td:nth-child(5){
+      text-align:right;
+      font-variant-numeric:tabular-nums;
+      white-space:nowrap;
+    }
+
+    .card-estimate-header h2{
+      margin:0;
+      font-size:18px;
+      font-weight:900;
+    }
+
+    #total{
+      text-align:right;
+      font-weight:900;
+      margin-top:var(--sp-3);
+      font-variant-numeric:tabular-nums;
+    }
+
+    .footnote{
+      font-size:10px;
+      color:var(--muted-2);
+      margin-top:var(--sp-1);
+      line-height:1.4;
+    }
+
+    .send-estimate-wrap{ margin-top:var(--sp-3); }
+    .send-estimate-btn{
+      width:100%;
+      display:flex;
+      height:46px;
+      padding:0 var(--sp-5);
+      border-radius:var(--r-xl);
+      border:none;
+      background:var(--primary);
+      color:#fff;
+      font-weight:900;
+      font-size:var(--font-4);
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      transition:var(--transition);
+    }
+    .send-estimate-btn:hover{ background:var(--primary-hover); }
+    .send-estimate-btn:active{ background:var(--primary-hover); transform:translateY(1px); }
+    .send-estimate-btn:disabled{ opacity:.45; cursor:not-allowed; }
+
+    /* Overlays */
+    .help-overlay, .dim-overlay{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      z-index:21;
+    }
+    .help-overlay.hidden, .dim-overlay.hidden{ display:none; }
+
+    .help-dialog, .dim-dialog{
+      position:absolute;
+      top:16px;
+      right:16px;
+      width:280px;
+      max-width:82%;
+      background:rgba(15,23,42,0.86);
+      color:#f9fafb;
+      border-radius:var(--r-sm);
+      padding:10px 12px;
+      box-shadow:var(--shadow-float);
+      font-size:12px;
+      pointer-events:auto;
+      backdrop-filter:blur(8px);
+      border:1px solid rgba(255,255,255,0.08);
+    }
+
+    .help-header, .dim-header{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:10px;
+      margin-bottom:6px;
+      cursor:move;
+    }
+
+    .help-header h2, .dim-header h2{
+      margin:0;
+      font-size:14px;
+      font-weight:900;
+      color:#e5e7eb;
+    }
+    .help-header p, .dim-header p{
+      margin:2px 0 0;
+      font-size:11px;
+      color:var(--muted-2);
+      line-height:1.35;
+    }
+
+    .help-list{
+      margin:6px 0 0;
+      padding-left:1.2em;
+      font-size:11px;
+      line-height:1.65;
+    }
+    .help-list li{ margin-bottom:2px; }
+
+    .dim-section{
+      border-top:1px solid rgba(148,163,184,0.35);
+      padding-top:8px;
+      margin-top:6px;
+    }
+    .dim-section h3{
+      margin:0 0 6px;
+      font-size:12px;
+      font-weight:900;
+      color:#e5e7eb;
+    }
+
+    .dim-table{
+      width:100%;
+      border-collapse:collapse;
+      font-size:11px;
+    }
+    .dim-table th, .dim-table td{ padding:4px 2px; }
+    .dim-table th{
+      text-align:left;
+      color:#cbd5f5;
+      white-space:nowrap;
+      width:120px;
+    }
+    .dim-table td{
+      text-align:right;
+      font-variant-numeric:tabular-nums;
+      color:#e5e7eb;
+    }
+
+    .dim-note{
+      margin:4px 0 0;
+      font-size:10px;
+      color:var(--muted-2);
+    }
+
+    .colorchart-table{
+      width:100%;
+      border-collapse:collapse;
+      font-size:11px;
+    }
+    .colorchart-table th{
+      padding:8px 6px;
+      text-align:left;
+      font-weight:900;
+      color:#cbd5f5;
+      border-bottom:1px solid rgba(148,163,184,0.35);
+    }
+    .colorchart-table td{ padding:6px 6px; vertical-align:middle; }
+    .colorchart-len{
+      width:78px;
+      text-align:right;
+      font-variant-numeric:tabular-nums;
+      color:#e5e7eb;
+      padding-right:10px;
+    }
+    .colorchip{
+      display:inline-block;
+      width:52px;
+      height:16px;
+      border-radius:6px;
+      box-shadow:inset 0 0 0 1px rgba(0,0,0,0.25);
+    }
+    
+    /* Click-through safety */
+    #view .help-overlay,
+    #view .overlay,
+    #view .ui-overlay{
+      pointer-events:none;
+    }
+
+    /* View cube (kept) */
+    #view-cube-wrapper{
+      position:fixed;
+      top:80px;
+      right:calc(var(--panel-w) + 20px);
+      width:96px;
+      height:96px;
+      z-index:30;
+      pointer-events:auto;
+      perspective:320px;
+    }
+    #view-cube{
+      position:relative;
+      width:56px;
+      height:56px;
+      margin:0 auto;
+      transform-style:preserve-3d;
+      transition:transform .12s ease-out;
+    }
+    #view-cube .cube-face{
+      position:absolute;
+      width:56px;
+      height:56px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:var(--r-xs);
+      background:rgba(249,250,251,0.55);
+      border:1px solid rgba(156,163,175,0.9);
+      font-size:12px;
+      color:#374151;
+      box-shadow:0 2px 5px rgba(15,23,42,0.35);
+      cursor:pointer;
+      user-select:none;
+    }
+    #view-home-btn{
+      position:absolute;
+      top:-15px;
+      left:-35px;
+      width:30px;
+      height:30px;
+      border-radius:var(--r-pill);
+      border:none;
+      padding:0;
+      background:rgba(255,255,255,0.65);
+      color:#374151;
+      font-size:30px;
+      line-height:1;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      box-shadow:0 2px 4px rgba(15,23,42,0.4);
+    }
+    #view-home-btn:hover{ background:rgba(255,255,255,0.85); }
+    #view-home-btn .home-icon{ display:block; transform:translateY(-3px); }
+    #view-cube .cube-front{ transform:translateZ(28px); }
+    #view-cube .cube-back{ transform:rotateY(180deg) translateZ(28px); }
+    #view-cube .cube-right{ transform:rotateY(90deg) translateZ(28px); }
+    #view-cube .cube-left{ transform:rotateY(-90deg) translateZ(28px); }
+    #view-cube .cube-top{ transform:rotateX(90deg) translateZ(28px); }
+    #view-cube .cube-bottom{ transform:rotateX(-90deg) translateZ(28px); }
+
+    /* 図面ツールバー */
+.drawing-toolbar{
+  margin: 12px 0 16px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+}
+
+.drawing-toolbar__title{
+  font-weight: 700;
+  font-size: 14px;
+  color: #111827;
+  margin-bottom: 8px;
+}
+
+.drawing-toolbar__actions{
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.btn-drawing{
+  width: 100%;
+  border: 1px solid var(--border);
+  background: #e5e7eb;
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  font-size: var(--font-3);
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  transition: var(--transition);
+}
+
+.btn-drawing:not(:disabled):hover{
+  background: #d1d5db;
+  border-color: #9ca3af;
+  transform: translateY(-1px);
+}
+
+.btn-drawing:active:not(:disabled){
+  transform: translateY(0);
+}
+
+.btn-drawing:disabled{
+  opacity: .45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-drawing.is-on{
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+  box-shadow: 0 1px 2px rgba(59,130,246,0.2);
+}
+
+.btn-drawing.is-on:hover:not(:disabled){
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+  box-shadow: 0 4px 6px rgba(59,130,246,0.25);
+}
+
+.drawing-toolbar__hint{
+  margin-top: 8px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* 製作数入力：テンキー用にスピナー（上下ボタン）を非表示 */
+.input-no-spinner::-webkit-outer-spin-button,
+.input-no-spinner::-webkit-inner-spin-button{
+  -webkit-appearance: none;
+  margin: 0;
+}
+.input-no-spinner{
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+  </style>
+</head>
+
+<body>
+  <!-- 3D 描画エリア -->
+  <div id="view">
+
+    <!-- ヘルプオーバーレイ -->
+    <div id="help-overlay" class="help-overlay hidden">
+      <div class="help-dialog">
+        <header class="help-header">
+          <div>
+            <h2>操作ヘルプ</h2>
+            <p>CubeRackStudio でよく使う操作の一覧です。</p>
+          </div>
+          <button id="help-close-btn" class="btn-ghost btn-small">閉じる</button>
+        </header>
+
+        <ul class="help-list">
+          <li><strong>ジョイントをクリック</strong> … 選択中の Beam / Pole をここに追加</li>
+          <li><strong>Alt + クリック</strong> … コネクタ（Beam / Pole / Joint）を削除</li>
+          <li><strong>Shift + クリック</strong> … そのジョイント位置の脚の ON / OFF</li>
+          <li><strong>マウス中ドラッグ</strong> … 回転</li>
+          <li><strong>マウス右ドラッグ</strong> … 平行移動（パン）</li>
+          <li><strong>ホイール</strong> … ズーム</li>
+          <li><strong>Ctrl + Z</strong> … Undo</li>
+          <li><strong>Ctrl + Y</strong> … Redo</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 寸法ポップアップ -->
+    <div id="dimension-overlay" class="dim-overlay hidden">
+      <div class="dim-dialog">
+        <header class="dim-header">
+          <div>
+            <h2>寸法情報</h2>
+            <p>現在配置しているフレームの寸法です。</p>
+          </div>
+          <button id="dimension-close-btn" class="btn-ghost btn-small">閉じる</button>
+        </header>
+
+        <section class="dim-section">
+          <h3>外寸（概算）</h3>
+          <table class="dim-table">
+            <tbody>
+              <tr><th>幅（W）</th><td id="dim-outer-width">-</td></tr>
+              <tr><th>奥行（D）</th><td id="dim-outer-depth">-</td></tr>
+              <tr><th>高さ（H）</th><td id="dim-outer-height">-</td></tr>
+            </tbody>
+          </table>
+          <p class="dim-note">※ 概算値です。</p>
+        </section>
+
+        <section class="dim-section">
+          <h3>構造芯々寸法</h3>
+          <table class="dim-table">
+            <tbody>
+              <tr><th>芯々 幅（W）</th><td id="dim-core-width">-</td></tr>
+              <tr><th>芯々 奥行（D）</th><td id="dim-core-depth">-</td></tr>
+              <tr><th>芯々 高さ（H）</th><td id="dim-core-height">-</td></tr>
+            </tbody>
+          </table>
+        </section>
+      </div>
+    </div>
+
+    <!-- カラーチャートポップアップ -->
+    <div id="colorchart-overlay" class="dim-overlay hidden">
+      <div class="dim-dialog">
+        <header class="dim-header">
+          <div><h2>カラーチャート</h2></div>
+          <button id="colorchart-close-btn" class="btn-ghost btn-small">閉じる</button>
+        </header>
+
+        <div class="dim-body">
+          <table class="colorchart-table">
+            <thead><tr><th>長さ</th><th>色</th></tr></thead>
+            <tbody id="colorchart-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /view -->
+
+  <!-- 右のコントロールパネル -->
+  <div id="panel">
+
+    <section class="card">
+      <div class="card-header">
+        <h1 id="page-title">CubeRackStudio v1.0.0-internal</h1>
+        <span class="app-version" aria-hidden="true">Ver 1.1.4</span>
+      </div>
+      <!-- ここ：サブ説明文を削除 -->
+    </section>
+
+    <section class="card">
+      <div class="card-title">ファイル</div>
+      <!-- ここ：説明文を削除 -->
+      <div class="save-row">
+        <button id="save-design-btn" class="btn-secondary">上書き保存</button>
+        <button id="save-as-design-btn" class="btn-secondary">名前を付けて保存</button>
+        <button id="load-design-btn" class="btn-secondary">開く</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-title">編集操作</div>
+      <div class="toolbar-row">
+        <button id="undo-btn" class="btn-secondary btn-flex btn-icon" title="Ctrl + Z">
+          <span class="btn-stack">
+            <span class="btn-label">Undo</span>
+            <span class="btn-hotkey">Ctrl + Z</span>
+          </span>
+        </button>
+
+        <button id="redo-btn" class="btn-secondary btn-flex btn-icon" title="Ctrl + Y">
+          <span class="btn-stack">
+            <span class="btn-label">Redo</span>
+            <span class="btn-hotkey">Ctrl + Y</span>
+          </span>
+        </button>
+
+        <button id="reset-btn" class="btn-danger btn-flex btn-icon" title="すべて削除して初期状態に戻す">
+          <span class="btn-stack">
+            <span class="btn-label">Reset</span>
+            <span class="btn-hotkey">All</span>
+          </span>
+        </button>
+      </div>
+
+      <!-- ここ：caption を削除 -->
+
+      <div class="utility-row" style="margin-top:12px;">
+        <button id="grid-toggle-btn" class="btn-ghost btn-flex is-off">グリッドOFF</button>
+        <button id="help-toggle-btn" class="btn-ghost btn-flex">操作ヘルプ</button>
+        <button id="help-page-btn" class="btn-ghost btn-flex">説明書</button>
+      </div>
+    </section>
+
+    <!-- パーツ追加 -->
+    <section class="card">
+      <div class="card-title">パーツ追加</div>
+      <!-- ここ：説明文を削除 -->
+
+      <!-- Beam / Pole 切替 -->
+      <div class="part-switch-row">
+        <label class="part-switch" id="part-switch">
+          <input type="checkbox" id="part-type-toggle" />
+          <div class="part-switch-slider">
+            <span class="part-switch-text part-switch-text-left">Beam</span>
+            <span class="part-switch-text part-switch-text-right">Pole</span>
+            <div class="part-switch-knob"></div>
+          </div>
+        </label>
+      </div>
+
+      <!-- 長さプリセット -->
+      <div class="length-row">
+        <label>長さプリセット</label>
+        <select id="length-select"></select>
+      </div>
+
+      <!-- ★説明文（背景色なし、横一行） -->
+      <div class="note-inline">
+        プリセットにない長さのパーツを追加したいときに使います。
+      </div>
+
+      <!-- オーダー -->
+      <div class="order-row">
+        <button id="order-mode-btn" class="order-mode-btn is-off">オーダー</button>
+        <input
+          id="order-length-input"
+          class="order-length-input"
+          type="number"
+          min="1"
+          step="1"
+          placeholder="mm"
+        />
+      </div>
+
+      <!-- 材質選択 -->
+      <div class="material-row" style="display:flex; flex-direction:row; gap:8px; align-items:center; margin-top:8px; writing-mode:horizontal-tb;">
+  <label for="material-select">材質:</label>
+  <select id="material-select" style="flex:1; width:auto; font-size:16px; padding:8px;">
+    <option value="IRON">Iron</option>
+    <option value="BS">Brass</option>
+    <option value="SUS">Sus</option>
+  </select>
+  </div>
+  <!-- 材質適用（C2） -->
+<div class="material-apply-row">
+  <button id="mat-apply-selected" class="btn-secondary" type="button">適用</button>
+  <button id="mat-apply-all-beam" class="btn-secondary" type="button">全Beamへ適用</button>
+  <button id="mat-apply-all-pole" class="btn-secondary" type="button">全Poleへ適用</button>
+</div>
+<!-- 材質適用モード案内 -->
+<div id="material-apply-notice" style="display:none; margin-top:8px; padding:8px; background-color:#fff3cd; border:1px solid #ffc107; border-radius:4px; color:#856404; font-size:12px;">
+  材質を変更したいパーツをクリックしてください
+</div>
+<div class="note-between" style="margin-top:6px;">
+  ※ ColorChart が ON の間は見た目は ColorChart 優先。OFF にすると材質色が反映されます。
+</div>
+<!-- JointSet材質選択 -->
+<div class="material-row" style="display:flex; flex-direction:row; gap:8px; align-items:center; margin-top:8px; writing-mode:horizontal-tb;">
+  <label for="mat-jointSet">JointSet:</label>
+  <select id="mat-jointSet" style="flex:1; width:auto; font-size:16px; padding:8px;">
+    <option value="IRON">Iron</option>
+    <option value="BS">Brass</option>
+    <option value="SUS">Sus</option>
+  </select>
+</div>
+<div class="material-apply-row" style="margin-top:8px;">
+  <button id="mat-apply-jointSet" class="btn-secondary" type="button">適用</button>
+  <button id="mat-apply-all-jointSet" class="btn-secondary" type="button">全適用</button>
+</div>
+
+ 
+      <!-- 接続モード -->
+      <button id="connect-mode-btn" class="btn-secondary btn-full is-off" type="button">
+        接続モード OFF
+      </button>
+      <div class="note-between" id="connect-mode-caption" style="display:none;">
+        接続元を1つ選んでから、接続先のジョイントをクリックしてください。
+      </div>
+
+      <!-- カラーチャート -->
+      <button id="color-chart-toggle-btn" class="btn-secondary btn-full is-off">
+        カラーチャート OFF
+      </button>
+    </section>
+
+    <section class="card">
+      <div class="card-title">自動レイアウト</div>
+      <!-- ここ：説明文を削除 -->
+      <button id="open-auto-layout-tool" class="btn-primary btn-full">自動レイアウトツールを開く</button>
+    </section>
+
+    <section class="card" id="edit-connector-card">
+      <div class="card-title">選択パーツの長さ変更</div>
+
+      <button id="length-mode-btn" class="btn-secondary btn-full is-off" aria-pressed="false">長さ変更 OFF</button>
+
+      <div class="row">
+        <div class="label">変更前</div>
+        <!-- ★ "-" をやめてプレースホルダ案内（枠内に収まる） -->
+        <input id="len-before" type="text" readonly placeholder="パーツを選択すると自動で表示されます" value="" />
+      </div>
+
+      <div class="row">
+        <div class="label">変更方法</div>
+        <div class="seg" role="group" aria-label="変更方法">
+          <label class="seg-item">
+            <input type="radio" name="len-mode" id="mode-preset" checked />
+            <span>プリセット</span>
+          </label>
+          <label class="seg-item">
+            <input type="radio" name="len-mode" id="mode-custom" />
+            <span>オーダー</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="label">変更後</div>
+        <select id="len-preset" class="len-preset"></select>
+        <input id="len-after" class="len-after" type="number" min="1" step="1" placeholder="mm" />
+      </div>
+
+      <details class="row details">
+        <summary class="details-summary">詳細設定</summary>
+        <div class="details-body">
+          <div class="row inner">
+            <div class="label">固定側</div>
+            <select id="anchor-side">
+              <option value="MIN">左/手前（MIN側）固定</option>
+              <option value="MAX">右/奥（MAX側）固定</option>
+            </select>
+          </div>
+        </div>
+      </details>
+
+      <div class="row">
+        <button type="button" id="apply-len-btn">適用</button>
+      </div>
+    </section>
+
+    <!-- 板オプション（V1.1.1） -->
+    <section class="card">
+      <div class="card-title">板オプション</div>
+
+      <!-- 板モードON/OFF（一番上） -->
+      <button id="board-mode-btn" class="btn-secondary btn-full btn-toggle-off" style="margin-bottom:12px;">棚板・壁板モード</button>
+
+      <!-- 種類トグル -->
+      <div class="part-switch-row">
+        <label class="part-switch" id="board-switch">
+          <input type="checkbox" id="board-kind-toggle" />
+          <div class="part-switch-slider">
+            <span class="part-switch-text part-switch-text-left">棚板</span>
+            <span class="part-switch-text part-switch-text-right">壁板</span>
+            <div class="part-switch-knob"></div>
+          </div>
+        </label>
+      </div>
+
+      <div class="row">
+        <div class="label">材質</div>
+        <select id="board-material" style="width:100%;">
+          <option value="足場板" selected>足場板</option>
+          <option value="ウォールナット">ウォールナット</option>
+          <option value="オーク">オーク</option>
+          <option value="チェリー">チェリー</option>
+        </select>
+      </div>
+
+      <div style="font-size:12px; opacity:.75; line-height:1.4; margin-top:12px;">
+        使い方：板モードON → マウスを近づけてプレビュー → クリックで決定<br>
+        または：ジョイントボールを4点クリックして範囲を選択 → クリックで決定（ESCでキャンセル）
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-title">寸法・図面</div>
+      <!-- ここ：説明文を削除 -->
+      <button id="dimension-open-btn" class="btn-secondary btn-full is-off">寸法を表示</button>
+      
+      <div class="drawing-toolbar" style="margin-top: 12px; padding: 0; border: none; background: transparent;">
+        <div class="drawing-toolbar__actions">
+          <button id="btn-open-drawing" class="btn-drawing is-off" type="button" disabled>
+            図面を開く
+          </button>
+        </div>
+        <div id="drawing-hint" class="drawing-toolbar__hint">
+          データ準備中…
+        </div>
+      </div>
+      <button id="btn-open-fit" class="btn-drawing" type="button" style="margin-top: 12px; font-weight: 700;">
+        CUBERACK FIT
+      </button>
+    </section>
+
+    <section class="card" style="pointer-events: auto; z-index: 1000;">
+      <div class="card-title">背景写真</div>
+      <input id="background-photo-input" type="file" accept="image/*" hidden />
+      <button id="background-photo-upload-btn" class="btn-secondary btn-full">
+        背景画像を選択
+      </button>
+      <button id="background-photo-toggle-btn" class="btn-secondary btn-full is-off" style="margin-top:8px;">
+        背景写真 OFF
+      </button>
+
+      <!-- 背景写真調整UI（ON時のみ表示） -->
+      <div id="background-photo-ui" style="display:none; margin-top:12px; padding-top:12px; border-top:1px solid var(--border);">
+        <div class="row" style="margin-bottom:12px;">
+          <div class="label" style="font-size:var(--font-2);">床高さ(画像)</div>
+          <input type="range" id="bg-floor-height-slider" min="0" max="100" value="50" step="1" style="flex:1; margin:0 8px;" />
+          <span id="bg-floor-height-value" style="min-width:40px; text-align:right; font-size:var(--font-2);">50%</span>
+        </div>
+        <div class="row" style="margin-bottom:12px;">
+          <div class="label" style="font-size:var(--font-2);">3D床オフセット(mm)</div>
+          <input type="range" id="bg-floor-offset-slider" min="-1000" max="1000" value="0" step="10" style="flex:1; margin:0 8px;" />
+          <span id="bg-floor-offset-value" style="min-width:50px; text-align:right; font-size:var(--font-2);">0</span>
+        </div>
+        <div class="row" style="margin-bottom:12px;">
+          <div class="label" style="font-size:var(--font-2);">スケール</div>
+          <input type="range" id="bg-scale-slider" min="50" max="200" value="100" step="1" style="flex:1; margin:0 8px;" />
+          <span id="bg-scale-value" style="min-width:50px; text-align:right; font-size:var(--font-2);">100%</span>
+        </div>
+        <div class="row" style="margin-bottom:12px;">
+          <div class="label" style="font-size:var(--font-2);">横位置(mm)</div>
+          <input type="range" id="bg-horizontal-offset-slider" min="-2000" max="2000" value="0" step="10" style="flex:1; margin:0 8px;" />
+          <span id="bg-horizontal-offset-value" style="min-width:60px; text-align:right; font-size:var(--font-2);">0</span>
+        </div>
+        <div class="row" style="margin-bottom:12px;">
+          <label class="seg-item" style="display:flex; align-items:center; cursor:pointer;">
+            <input type="checkbox" id="bg-shadow-checkbox" checked style="margin-right:8px; width:14px; height:14px; cursor:pointer;" />
+            <span style="font-size:var(--font-2);">接地リングを表示</span>
+          </label>
+        </div>
+        <button id="bg-reset-btn" class="btn-secondary btn-full" style="margin-top:8px;">
+          リセット
+        </button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-estimate-header">
+        <h2>部材明細</h2>
+      </div>
+
+      <table id="parts-table">
+        <thead>
+          <tr>
+            <th>部材名</th>
+            <th>数量</th>
+            <th>材質</th>
+            <th>単価</th>
+            <th>小計</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <div id="total">合計：0 円（税込）</div>
+      <div class="footnote">※ 実際の販売価格とは異なる場合があります。</div>
+
+      <div class="send-estimate-wrap">
+        <button id="send-estimate-btn" class="send-estimate-btn" type="button" onclick="return sendToEstimate(event)">
+          見積へ送る
+        </button>
+      </div>
+    </section>
+
+    <!-- 在庫照合（スタッフ向け・簡易ロック付き） -->
+    <section class="card" id="stock-reconcile-card">
+      <!-- 初期表示: 開くボタンのみ -->
+      <div id="stock-reconcile-locked">
+        <button type="button" id="stock-reconcile-open-btn" class="btn-secondary btn-full">
+          在庫照合を開く
+        </button>
+      </div>
+      <!-- パスワード入力UI（モーダル） -->
+      <div id="stock-reconcile-gate-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; flex-direction: column; align-items: center; justify-content: center;">
+        <div style="background: var(--panel-bg, #fff); padding: 20px; border-radius: var(--r-md, 10px); min-width: 280px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+          <div style="font-weight: 600; margin-bottom: 12px;">スタッフ用パスワード</div>
+          <input type="password" id="stock-gate-password-input" placeholder="パスワード" style="width: 100%; padding: 8px 12px; margin-bottom: 8px; box-sizing: border-box; border: 1px solid var(--border); border-radius: var(--r-sm, 8px);" autocomplete="off" />
+          <div id="stock-gate-error" style="font-size: 12px; color: var(--danger, #ef4444); min-height: 1.2em; margin-bottom: 8px;"></div>
+          <div style="display: flex; gap: 8px; justify-content: flex-end;">
+            <button type="button" id="stock-gate-cancel-btn" class="btn-secondary">キャンセル</button>
+            <button type="button" id="stock-gate-submit-btn" class="btn-primary">開く</button>
+          </div>
+        </div>
+      </div>
+      <!-- アンロック時のみ表示: 在庫照合本体 -->
+      <div id="stock-reconcile-content" style="display: none;">
+        <div class="card-title">在庫照合</div>
+        <input type="file" id="stock-reconcile-file-input" accept=".csv,text/csv" hidden />
+        <button type="button" id="stock-reconcile-load-btn" class="btn-secondary btn-full">
+          Square在庫CSVを読み込む
+        </button>
+        <div id="stock-reconcile-message" style="font-size: var(--font-2, 12px); margin-top: 8px; min-height: 1.2em;"></div>
+        <div id="stock-reconcile-summary" style="display: none;"></div>
+        <div id="stock-reconcile-unregistered" style="display: none;"></div>
+        <div style="margin-top: 12px; overflow-x: auto;">
+          <table class="parts-table" style="width: 100%; border-collapse: collapse; font-size: var(--font-2, 12px);">
+            <thead>
+              <tr>
+                <th style="text-align:left; padding: 6px 8px; border-bottom: 1px solid var(--border);">部材名</th>
+                <th style="text-align:left; padding: 6px 8px; border-bottom: 1px solid var(--border);">材質</th>
+                <th style="text-align:right; padding: 6px 8px; border-bottom: 1px solid var(--border);">必要数</th>
+                <th style="text-align:right; padding: 6px 8px; border-bottom: 1px solid var(--border);">在庫数</th>
+                <th style="text-align:right; padding: 6px 8px; border-bottom: 1px solid var(--border);">不足数</th>
+                <th style="text-align:right; padding: 6px 8px; border-bottom: 1px solid var(--border);">製作数</th>
+              </tr>
+            </thead>
+            <tbody id="stock-reconcile-tbody"></tbody>
+          </table>
+        </div>
+        <button type="button" id="stock-reconcile-print-btn" class="btn-secondary btn-full" style="margin-top: 12px;">
+          製作依頼書を印刷
+        </button>
+      </div>
+    </section>
+
+  </div><!-- /panel -->
+
+  <!-- three.js & OrbitControls（r128） -->
+  <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+  <!-- PapaParse（在庫CSV用） -->
+  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <!-- パーツカタログ -->
+  <script src="js/data/parts-catalog.js"></script>
+
+  <!-- ユーティリティ -->
+  <script src="js/utils/common.js"></script>
+  <script src="js/utils/helpers.js"></script>
+  
+  <!-- 寸法計算ユーティリティ（3D表示・図面で共通使用） -->
+  <script src="js/app/dimension-utils.js"></script>
+  <script src="js/utils/shelf-brackets.js"></script>
+
+  <!-- コア機能 -->
+  <script src="js/core/scene.js"></script>
+  <script src="js/core/materials.js"></script>
+  <script src="js/core/mesh.js"></script>
+
+  <!-- 状態管理 -->
+  <script src="js/state/state.js"></script>
+
+  <!-- パーツ操作 -->
+  <script src="js/parts/joints.js"></script>
+  <script src="js/parts/connectors.js"></script>
+  <script src="js/parts/legs.js"></script>
+  <script src="js/parts/boards.js"></script>
+
+  <!-- UI -->
+  <script src="js/ui/ui.js"></script>
+
+  <!-- Features -->
+  <script src="js/app/order-pricing.js"></script>
+  <script src="js/features/estimate.js"></script>
+  <!-- 在庫照合（estimate の currentEstimateParts を参照するため estimate の後） -->
+  <script src="js/lib/stockImport.js"></script>
+  <script src="js/lib/stockCompare.js"></script>
+  <script src="js/lib/print-production-list.js"></script>
+  <script src="js/features/stock-reconcile.js"></script>
+  <script src="js/features/autolayout.js"></script>
+  <script src="js/features/file.js"></script>
+  <script src="js/features/history.js"></script>
+  <script src="js/features/display.js"></script>
+
+  <!-- main -->
+  <script src="main.js"></script>
+</body>
+</html>

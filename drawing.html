@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CubeRackStudio Drawing</title>
+
+  <style>
+    html, body { height:100%; margin:0; }
+    body{
+      display:flex;
+      flex-direction:column;
+      height:100vh;
+      overflow:hidden;
+      background:#f3f4f6;
+      font-family:system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+
+    header{
+      flex:0 0 auto;
+      display:flex;
+      gap:8px;
+      align-items:center;
+      padding:10px 12px;
+      border-bottom:1px solid #e5e7eb;
+      background:#fff;
+    }
+    .spacer{ flex:1; }
+
+    .tab-btn{
+      border:1px solid #d1d5db;
+      background:#fff;
+      padding:6px 10px;
+      border-radius:10px;
+      cursor:pointer;
+      font-size:13px;
+    }
+    .tab-btn.active{
+      background:#111827;
+      color:#fff;
+      border-color:#111827;
+    }
+
+    #sheet{
+      flex:1 1 auto;
+      min-height:0;
+      padding:0;
+      display:block;
+      background:#f3f4f6;
+    }
+
+    /* キャンバスはA4横相当の比率で中央寄せ（表示用） */
+    #cv{
+      width:1123px;
+      height:794px;
+      margin:0 auto;
+      background:#fff;
+      display:block;
+    }
+
+    /* スケールUI */
+    .scale-box{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      font-size:13px;
+    }
+    .scale-box select{
+      padding:6px 8px;
+      border:1px solid #d1d5db;
+      border-radius:8px;
+      background:#fff;
+    }
+
+    .multi-scale{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      font-size:13px;
+    }
+    .multi-scale .label{
+      display:flex;
+      gap:6px;
+      align-items:center;
+    }
+
+    @media print{
+      @page{ size:A4 landscape; margin:0; }
+      header{ display:none; }
+      #sheet{ padding:0; }
+      #cv{ width:100%; height:auto; border:none; }
+      .dim-hint{ display:none; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <strong>Drawing</strong>
+    <span id="status">idle</span>
+
+    <div style="width:12px;"></div>
+
+    <div id="view-tabs" style="display:flex; gap:6px; align-items:center;">
+      <button class="tab-btn" data-view="top"  type="button">Top</button>
+      <button class="tab-btn" data-view="front" type="button">Front</button>
+      <button class="tab-btn" data-view="side" type="button">Side</button>
+      <button class="tab-btn" data-view="iso"  type="button">Iso</button>
+      <button class="tab-btn" data-view="multi" type="button">Multi</button>
+    </div>
+
+    <!-- Single view scale -->
+    <div id="single-scale-box" class="scale-box">
+      <span>Scale</span>
+      <select id="scale-select">
+        <option value="auto">Auto</option>
+        <option value="2">1:2</option>
+        <option value="5">1:5</option>
+        <option value="10">1:10</option>
+        <option value="20">1:20</option>
+        <option value="30">1:30</option>
+        <option value="50">1:50</option>
+        <option value="100">1:100</option>
+      </select>
+    </div>
+
+    <!-- Multi view scales -->
+    <div id="multi-scale-box" class="multi-scale" style="display:none;">
+      <span>Scale</span>
+
+      <div class="label">
+        <span>Top</span>
+        <select id="scale-multi-top">
+          <option value="auto">Auto</option>
+          <option value="2">1:2</option>
+          <option value="5">1:5</option>
+          <option value="10">1:10</option>
+          <option value="20">1:20</option>
+          <option value="30">1:30</option>
+          <option value="50">1:50</option>
+          <option value="100">1:100</option>
+        </select>
+      </div>
+
+      <div class="label">
+        <span>Front</span>
+        <select id="scale-multi-front">
+          <option value="auto">Auto</option>
+          <option value="2">1:2</option>
+          <option value="5">1:5</option>
+          <option value="10">1:10</option>
+          <option value="20">1:20</option>
+          <option value="30">1:30</option>
+          <option value="50">1:50</option>
+          <option value="100">1:100</option>
+        </select>
+      </div>
+
+      <div class="label">
+        <span>Side</span>
+        <select id="scale-multi-side">
+          <option value="auto">Auto</option>
+          <option value="2">1:2</option>
+          <option value="5">1:5</option>
+          <option value="10">1:10</option>
+          <option value="20">1:20</option>
+          <option value="30">1:30</option>
+          <option value="50">1:50</option>
+          <option value="100">1:100</option>
+        </select>
+      </div>
+    </div>
+
+<div id="iso-control" class="iso-control" style="display:none;">
+  <label>
+    視点の高さ
+    <input
+      type="range"
+      id="iso-pitch-slider"
+      min="10"
+      max="35"
+      step="1"
+      value="20"
+    />
+    <span id="iso-pitch-val">20°</span>
+  </label>
+</div>
+
+    <div class="spacer"></div>
+    <div class="dim-hint" style="font-size:11px; color:#6b7280; margin-right:12px;">
+      寸法線はドラッグで位置を調整できます
+    </div>
+    <button id="btn-print" type="button">印刷 / PDF</button>
+  </header>
+
+  <div id="sheet">
+    <canvas id="cv" width="1123" height="794"></canvas>
+  </div>
+
+  <!-- 寸法計算ユーティリティ（3D表示・図面で共通使用） -->
+  <script src="./js/app/dimension-utils.js"></script>
+  <script src="./js/app/drawing.js"></script>
+</body>
+</html>

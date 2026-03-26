@@ -1,0 +1,1484 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <title>CubeRack 自動レイアウトツール</title>
+  <style>
+    /* ---- STEP1：マス数 ---- */
+
+    .step1-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin: 0 0 8px;
+    }
+
+    .step1-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .step1-label {
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .step1-label input[type="number"] {
+      font-size: 14px;
+      padding: 4px 8px;
+      width: 72px;
+      border-radius: 4px;
+      border: 1px solid #d1d5db;
+    }
+
+    .step1-tools-btn {
+      margin-left: 8px;
+      padding: 6px 10px;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f3f4f6;
+      color: #111827;
+    }
+
+    h1 {
+      font-size: 18px;
+      margin: 0 0 4px;
+    }
+
+    .layout-sub {
+      font-size: 12px;
+      color: #6b7280;
+      margin: 0 0 12px;
+      line-height: 1.5;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: 8px;
+      padding: 10px 14px 12px;
+      margin-bottom: 10px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .card h2 {
+      font-size: 14px;
+      margin: 0;
+    }
+
+    .card-caption {
+      font-size: 11px;
+      color: #6b7280;
+      margin: 2px 0 0;
+      line-height: 1.4;
+    }
+
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 600;
+      background: #eff6ff;
+      color: #1d4ed8;
+      white-space: nowrap;
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      font-size: 13px;
+    }
+
+    label {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 13px;
+    }
+
+    input[type="number"] {
+      font-size: 13px;
+      padding: 3px 6px;
+      border-radius: 4px;
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+      width: 64px;
+    }
+
+    select {
+      font-size: 12px;
+      padding: 2px 4px;
+      border-radius: 4px;
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+    }
+
+    button {
+      font-size: 13px;
+      padding: 6px 10px;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background: #2563eb;
+      color: #ffffff;
+    }
+
+    .btn-secondary {
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    .btn-danger {
+      background: #ef4444;
+      color: #fff;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 12px;
+    }
+
+    th,
+    td {
+      border: 0.5px solid rgba(0, 0, 0, 0.12);
+      padding: 4px;
+      text-align: center;
+    }
+
+    th {
+      background: #f9fafb;
+      font-weight: 500;
+    }
+
+    .hint {
+      font-size: 11px;
+      color: #6b7280;
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+
+    /* ▼ 段設定ポップアップ用 ▼ */
+    .stage-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+
+    .stage-overlay.hidden {
+      display: none;
+    }
+
+    .stage-dialog {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+      width: 320px;
+      max-width: 90vw;
+      padding: 12px 16px 16px;
+      font-size: 14px;
+    }
+
+    .stage-dialog-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .stage-close-btn {
+      border: none;
+      background: transparent;
+      font-size: 18px;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .stage-dialog-body {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .stage-cell-label {
+      font-size: 12px;
+      color: #666;
+      margin: 0 0 4px;
+    }
+
+    .stage-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .stage-row select {
+      margin-left: 8px;
+    }
+
+    .stage-height-list {
+      border-top: 1px solid #e5e7eb;
+      padding-top: 6px;
+      margin-top: 6px;
+    }
+
+    .stage-height-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .stage-height-item label {
+      font-size: 12px;
+      color: #444;
+    }
+
+    .stage-height-item select {
+      margin-left: 6px;
+    }
+
+    .stage-dialog-footer {
+      margin-top: 10px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .stage-dialog-footer button {
+      padding: 4px 10px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .stage-dialog-footer .primary {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+    }
+
+    .stage-bulk-controls {
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px dashed #e5e7eb;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 12px;
+    }
+
+    .stage-bulk-controls-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .stage-bulk-height-select {
+      margin-left: 4px;
+    }
+
+    .stage-height-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    td.stage-configured {
+      background: rgba(37, 99, 235, 0.12);
+      position: relative;
+    }
+
+    td.stage-configured::after {
+      content: "段";
+      position: absolute;
+      right: 3px;
+      bottom: 2px;
+      font-size: 10px;
+      color: #2563eb;
+      font-weight: bold;
+    }
+
+    /* ---- STEP2：ビーム長さ & マス表 ---- */
+
+    .step2-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin: 0 0 6px;
+    }
+
+    .mask-table-wrap {
+      overflow-x: auto;
+    }
+
+    #mask-table {
+      table-layout: fixed;
+    }
+
+    #mask-table th,
+    #mask-table td {
+      font-size: 11px;
+    }
+
+    .mask-cell {
+      width: 28px;
+      padding: 2px;
+    }
+
+    .mask-cell input[type="checkbox"] {
+      transform: scale(0.9);
+    }
+
+    /* ---- STEP3：段数／高さ ---- */
+
+    .step3-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin: 0 0 6px;
+    }
+
+    .step3-row {
+      margin-top: 4px;
+      margin-bottom: 4px;
+    }
+
+    .step3-label {
+      font-size: 13px;
+    }
+
+    .step3-height-list {
+      margin-top: 4px;
+    }
+
+    .step3-actions {
+      margin-top: 8px;
+    }
+
+    .step4-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin: 0 0 6px;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>CubeRack 自動レイアウトツール</h1>
+
+  <!-- STEP1：マス数 -->
+  <div class="card">
+    <div class="step1-title">
+      STEP1:セルの配置を決定します（幅 × 奥行）
+    </div>
+
+    <div class="step1-row">
+      <label class="step1-label">
+        幅方向のセル数
+        <input id="col-count-input" type="number" min="1" max="50" value="2" />
+      </label>
+
+      <label class="step1-label">
+        奥行方向のセル数
+        <input id="row-count-input" type="number" min="1" max="50" value="2" />
+      </label>
+
+      <!-- STEP1 ボタン -->
+      <button id="rebuild-grid-btn" class="btn-secondary step1-tools-btn">
+        セルを作り直す
+      </button>
+
+      <button id="reset-layout-btn" class="btn-danger step1-tools-btn">
+        セル配置 / 段設定 をすべてリセット
+      </button>
+    </div>
+
+    <div class="hint">
+      ※1〜50セルまで。大まかなセル数だけ決めて、細かいON/OFFは次のSTEP2で調整できます。
+    </div>
+  </div>
+
+  <!-- STEP2：各マスのビーム長さ -->
+  <div class="card">
+    <div class="step2-title">
+      STEP2:各セルのビームの長さを決定します
+    </div>
+
+    <div class="mask-table-wrap">
+      <table id="mask-table"></table>
+    </div>
+
+    <div class="hint">
+      上側：各「列」の幅ビーム長さ（W方向） /
+      左側：各「行」の奥行ビーム長さ（D方向）を選びます。<br />
+      チェックが入っているセルだけビームが自動生成されます。
+    </div>
+  </div>
+
+  <!-- STEP3：各セルの高さ（段数） -->
+  <div class="card" id="face-stage-bulk-card">
+    <div class="step3-title">
+      STEP3:各セルのポールの長さや段数を決定します
+    </div>
+    <p class="card-caption">
+      選択中のセルに対して、
+      <strong>下から第1段からの段数と各段の高さ</strong>をまとめて設定します。<br>
+      さらに細かく調整したいセルは、表のセルを
+      <strong>右クリック or ダブルクリック</strong>して個別設定することができます。
+    </p>
+
+    <div class="row step3-row">
+      <label class="step3-label">
+        段数：
+        <select id="face-stage-count-select">
+          <option value="1">1 段</option>
+          <option value="2">2 段</option>
+          <option value="3">3 段</option>
+          <option value="4">4 段</option>
+          <option value="5">5 段</option>
+          <option value="6">6 段</option>
+          <option value="7">7 段</option>
+          <option value="8">8 段</option>
+          <option value="9">9 段</option>
+          <option value="10">10 段</option>
+        </select>
+      </label>
+    </div>
+
+    <!-- 下から第1段 / 第2段… の高さリスト -->
+    <div id="face-stage-height-list" class="step3-height-list"></div>
+
+    <div class="step3-actions">
+      <button id="face-stage-apply-btn" class="btn-primary">
+        STEP2のチェック中のセル全てに段設定を適用
+      </button>
+    </div>
+
+    <div class="hint">
+      ・一部だけポールの高さを変更したいときは該当するセルを
+      <strong>右クリック or ダブルクリック</strong>で、個別の段設定ダイアログを開けます。
+    </div>
+  </div>
+
+  <!-- STEP4: メイン画面へ送信 -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h2 class="step4-title">STEP4:メイン画面へ送信</h2>
+        <p class="card-caption">
+          設定が終わったら、CubeRackStudio の 3D 画面にレイアウトを送信します。
+        </p>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:4px; gap: 8px;">
+      <!-- 新規作成 / 更新（既存ラックを置き換える） -->
+      <button id="run-flat-layout-new-btn" class="btn-primary">
+        新規作成 / 更新
+      </button>
+
+      <!-- 追加生成（既存ラックの横に追加） -->
+      <button id="run-flat-layout-add-btn" class="btn-secondary">
+        追加生成
+      </button>
+    </div>
+
+    <div class="hint">
+      ・「新規作成 / 更新」…いまあるラックを一度クリアして、この設定で作り直します。<br>
+      ・「追加生成」…いまあるラックは残したまま、重ならない位置にこの設定のラックを追加します。<br>
+      ・メインの 3D 画面（CubeRackStudio 本体）が開いている状態で使ってください。<br>
+      ・うまく送信できない場合は、一度ツールを閉じて、
+      <strong>メイン画面のボタンから再度このツールを開き直す</strong>と改善することがあります。
+    </div>
+  </div>
+
+  <!-- ▼ 個別セル用：段設定ダイアログ ▼ -->
+  <div id="stage-dialog-overlay" class="stage-overlay hidden">
+    <div class="stage-dialog">
+      <div class="stage-dialog-header">
+        <div>
+          <div style="font-size:14px;font-weight:600;">セルごとの段設定</div>
+          <p id="stage-dialog-cell-label" class="stage-cell-label">セル：</p>
+        </div>
+        <button id="stage-dialog-close-btn" class="stage-close-btn" aria-label="閉じる">×</button>
+      </div>
+
+      <div class="stage-dialog-body">
+        <div class="stage-row">
+          <label>
+            段数：
+            <select id="stage-count-select">
+              <option value="1">1 段</option>
+              <option value="2">2 段</option>
+              <option value="3">3 段</option>
+              <option value="4">4 段</option>
+              <option value="5">5 段</option>
+              <option value="6">6 段</option>
+              <option value="7">7 段</option>
+              <option value="8">8 段</option>
+              <option value="9">9 段</option>
+              <option value="10">10 段</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="stage-height-list" class="stage-height-list"></div>
+
+        <div class="stage-bulk-controls">
+          <div class="stage-bulk-controls-row">
+            <span>チェックした段をまとめて高さ変更：</span>
+            <select id="stage-bulk-height-select" class="stage-bulk-height-select"></select>
+          </div>
+          <button id="stage-bulk-apply-btn" class="btn-secondary" style="align-self:flex-end;">
+            選択した段に適用
+          </button>
+        </div>
+      </div>
+
+      <div class="stage-dialog-footer">
+        <button id="stage-dialog-cancel-btn" class="btn-secondary">キャンセル</button>
+        <button id="stage-dialog-ok-btn" class="primary">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============================================================
+    // CubeRack 平面レイアウトツール スクリプト
+    // ============================================================
+
+    const BEAM_LENGTH_OPTIONS = [25, 50, 100, 150, 200, 300, 400, 600, 800];
+    // 段の高さ候補（POLE の規格に合わせる）
+    const STAGE_HEIGHT_OPTIONS = [50, 100, 200, 300, 400, 500, 600, 800];
+
+    // STEP1 のグリッドサイズ上限（両方とも適用）
+    const MAX_GRID_COUNT = 50;
+
+    const PLANE_LAYOUT_STORAGE_KEY = "cuberack_plane_layout_v1";
+
+    const colCountInput = document.getElementById("col-count-input");
+    const rowCountInput = document.getElementById("row-count-input");
+    const maskTable = document.getElementById("mask-table");
+    const rebuildGridBtn = document.getElementById("rebuild-grid-btn");
+
+    // 段データ
+    let stageData = [];
+    let cellTdMatrix = [];
+    let currentStageRow = 0;
+    let currentStageCol = 0;
+
+    // ★ Step3（面一括）の復元用一時保持（後でUI初期化後に適用）
+    let faceStageBulkSaved = null;
+
+    function createDefaultStageInfo() {
+      return {
+        stages: 1,
+        heights: [300],
+      };
+    }
+
+    function ensureStageDataSize(rows, cols) {
+      for (let r = 0; r < rows; r++) {
+        if (!stageData[r]) stageData[r] = [];
+        for (let c = 0; c < cols; c++) {
+          if (!stageData[r][c]) {
+            stageData[r][c] = createDefaultStageInfo();
+          }
+        }
+        stageData[r].length = cols;
+      }
+      stageData.length = rows;
+    }
+
+    function buildStageMatrix(rows, cols) {
+      const result = [];
+      for (let r = 0; r < rows; r++) {
+        const rowArr = [];
+        for (let c = 0; c < cols; c++) {
+          const info = stageData[r] && stageData[r][c] ? stageData[r][c] : null;
+          if (!info || !Array.isArray(info.heights)) {
+            rowArr.push(null);
+            continue;
+          }
+          const heights = info.heights
+            .map((h) => parseInt(h, 10))
+            .filter((h) => Number.isFinite(h) && h > 0);
+          if (!heights.length) {
+            rowArr.push(null);
+            continue;
+          }
+          rowArr.push({
+            heights,
+            stages: heights.length,
+          });
+        }
+        result.push(rowArr);
+      }
+      return result;
+    }
+
+    function updateStageCellVisuals() {
+      if (!Array.isArray(cellTdMatrix) || cellTdMatrix.length === 0) return;
+      for (let r = 0; r < cellTdMatrix.length; r++) {
+        const row = cellTdMatrix[r] || [];
+        for (let c = 0; c < row.length; c++) {
+          updateStageCellVisual(r, c);
+        }
+      }
+    }
+
+    function updateStageCellVisual(r, c) {
+      const td = cellTdMatrix?.[r]?.[c];
+      if (!td) return;
+
+      const info = stageData?.[r]?.[c];
+      const hasStage =
+        info && Array.isArray(info.heights) && info.heights.length > 1;
+      td.classList.toggle("stage-configured", !!hasStage);
+    }
+
+    // 面一括用：段高さ入力
+    function rebuildFaceStageHeightInputs(stageCount) {
+      const list = document.getElementById("face-stage-height-list");
+      if (!list) return;
+
+      list.innerHTML = "";
+      const heightOptions = STAGE_HEIGHT_OPTIONS;
+
+      for (let i = 0; i < stageCount; i++) {
+        const div = document.createElement("div");
+        div.className = "stage-height-item";
+
+        const label = document.createElement("label");
+
+        // 上から n 段目表示
+        const levelFromBottom = stageCount - i;
+        label.textContent = `${levelFromBottom} 段目：`;
+
+        const sel = document.createElement("select");
+        heightOptions.forEach((h) => {
+          const opt = document.createElement("option");
+          opt.value = String(h);
+          opt.textContent = `${h} mm`;
+          if (h === 300) opt.selected = true;
+          sel.appendChild(opt);
+        });
+
+        div.appendChild(label);
+        div.appendChild(sel);
+        list.appendChild(div);
+      }
+    }
+
+    function rebuildGrid() {
+      let rows = parseInt(rowCountInput.value, 10);
+      let cols = parseInt(colCountInput.value, 10);
+
+      if (!Number.isFinite(rows) || rows < 1) rows = 1;
+      if (!Number.isFinite(cols) || cols < 1) cols = 1;
+      rows = Math.max(1, Math.min(MAX_GRID_COUNT, rows));
+      cols = Math.max(1, Math.min(MAX_GRID_COUNT, cols));
+
+      rowCountInput.value = rows;
+      colCountInput.value = cols;
+
+      ensureStageDataSize(rows, cols);
+
+      maskTable.innerHTML = "";
+      cellTdMatrix = Array.from({ length: rows }, () => new Array(cols));
+
+      // ヘッダー行（幅方向ビーム）
+      const thead = document.createElement("thead");
+      const headRow = document.createElement("tr");
+      const cornerTh = document.createElement("th");
+      headRow.appendChild(cornerTh);
+
+      for (let c = 0; c < cols; c++) {
+        const th = document.createElement("th");
+        th.className = "width-header";
+
+        const sel = document.createElement("select");
+        sel.className = "width-length";
+        BEAM_LENGTH_OPTIONS.forEach((len) => {
+          const opt = document.createElement("option");
+          opt.value = String(len);
+          opt.textContent = `${len} mm`;
+          if (len === 200) opt.selected = true;
+          sel.appendChild(opt);
+        });
+
+        th.appendChild(sel);
+        headRow.appendChild(th);
+      }
+
+      thead.appendChild(headRow);
+      maskTable.appendChild(thead);
+
+      // 本体（奥行ビーム + チェックボックス）
+      const tbody = document.createElement("tbody");
+      for (let r = 0; r < rows; r++) {
+        const tr = document.createElement("tr");
+
+        const th = document.createElement("th");
+        const depthSel = document.createElement("select");
+        depthSel.className = "depth-length";
+        BEAM_LENGTH_OPTIONS.forEach((len) => {
+          const opt = document.createElement("option");
+          opt.value = String(len);
+          opt.textContent = `${len} mm`;
+          if (len === 200) opt.selected = true;
+          depthSel.appendChild(opt);
+        });
+        th.appendChild(depthSel);
+        tr.appendChild(th);
+
+        for (let c = 0; c < cols; c++) {
+          const td = document.createElement("td");
+          td.className = "mask-cell";
+          td.dataset.r = String(r);
+          td.dataset.c = String(c);
+
+          const chk = document.createElement("input");
+          chk.type = "checkbox";
+          chk.className = "cell-enable";
+          chk.checked = true;
+
+          td.appendChild(chk);
+          tr.appendChild(td);
+          cellTdMatrix[r][c] = td;
+        }
+
+        tbody.appendChild(tr);
+      }
+      maskTable.appendChild(tbody);
+
+      setupStageCellHandlers();
+      updateStageCellVisuals();
+    }
+
+    function rebuildStageHeightInputs(info) {
+      const list = document.getElementById("stage-height-list");
+      if (!list) return;
+      list.innerHTML = "";
+
+      const stageCount = info.stages;
+      const heightOptions = STAGE_HEIGHT_OPTIONS;
+
+      // 表示は「n段目 → … → 1段目」
+      for (let logical = stageCount - 1; logical >= 0; logical--) {
+        const div = document.createElement("div");
+        div.className = "stage-height-item";
+
+        const label = document.createElement("label");
+        label.className = "stage-height-label";
+
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.className = "stage-bulk-target";
+
+        label.appendChild(cb);
+        label.append(` ${logical + 1} 段目の高さ：`);
+
+        const sel = document.createElement("select");
+        sel.className = "stage-height-select";
+        heightOptions.forEach((h) => {
+          const opt = document.createElement("option");
+          opt.value = String(h);
+          opt.textContent = `${h} mm`;
+          sel.appendChild(opt);
+        });
+
+        const current = info.heights[logical] ?? 300;
+        sel.value = String(heightOptions.includes(current) ? current : 300);
+
+        div.appendChild(label);
+        div.appendChild(sel);
+        list.appendChild(div);
+      }
+    }
+
+    function openStageDialog(rowIndex, colIndex) {
+      const overlay = document.getElementById("stage-dialog-overlay");
+      const countSelect = document.getElementById("stage-count-select");
+      const cellLabel = document.getElementById("stage-dialog-cell-label");
+      if (!overlay || !countSelect || !cellLabel) return;
+
+      const tbody = maskTable.querySelector("tbody");
+      const thead = maskTable.querySelector("thead");
+      if (!tbody || !thead) return;
+
+      const rows = tbody.querySelectorAll("tr").length;
+      const cols = thead.querySelectorAll(".width-header").length;
+      ensureStageDataSize(rows, cols);
+
+      currentStageRow = rowIndex;
+      currentStageCol = colIndex;
+
+      const info =
+        (stageData[rowIndex] && stageData[rowIndex][colIndex]) ||
+        createDefaultStageInfo();
+
+      cellLabel.textContent = `セル：行 ${rowIndex + 1} / 列 ${colIndex + 1}`;
+
+      countSelect.value = String(info.stages || 1);
+      rebuildStageHeightInputs(info);
+
+      overlay.classList.remove("hidden");
+    }
+
+    function closeStageDialog() {
+      const overlay = document.getElementById("stage-dialog-overlay");
+      if (overlay) overlay.classList.add("hidden");
+    }
+
+    function setupStageDialogEvents() {
+      const overlay = document.getElementById("stage-dialog-overlay");
+      const countSelect = document.getElementById("stage-count-select");
+      const btnOk = document.getElementById("stage-dialog-ok-btn");
+      const btnCancel = document.getElementById("stage-dialog-cancel-btn");
+      const btnClose = document.getElementById("stage-dialog-close-btn");
+
+      if (!overlay || !countSelect || !btnOk || !btnCancel || !btnClose) return;
+
+      countSelect.addEventListener("change", () => {
+        const tbody = maskTable.querySelector("tbody");
+        const thead = maskTable.querySelector("thead");
+        if (!tbody || !thead) return;
+
+        const rows = tbody.querySelectorAll("tr").length;
+        const cols = thead.querySelectorAll(".width-header").length;
+        ensureStageDataSize(rows, cols);
+
+        const info =
+          (stageData[currentStageRow] &&
+            stageData[currentStageRow][currentStageCol]) ||
+          createDefaultStageInfo();
+
+        info.stages = parseInt(countSelect.value, 10) || 1;
+
+        const newHeights = [];
+        for (let i = 0; i < info.stages; i++) {
+          newHeights[i] = info.heights[i] ?? 300;
+        }
+        info.heights = newHeights;
+
+        rebuildStageHeightInputs(info);
+      });
+
+      btnOk.addEventListener("click", () => {
+        const tbody = maskTable.querySelector("tbody");
+        const thead = maskTable.querySelector("thead");
+        if (!tbody || !thead) return;
+
+        const rows = tbody.querySelectorAll("tr").length;
+        const cols = thead.querySelectorAll(".width-header").length;
+        ensureStageDataSize(rows, cols);
+
+        const info =
+          (stageData[currentStageRow] &&
+            stageData[currentStageRow][currentStageCol]) ||
+          createDefaultStageInfo();
+
+        const stageCount =
+          parseInt(document.getElementById("stage-count-select").value, 10) || 1;
+        info.stages = stageCount;
+
+        const heightSelects = overlay.querySelectorAll(".stage-height-select");
+
+        // DOM順（上＝n段目）→ 配列順（index0＝1段目）に変換
+        const domHeights = [];
+        heightSelects.forEach((sel) => {
+          const v = parseInt(sel.value, 10);
+          domHeights.push(Number.isFinite(v) ? v : 300);
+        });
+        info.heights = domHeights.reverse();
+
+        stageData[currentStageRow][currentStageCol] = info;
+
+        saveCurrentLayoutToStorage();
+        updateStageCellVisual(currentStageRow, currentStageCol);
+
+        closeStageDialog();
+      });
+
+      btnCancel.addEventListener("click", closeStageDialog);
+      btnClose.addEventListener("click", closeStageDialog);
+
+      const bulkHeightSelect = document.getElementById("stage-bulk-height-select");
+      const bulkApplyBtn = document.getElementById("stage-bulk-apply-btn");
+
+      // 一括高さセレクトに候補を投入
+      if (bulkHeightSelect) {
+        bulkHeightSelect.innerHTML = "";
+        STAGE_HEIGHT_OPTIONS.forEach((h) => {
+          const opt = document.createElement("option");
+          opt.value = String(h);
+          opt.textContent = `${h} mm`;
+          bulkHeightSelect.appendChild(opt);
+        });
+      }
+
+      if (bulkHeightSelect && bulkApplyBtn) {
+        bulkApplyBtn.addEventListener("click", () => {
+          const target = parseInt(bulkHeightSelect.value, 10);
+          if (!Number.isFinite(target)) return;
+
+          const list = document.getElementById("stage-height-list");
+          if (!list) return;
+
+          const items = list.querySelectorAll(".stage-height-item");
+          items.forEach((item) => {
+            const cb = item.querySelector(".stage-bulk-target");
+            const sel = item.querySelector(".stage-height-select");
+            if (cb && cb.checked && sel) {
+              sel.value = String(target);
+            }
+          });
+        });
+      }
+
+      overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) closeStageDialog();
+      });
+    }
+
+    function setupStageCellHandlers() {
+      const tbody = maskTable.querySelector("tbody");
+      if (!tbody) return;
+
+      const cols = maskTable.querySelectorAll("thead .width-header").length;
+      const rows = tbody.querySelectorAll("tr");
+      ensureStageDataSize(rows.length, cols);
+
+      // セルごとのリスナー大量生成を避けるためイベント委譲
+      const delegated = (e) => {
+        const td = e.target?.closest?.("td.mask-cell");
+        if (!td || !tbody.contains(td)) return;
+
+        e.preventDefault();
+
+        const rIdx = parseInt(td.dataset.r, 10);
+        const cIdx = parseInt(td.dataset.c, 10);
+        if (!Number.isFinite(rIdx) || !Number.isFinite(cIdx)) return;
+
+        const chk = td.querySelector("input.cell-enable");
+        if (chk && chk.checked) {
+          openStageDialog(rIdx, cIdx);
+        } else {
+          alert("まずこのマスのチェックを ON にしてください。");
+        }
+      };
+
+      tbody.addEventListener("contextmenu", delegated);
+      tbody.addEventListener("dblclick", delegated);
+    }
+
+    // ============================================================
+    // STEP3（面一括）: UI状態の保存/復元
+    // ============================================================
+
+    // Step3(面一括)の現在値を読み取る
+    function readFaceStageBulkFromUI() {
+      const countSel = document.getElementById("face-stage-count-select");
+      const list = document.getElementById("face-stage-height-list");
+      if (!countSel || !list) return null;
+
+      const stages = parseInt(countSel.value, 10) || 1;
+
+      // DOM順は「上から」なので reverse して 1段目先頭に統一
+      const domHeights = [];
+      list.querySelectorAll("select").forEach((sel) => {
+        const v = parseInt(sel.value, 10);
+        domHeights.push(Number.isFinite(v) ? v : 300);
+      });
+
+      const heights = domHeights.reverse();
+      return { stages, heights };
+    }
+
+    // Step3(面一括)を saved で復元する
+    function applyFaceStageBulkToUI(saved) {
+      if (!saved) return;
+
+      const countSel = document.getElementById("face-stage-count-select");
+      const list = document.getElementById("face-stage-height-list");
+      if (!countSel || !list) return;
+
+      const stages = Math.max(1, Math.min(10, parseInt(saved.stages, 10) || 1));
+      countSel.value = String(stages);
+
+      // まず段数分の入力UIを作り直す
+      rebuildFaceStageHeightInputs(stages);
+
+      // 次に高さを流し込む（saved.heights は 1段目先頭想定）
+      const heights = Array.isArray(saved.heights) ? saved.heights : [];
+      const selects = list.querySelectorAll("select");
+
+      // 表示は上→下なので、saved(下→上)をDOM順に合わせる
+      const domOrder = heights.slice(0, stages).reverse();
+
+      selects.forEach((sel, i) => {
+        const v = domOrder[i];
+        if (Number.isFinite(v)) sel.value = String(v);
+      });
+    }
+
+    function debounce(fn, wait) {
+      let t = null;
+      return (...args) => {
+        if (t) clearTimeout(t);
+        t = setTimeout(() => fn(...args), wait);
+      };
+    }
+
+    function saveCurrentLayoutToStorage() {
+      const thead = maskTable.querySelector("thead");
+      const tbody = maskTable.querySelector("tbody");
+      if (!thead || !tbody) return;
+
+      const rows = tbody.querySelectorAll("tr").length;
+      const cols = thead.querySelectorAll(".width-header").length;
+
+      const widthLens = [];
+      thead.querySelectorAll(".width-length").forEach((sel) => {
+        const v = parseInt(sel.value, 10);
+        widthLens.push(Number.isFinite(v) ? v : 200);
+      });
+
+      const depthLens = [];
+      const enabledMatrix = [];
+      const rowTrs = tbody.querySelectorAll("tr");
+      rowTrs.forEach((tr) => {
+        const depthSel = tr.querySelector(".depth-length");
+        const v = depthSel ? parseInt(depthSel.value, 10) : NaN;
+        depthLens.push(Number.isFinite(v) ? v : 200);
+
+        const flags = [];
+        tr.querySelectorAll(".cell-enable").forEach((chk) => {
+          flags.push(chk.checked);
+        });
+        enabledMatrix.push(flags);
+      });
+
+      ensureStageDataSize(rows, cols);
+      const stageMatrix = buildStageMatrix(rows, cols);
+
+      const faceStageBulk = readFaceStageBulkFromUI();
+
+      const saveData = {
+        rows,
+        cols,
+        widthLens,
+        depthLens,
+        enabledMatrix,
+        stageMatrix,
+        // ★追加：Step3（面一括）のUI状態
+        faceStageBulk,
+      };
+
+      try {
+        localStorage.setItem(PLANE_LAYOUT_STORAGE_KEY, JSON.stringify(saveData));
+      } catch (e) {
+        console.warn("平面レイアウトの保存に失敗:", e);
+      }
+    }
+
+    const debouncedSaveCurrentLayoutToStorage = debounce(
+      saveCurrentLayoutToStorage,
+      150
+    );
+
+    function applyFaceStageBulkSetting() {
+      console.log("▶ applyFaceStageBulkSetting called");
+
+      const faceCountSel = document.getElementById("face-stage-count-select");
+      const list = document.getElementById("face-stage-height-list");
+      if (!faceCountSel || !list) {
+        console.warn("face-stage UI が見つかりません");
+        return;
+      }
+
+      const stageCount = parseInt(faceCountSel.value, 10) || 1;
+
+      // DOM順で取ってから reverse して「1段目が先頭」になるようにする
+      const domHeights = [];
+      list.querySelectorAll("select").forEach((sel) => {
+        const v = parseInt(sel.value, 10);
+        domHeights.push(Number.isFinite(v) ? v : 300);
+      });
+      const heights = domHeights.reverse();
+
+      if (!heights.length) {
+        console.warn("一括段設定の高さがありません");
+        return;
+      }
+
+      const tbody = maskTable.querySelector("tbody");
+      if (!tbody) {
+        console.warn("tbody がありません");
+        return;
+      }
+
+      const rowTrs = tbody.querySelectorAll("tr");
+      if (!rowTrs.length) {
+        console.warn("行がありません");
+        return;
+      }
+
+      const cols = rowTrs[0].querySelectorAll(".cell-enable").length;
+      const rows = rowTrs.length;
+
+      console.log("面一括 適用対象 rows, cols =", rows, cols);
+
+      ensureStageDataSize(rows, cols);
+
+      let appliedCount = 0;
+
+      rowTrs.forEach((tr, r) => {
+        const chks = tr.querySelectorAll(".cell-enable");
+        chks.forEach((chk, c) => {
+          if (chk.checked) {
+            stageData[r][c] = {
+              stages: stageCount,
+              // bulk適用時は同一配列参照で保持（セル個別の更新時は別配列に差し替える）
+              heights: heights,
+            };
+            updateStageCellVisual(r, c);
+            appliedCount++;
+          }
+        });
+      });
+
+      console.log("面一括 適用マス数 =", appliedCount);
+
+      if (appliedCount === 0) {
+        alert("チェックが入っているマスがありません。");
+        return;
+      }
+
+      saveCurrentLayoutToStorage();
+
+      alert("チェック中のマスに段設定を適用しました。");
+    }
+
+    function runFlatLayout(mode) {
+      if (!window.opener || window.opener.closed) {
+        alert("メイン画面が見つかりません。CubeRackStudio 本体を先に開いてください。");
+        return;
+      }
+
+      const thead = maskTable.querySelector("thead");
+      const tbody = maskTable.querySelector("tbody");
+      if (!thead || !tbody) {
+        alert("レイアウトテーブルが見つかりません。");
+        return;
+      }
+
+      const rows = tbody.querySelectorAll("tr").length;
+      const cols = thead.querySelectorAll(".width-header").length;
+
+      const widthLens = [];
+      thead.querySelectorAll(".width-length").forEach((sel) => {
+        const v = parseInt(sel.value, 10);
+        widthLens.push(Number.isFinite(v) ? v : 200);
+      });
+
+      const depthLens = [];
+      const enabledMatrix = [];
+      const rowTrs = tbody.querySelectorAll("tr");
+      rowTrs.forEach((tr) => {
+        const depthSel = tr.querySelector(".depth-length");
+        const v = depthSel ? parseInt(depthSel.value, 10) : NaN;
+        depthLens.push(Number.isFinite(v) ? v : 200);
+
+        const flags = [];
+        tr.querySelectorAll(".cell-enable").forEach((chk) => {
+          flags.push(chk.checked);
+        });
+        enabledMatrix.push(flags);
+      });
+
+      ensureStageDataSize(rows, cols);
+      const stageMatrix = buildStageMatrix(rows, cols);
+
+      const cfg = {
+        rows,
+        cols,
+        widthLens,
+        depthLens,
+        enabledMatrix,
+        stageMatrix,
+        mode: mode || "replace", // "replace" or "append"
+      };
+
+      saveCurrentLayoutToStorage();
+
+      const main = window.opener;
+
+      if (!main || main.closed) {
+        console.warn("window.opener が無効です", main);
+        alert("メイン画面が見つかりません。必ずメイン画面からツールを開いてください。");
+        return;
+      }
+
+      let sent = false;
+
+      // 旧方式：直接呼び出し（main.js にフックがある場合）
+      if (typeof main.onFlatLayoutMaskFromTool === "function") {
+        console.log("onFlatLayoutMaskFromTool() で送信します", cfg);
+        main.onFlatLayoutMaskFromTool(cfg);
+        sent = true;
+      }
+
+      // 新方式：postMessage で送る（targetOrigin を安全に決定）
+      if (!sent) {
+        console.log("postMessage で送信します", cfg);
+
+        let targetOrigin = "*";
+        try {
+          targetOrigin = window.opener.location.origin;
+        } catch (e) {
+          console.warn("[postMessage] opener.location.origin 参照不可 → targetOrigin='*' で送信します", e);
+          targetOrigin = "*";
+        }
+
+        window.opener.postMessage(
+          { type: "cuberack-auto-layout", payload: cfg },
+          targetOrigin
+        );
+      }
+
+      console.log("メイン画面への送信完了", cfg);
+
+      // 送信後はウィンドウを閉じる
+      window.close();
+    }
+
+    function resetLayout() {
+      if (!confirm("マスのON/OFF、ビーム長さ、段設定をすべて初期状態に戻します。よろしいですか？")) {
+        return;
+      }
+
+      try {
+        localStorage.removeItem(PLANE_LAYOUT_STORAGE_KEY);
+      } catch (e) {
+        console.warn("平面レイアウトの削除に失敗:", e);
+      }
+
+      rowCountInput.value = 2;
+      colCountInput.value = 2;
+      stageData = [];
+      faceStageBulkSaved = null;
+      rebuildGrid();
+    }
+
+    function initPlaneLayout() {
+      const raw = localStorage.getItem(PLANE_LAYOUT_STORAGE_KEY);
+
+      if (raw) {
+        try {
+          const data = JSON.parse(raw);
+          const rawRows = data.rows || 0;
+          const rawCols = data.cols || 0;
+          const rows = Math.max(1, Math.min(MAX_GRID_COUNT, rawRows));
+          const cols = Math.max(1, Math.min(MAX_GRID_COUNT, rawCols));
+
+          if (rawRows > 0 && rawCols > 0) {
+            rowCountInput.value = rows;
+            colCountInput.value = cols;
+
+            // 表を作る（ここでDOMができる）
+            rebuildGrid();
+
+            // ★ Step3（面一括）の復元データを“後で適用するため”保持
+            faceStageBulkSaved = data.faceStageBulk || null;
+
+            // stageMatrix（{heights,stages} or null）→ stageData（{stages,heights}）へ変換
+            if (Array.isArray(data.stageMatrix)) {
+              stageData = [];
+              ensureStageDataSize(rows, cols);
+
+              for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                  const cell = data.stageMatrix?.[r]?.[c];
+
+                  if (cell && Array.isArray(cell.heights) && cell.heights.length) {
+                    const heights = cell.heights
+                      .map((h) => parseInt(h, 10))
+                      .filter((h) => Number.isFinite(h) && h > 0);
+
+                    stageData[r][c] = {
+                      stages: heights.length || 1,
+                      heights: heights.length ? heights : [300],
+                    };
+                  } else {
+                    stageData[r][c] = createDefaultStageInfo();
+                  }
+                }
+              }
+            }
+
+            const thead = maskTable.querySelector("thead");
+            const tbody = maskTable.querySelector("tbody");
+
+            if (thead && Array.isArray(data.widthLens)) {
+              const widthSelects = thead.querySelectorAll(".width-length");
+              widthSelects.forEach((sel, i) => {
+                if (data.widthLens[i] != null) {
+                  sel.value = String(data.widthLens[i]);
+                }
+              });
+            }
+
+            if (tbody && Array.isArray(data.enabledMatrix)) {
+              const rowTrs = tbody.querySelectorAll("tr");
+              rowTrs.forEach((tr, r) => {
+                if (Array.isArray(data.depthLens) && data.depthLens[r] != null) {
+                  const depthSel = tr.querySelector(".depth-length");
+                  if (depthSel) depthSel.value = String(data.depthLens[r]);
+                }
+
+                const cells = tr.querySelectorAll(".cell-enable");
+                cells.forEach((chk, c) => {
+                  if (
+                    data.enabledMatrix[r] &&
+                    typeof data.enabledMatrix[r][c] === "boolean"
+                  ) {
+                    chk.checked = data.enabledMatrix[r][c];
+                  }
+                });
+              });
+            }
+
+            updateStageCellVisuals();
+            return;
+          }
+        } catch (e) {
+          console.warn("平面レイアウト復元に失敗:", e);
+        }
+      }
+
+      rebuildGrid();
+      updateStageCellVisuals();
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      console.log("▶ DOMContentLoaded");
+
+      // 初期化
+      initPlaneLayout();
+      setupStageDialogEvents();
+      updateStageCellVisuals();
+
+      // STEP1：マス作り直し
+      if (rebuildGridBtn) {
+        rebuildGridBtn.addEventListener("click", () => {
+          rebuildGrid();
+          saveCurrentLayoutToStorage();
+          updateStageCellVisuals();
+        });
+      }
+
+      // STEP4：新規作成／更新
+      const runNewBtn = document.getElementById("run-flat-layout-new-btn");
+      if (runNewBtn) {
+        runNewBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          runFlatLayout("replace"); // 既存ラックを消して生成
+        });
+      }
+
+      // STEP4：追加生成
+      const runAddBtn = document.getElementById("run-flat-layout-add-btn");
+      if (runAddBtn) {
+        runAddBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          runFlatLayout("append"); // 既存に追加で配置
+        });
+      }
+
+      // リセット
+      const resetBtn = document.getElementById("reset-layout-btn");
+      if (resetBtn) {
+        resetBtn.addEventListener("click", resetLayout);
+      }
+
+      // STEP3：段数：面一括
+      const faceStageCountSelect = document.getElementById("face-stage-count-select");
+      if (faceStageCountSelect) {
+        // まずはselect現在値でUI構築（デフォルトは1段）
+        const initial = parseInt(faceStageCountSelect.value, 10) || 1;
+        rebuildFaceStageHeightInputs(initial);
+
+        faceStageCountSelect.addEventListener("change", () => {
+          const v = parseInt(faceStageCountSelect.value, 10) || 1;
+          rebuildFaceStageHeightInputs(v);
+          debouncedSaveCurrentLayoutToStorage(); // ★保存（連打抑制）
+        });
+
+        // ★高さ変更でも保存（イベント委譲）
+        const faceList = document.getElementById("face-stage-height-list");
+        if (faceList) {
+          faceList.addEventListener("change", (e) => {
+            if (e.target && e.target.tagName === "SELECT") {
+              debouncedSaveCurrentLayoutToStorage();
+            }
+          });
+        }
+
+        // ★★★重要：UI初期化が終わった“最後”に復元を適用（上書きされない）
+        if (faceStageBulkSaved) {
+          applyFaceStageBulkToUI(faceStageBulkSaved);
+          saveCurrentLayoutToStorage(); // 復元した状態を確定保存
+        }
+      }
+
+      const faceStageApplyBtn = document.getElementById("face-stage-apply-btn");
+      if (faceStageApplyBtn) {
+        faceStageApplyBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          applyFaceStageBulkSetting();
+        });
+      }
+    });
+
+    // debounce 遅延があっても、ポップアップを閉じる際は最終状態を確実に保存
+    window.addEventListener("beforeunload", () => {
+      try {
+        saveCurrentLayoutToStorage();
+      } catch (e) {
+        // ignore
+      }
+    });
+  </script>
+</body>
+</html>

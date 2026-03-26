@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>CubeRackStudio 見積もり</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 24px;
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    .app-wrap {
+      background: #fff;
+      padding: 22px 26px;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(15,23,42,0.18);
+      max-width: 980px;
+      margin: 0 auto;
+    }
+
+    /* =========================
+       ヘッダー
+    ========================= */
+    .doc-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 24px;
+      border-bottom: 2px solid #111827;
+      padding-bottom: 12px;
+      margin-bottom: 14px;
+    }
+
+    .doc-title-block h1 {
+      font-size: 60px;
+      font-weight: 800;
+      letter-spacing: 0.15em;
+      margin: 0;
+    }
+
+    .doc-title-block .sub {
+      font-size: 11px;
+      color: #6b7280;
+      margin-top: 4px;
+    }
+
+    .doc-meta {
+      font-size: 12px;
+      min-width: 220px;
+    }
+
+    .doc-meta-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 6px;
+      align-items: center;
+    }
+
+    .doc-meta-label {
+      color: #6b7280;
+      white-space: nowrap;
+    }
+
+    .doc-meta-value input {
+      font-size: 12px;
+      padding: 3px 6px;
+      border-radius: 6px;
+      border: 1px solid #d1d5db;
+      width: 150px;
+      background: #fff;
+    }
+
+    /* =========================
+       宛名 / 件名
+    ========================= */
+    .customer-block {
+      margin-bottom: 12px;
+      font-size: 13px;
+    }
+
+    .customer-block-label {
+      color: #6b7280;
+      margin-bottom: 4px;
+      font-size: 12px;
+    }
+
+    .customer-block input {
+      width: 100%;
+      padding: 5px 8px;
+      border-radius: 6px;
+      border: 1px solid #d1d5db;
+      font-size: 13px;
+      background: #fff;
+    }
+
+    .subject-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      font-size: 13px;
+    }
+
+    .footer-logo {
+      text-align: center;
+      margin-top: 40px;
+      margin-bottom: 20px;
+    }
+
+    .footer-logo img {
+      max-width: 200px;
+      height: auto;
+    }
+
+    .subject-row span {
+      color: #6b7280;
+      white-space: nowrap;
+    }
+
+    .subject-row input {
+      flex: 1;
+      padding: 5px 8px;
+      border-radius: 6px;
+      border: 1px solid #d1d5db;
+      font-size: 13px;
+      background: #fff;
+    }
+
+    /* =========================
+       テーブル（ここが見た目の要）
+    ========================= */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 12px;                 /* ★小さくして締める */
+      line-height: 1.35;
+      border: 1px solid #d1d5db;       /* ★外枠を少し濃く */
+      font-variant-numeric: tabular-nums; /* ★数字を揃える */
+    }
+
+    thead th {
+      background: #f3f4f6;
+      font-weight: 700;
+      border: 1px solid #d1d5db;       /* ★縦罫線も均一に */
+      padding: 6px 6px;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    tbody td, tfoot td {
+      border: 1px solid #d1d5db;       /* ★縦罫線・横罫線 */
+      padding: 6px 6px;
+      vertical-align: middle;
+      background: #fff;
+    }
+
+    /* 部材名の列：折り返しを防ぐ */
+    tbody td:nth-child(2) {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 180px;
+    }
+
+    tbody tr:hover td {
+      background: #f9fafb;
+    }
+
+    /* 数値列は右寄せ */
+    .right { text-align: right; }
+    .center { text-align: center; }
+
+    /* 末尾まとめ行 */
+    tfoot td {
+      font-weight: 700;
+      background: #f9fafb;
+    }
+
+    /* 入力 */
+    input[type="number"] {
+      width: 86px;
+      padding: 4px 6px;
+      border-radius: 6px;
+      border: 1px solid #d1d5db;
+      text-align: right;
+      font-size: 12px;                /* ★小さく */
+      background: #fff;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .small-num {
+      width: 74px;
+    }
+
+    /* =========================
+       合計 & 値引き
+    ========================= */
+  .totals-block {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end; /* ←右寄せにする */
+  gap: 16px;
+  align-items: flex-start;
+}
+
+
+    .discount-panel {
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 12px;
+      max-width: 280px;
+      background: #f9fafb;
+    }
+
+    .discount-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .discount-row label { white-space: nowrap; }
+
+    select {
+      font-size: 12px;
+      padding: 4px 6px;
+      border-radius: 6px;
+      border: 1px solid #d1d5db;
+      background: #fff;
+    }
+
+    #discountValue {
+      width: 92px;
+      text-align: right;
+    }
+
+.grand-totals {
+  margin-left: auto;   /* ←残っている余白を左側に押し出す */
+  min-width: 320px;    /* 好みで 280〜360 くらい */
+}
+
+
+    .grand-totals-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 6px;
+      align-items: baseline;
+    }
+
+    .grand-label { white-space: nowrap; color: #374151; }
+    .grand-value { text-align: right; min-width: 140px; font-variant-numeric: tabular-nums; }
+
+    .grand-total-main {
+      font-size: 15px;
+      font-weight: 800;
+      padding-top: 4px;
+      border-top: 1px solid #e5e7eb;
+      margin-top: 6px;
+    }
+
+    /* =========================
+       注意書き
+    ========================= */
+    .note {
+      font-size: 10px;   /* ★さらに小さく */
+      color: #6b7280;
+      margin-top: 10px;
+      line-height: 1.5;
+      text-align: right; 
+    }
+
+    .warn {
+      color: #b91c1c;
+      font-size: 10px;   /* ★さらに小さく */
+      margin-top: 6px;
+      line-height: 1.5;
+    }
+
+    /* =========================
+       印刷ボタン
+    ========================= */
+    .print-button {
+      margin-top: 20px;
+      text-align: center;
+    }
+
+    .print-button button {
+      background: #111827;
+      color: #fff;
+      border: none;
+      padding: 10px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .print-button button:hover {
+      background: #374151;
+    }
+
+    .print-button button:active {
+      background: #1f2937;
+    }
+
+    /* =========================
+       印刷時（おまけ：影を消す）
+    ========================= */
+    @media print {
+      body { background: #fff; padding: 0; }
+      .app-wrap { box-shadow: none; border-radius: 0; max-width: none; padding: 0; }
+      .print-button { display: none; }
+      input, select { 
+        border: none !important;
+        background: transparent !important;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+      input[type="number"] {
+        text-align: right;
+      }
+      select {
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-wrap">
+    <!-- ヘッダー -->
+    <div class="doc-header">
+      <div class="doc-title-block">
+        <h1>ESTIMATE</h1>
+      </div>
+      <div class="doc-meta">
+        <div class="doc-meta-row">
+          <div class="doc-meta-label">発行日</div>
+          <div class="doc-meta-value">
+            <input type="date" id="issueDate" />
+          </div>
+        </div>
+        <div class="doc-meta-row">
+          <div class="doc-meta-label">見積番号</div>
+          <div class="doc-meta-value">
+            <input type="text" id="estimateNo" placeholder="自動採番" />
+          </div>
+        </div>
+        <div class="doc-meta-row">
+          <div class="doc-meta-label">有効期限</div>
+          <div class="doc-meta-value">
+            <input type="date" id="validUntil" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 宛名 / 件名 -->
+    <div class="customer-block">
+      <div class="customer-block-label">宛名</div>
+      <input type="text" id="customerName" placeholder="○○ 様" />
+      <div class="subject-row">
+        <span>件名：</span>
+        <input type="text" id="subject" placeholder="CubeRackStudio 一式　御見積り" />
+      </div>
+    </div>
+
+    <!-- 明細テーブル -->
+    <table id="estimateTable">
+      <thead>
+        <tr>
+          <th style="width:44px;">No</th>
+          <th style="width:180px; min-width:180px;">パーツ名</th>
+          <th style="width:86px;">数量</th>
+          <th style="width:120px;">材質</th>
+          <th style="width:90px;">単価 (円)</th>
+          <th style="width:120px;">小計 (円)</th>
+          <th style="width:110px;">単重 (g)</th>
+          <th style="width:118px;">行重量 (g)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- JSで挿入 -->
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="5" class="right">小計：</td>
+          <td id="subtotalCell" class="right">0</td>
+          <td class="right">合計重量：</td>
+          <td id="weightTotalCell" class="right">0</td>
+        </tr>
+      </tfoot>
+    </table>
+
+<!-- 合計 -->
+<div class="totals-block">
+  <div class="grand-totals">
+    <div class="grand-totals-row">
+      <div class="grand-label">小計</div>
+      <div id="subtotalDisplay" class="grand-value">0 円</div>
+    </div>
+
+    <div class="grand-totals-row grand-total-main">
+      <div class="grand-label">御見積金額</div>
+      <div id="grandTotalDisplay" class="grand-value">0 円（税込）</div>
+    </div>
+
+    <div class="grand-totals-row" style="font-size:11px;">
+      <div class="grand-label">総重量</div>
+      <div id="grandWeightDisplay" class="grand-value">0 g</div>
+    </div>
+  </div>
+</div>
+
+    <p class="note">
+      この見積もりは CubeRackStudio から自動生成されたパーツ内訳をもとにしています。<br />
+      数量・単価を調整して最終金額を決定してください。
+    </p>
+
+    <p id="warning" class="warn" style="display:none;">
+      ※ 3D画面の合計金額と差がある場合は、単価・値引き設定を確認してください。
+    </p>
+
+    <!-- フッターロゴ -->
+    <div class="footer-logo">
+      <img src="img/COBAロゴ.png" alt="COBA" />
+    </div>
+
+    <!-- 印刷ボタン -->
+    <div class="print-button">
+      <button onclick="window.print()">印刷</button>
+    </div>
+  </div>
+  
+  <!-- 共通ユーティリティ -->
+  <script src="js/utils/common.js"></script>
+  
+  <script src="js/data/parts-catalog.js"></script>
+
+  <script>
+
+const tbody = document.querySelector("#estimateTable tbody");
+const subtotalCell = document.getElementById("subtotalCell");
+const weightTotalCell = document.getElementById("weightTotalCell");
+const warningEl = document.getElementById("warning");
+
+// 値引きUIは廃止したので取得しない（null参照事故を防ぐ）
+const subtotalDisplay = document.getElementById("subtotalDisplay");
+const grandTotalDisplay = document.getElementById("grandTotalDisplay");
+const grandWeightDisplay = document.getElementById("grandWeightDisplay");
+
+// ★行の入力を全部見て再計算（値引きなし）
+function recalcTotals(expectedTotal) {
+  let subtotal = 0;
+  let totalWeight = 0;
+
+  tbody.querySelectorAll("tr").forEach((tr) => {
+    const qtyInput  = tr.querySelector(".cell-qty");
+    const unitInput = tr.querySelector(".cell-unit");
+    const subCell   = tr.querySelector(".cell-subtotal");
+    const unitWCell = tr.querySelector(".cell-unitweight");
+    const rowWCell  = tr.querySelector(".cell-rowweight");
+
+    const qty = Number(qtyInput?.value) || 0;
+    const unitPrice = Number(unitInput?.value) || 0;
+    const unitWeight = Number(unitWCell?.dataset?.weight) || 0;
+
+    const sub = qty * unitPrice;
+    const rowWeight = qty * unitWeight;
+
+    if (subCell) subCell.textContent = sub.toLocaleString();
+    if (rowWCell) rowWCell.textContent = formatWeight(rowWeight);
+
+    subtotal += sub;
+    totalWeight += rowWeight;
+  });
+
+  if (subtotalCell) subtotalCell.textContent = subtotal.toLocaleString();
+  if (weightTotalCell) weightTotalCell.textContent = totalWeight.toLocaleString();
+
+  // 値引き無し：grand = subtotal
+  if (subtotalDisplay) subtotalDisplay.textContent = `${subtotal.toLocaleString()} 円`;
+  if (grandTotalDisplay) grandTotalDisplay.textContent = `${subtotal.toLocaleString()} 円（税込）`;
+  if (grandWeightDisplay) grandWeightDisplay.textContent = formatWeight(totalWeight);
+
+  // expectedTotal は「互換で残す」だけ（警告ロジックは任意）
+  if (warningEl) {
+    if (typeof expectedTotal === "number" && expectedTotal > 0 && Math.abs(expectedTotal - subtotal) > 1) {
+      warningEl.style.display = "block";
+    } else {
+      warningEl.style.display = "none";
+    }
+  }
+}
+
+function formatWeight(g) {
+  const val = Number(g) || 0;
+  if (val >= 1000) {
+    return (val / 1000).toFixed(2) + " kg";
+  }
+  return val.toLocaleString() + " g";
+}
+
+function parseCustomLen(key, prefix) {
+  // prefix例: "beam_custom_" / "pole_custom_"
+  if (!key || !key.startsWith(prefix)) return null;
+  const n = parseInt(key.slice(prefix.length), 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+function ceilTo(n, step) {
+  if (!step || step <= 1) return n;
+  return Math.ceil(n / step) * step;
+}
+
+function calcOrderUnitPrice(kind, lengthMm) {
+  const rule = window.ORDER_RULES?.[kind];
+  if (!rule) return 0;
+
+  const mm0 = Math.max(rule.minMm || 1, Number(lengthMm) || 0);
+  const mm = ceilTo(mm0, rule.roundToMm || 1);
+
+  const price = (rule.baseFee || 0) + (rule.perMm || 0) * mm;
+  // 円なので整数に
+  return Math.round(price);
+}
+
+// =========================================================
+// Part Catalog helper（estimate.html 側）
+// - 正本: window.PARTS_CATALOG
+// - オーダー品: key から長さを抜いて「規格丸め + 按分5000円」を計算
+// =========================================================
+
+// オーダールール（固定）
+window.ORDER_MAX_MM = 1000;
+window.ORDER_FEE_TOTAL_YEN = 5000;
+
+// renderFromDraftEstimate() 内で計算して入れる（qty合計）
+window._orderSurchargePerPiece = 0;
+
+function _parseLenFromKey(key, prefix) {
+  if (!key || !key.startsWith(prefix)) return null;
+  const n = parseInt(key.slice(prefix.length), 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+// 規格へ丸め（例: 180→200, 230→300）
+function _pickBaseCatalogKey(kindPrefix, lenMm) {
+  const cat = window.PARTS_CATALOG || {};
+  const targets = Object.keys(cat)
+    .filter((k) => k.startsWith(kindPrefix))
+    .map((k) => {
+      const n = parseInt(k.slice(kindPrefix.length), 10);
+      return Number.isFinite(n) ? { k, n } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.n - b.n);
+
+  // len以上で最小の規格
+  const found = targets.find((t) => t.n >= lenMm);
+  return found ? found.k : null;
+}
+
+// parts-catalog.js 側の getPartInfo を保持（正本）
+const __baseGetPartInfo__ =
+  (typeof window.getPartInfo === "function") ? window.getPartInfo : null;
+
+// normalizeMaterial は js/utils/common.js で定義
+
+function appendMaterialTag(label, mat) {
+  const m = (typeof window.normalizeMaterial === "function")
+    ? window.normalizeMaterial(mat)
+    : "IRON";
+  if (!label) return label;
+  return (m && m !== "IRON") ? `${label}［${m}］` : label;
+}
+
+/**
+ * estimate.html 側の getPartInfo は「正本（parts-catalog.js）」に委譲する。
+ * - unitPrice/unitWeightG は正本の値をそのまま返す（倍率計算はしない）
+ * - label だけ材種タグを付ける（表示用途）
+ */
+window.getPartInfo = function (partKey, material) {
+  if (typeof __baseGetPartInfo__ !== "function") return null;
+
+  const mat = (typeof window.normalizeMaterial === "function")
+    ? window.normalizeMaterial(material)
+    : "IRON";
+
+  // 正本は (partKey, material) を受け取れる想定で呼ぶ
+  const base = __baseGetPartInfo__(partKey, mat);
+  if (!base) return null;
+
+  return {
+    ...base,
+    label: appendMaterialTag(base.label ?? String(partKey), mat),
+  };
+};
+
+    // 3D から localStorage 経由で受け取る
+    function renderFromDraftEstimate() {
+      const raw = localStorage.getItem("draftEstimate");
+      if (!raw) {
+        tbody.innerHTML = `<tr><td colspan="8">3D ツールから見積もりデータが受け取れていません。</td></tr>`;
+        return;
+      }
+
+      let data;
+      try {
+        data = JSON.parse(raw);
+        console.log("[draftEstimate]", data);
+      } catch (e) {
+        console.warn("draftEstimate の JSON パースに失敗:", e);
+        tbody.innerHTML = `<tr><td colspan="8">見積もりデータの読み込みに失敗しました。</td></tr>`;
+        return;
+      }
+
+      const parts = data.parts || data.items || data.currentEstimateParts || [];
+      if (!Array.isArray(parts) || parts.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8">パーツ明細が空です。</td></tr>`;
+        return;
+      }
+
+      // --- オーダー基本価格（5000円をオーダー品の総本数で按分）---
+const orderQtyTotal = parts.reduce((sum, p) => {
+  const k = p?.key || "";
+  const q = Number(p?.qty) || 0;
+  if (k.startsWith("beam_custom_") || k.startsWith("pole_custom_")) {
+    return sum + q; // 本数は qty 合計
+  }
+  return sum;
+}, 0);
+
+window._orderSurchargePerPiece =
+  orderQtyTotal > 0 ? (window.ORDER_FEE_TOTAL_YEN / orderQtyTotal) : 0;
+
+      tbody.innerHTML = "";
+
+      parts.forEach((p, index) => {
+        const partKey = p.key;
+        // 棚板/壁板/壁板金物の場合は材質名をそのまま使用、それ以外は大文字に変換
+        let mat;
+        if (partKey.startsWith("wallBracket_")) {
+          // 壁板金物は常に"AL"
+          mat = "AL";
+        } else if (partKey.startsWith("shelfBoard_") || partKey.startsWith("wallPanel_")) {
+          // 棚板/壁板はそのまま使用
+          mat = String(p.material || "足場板");
+        } else {
+          // その他の部材は大文字に変換
+          mat = String(p.material || "IRON").toUpperCase();
+        }
+        const info = window.getPartInfo ? window.getPartInfo(partKey, mat) : null;
+
+        // nameが存在する場合はそれを優先（3D側で設定された部材名）、なければgetPartInfoのlabel、それもなければpartKey
+        const name = p.name || info?.label || partKey;
+        const qty = Number(p.qty) || 0;
+        const unitPrice = Number(info?.unitPrice) || 0;
+        const unitWeight = Number(info?.unitWeightG) || 0;
+
+        const tr = document.createElement("tr");
+
+        const tdNo = document.createElement("td");
+        tdNo.textContent = index + 1;
+        tdNo.className = "center";
+
+        const tdName = document.createElement("td");
+        tdName.textContent = name;
+
+        const tdQty = document.createElement("td");
+        const qtyInput = document.createElement("input");
+        qtyInput.type = "number";
+        qtyInput.min = "0";
+        qtyInput.step = "1";
+        qtyInput.className = "cell-qty";
+        qtyInput.value = qty;
+        tdQty.appendChild(qtyInput);
+
+        const tdMat = document.createElement("td");
+        tdMat.className = "center";
+        
+        // 材質を編集可能にする
+        let matSelect;
+        if (partKey.startsWith("wallBracket_")) {
+          // 壁板金物は「AL」のみ（編集不可）
+          const matSpan = document.createElement("span");
+          matSpan.textContent = "AL";
+          matSpan.style.fontWeight = "bold";
+          tdMat.appendChild(matSpan);
+        } else if (partKey.startsWith("shelfBoard_") || partKey.startsWith("wallPanel_")) {
+          // 棚板/壁板は「足場板」「ウォールナット」「チェリー」「オーク」から選択
+          matSelect = document.createElement("select");
+          matSelect.className = "cell-material";
+          matSelect.style.width = "100%";
+          matSelect.style.padding = "4px 6px";
+          matSelect.style.borderRadius = "6px";
+          matSelect.style.border = "1px solid #d1d5db";
+          matSelect.style.fontSize = "12px";
+          matSelect.style.textAlign = "center";
+          
+          const options = ["足場板", "ウォールナット", "チェリー", "オーク"];
+          options.forEach(opt => {
+            const option = document.createElement("option");
+            option.value = opt;
+            option.textContent = opt;
+            if (opt === mat) option.selected = true;
+            matSelect.appendChild(option);
+          });
+          tdMat.appendChild(matSelect);
+        } else {
+          // その他の部材は「IRON」「BS」「SUS」から選択
+          matSelect = document.createElement("select");
+          matSelect.className = "cell-material";
+          matSelect.style.width = "100%";
+          matSelect.style.padding = "4px 6px";
+          matSelect.style.borderRadius = "6px";
+          matSelect.style.border = "1px solid #d1d5db";
+          matSelect.style.fontSize = "12px";
+          matSelect.style.textAlign = "center";
+          
+          const options = ["IRON", "BS", "SUS"];
+          options.forEach(opt => {
+            const option = document.createElement("option");
+            option.value = opt;
+            option.textContent = opt;
+            if (opt === mat) option.selected = true;
+            matSelect.appendChild(option);
+          });
+          tdMat.appendChild(matSelect);
+        }
+
+        const tdUnit = document.createElement("td");
+        const unitInput = document.createElement("input");
+        unitInput.type = "number";
+        unitInput.min = "0";
+        unitInput.step = "10";
+        unitInput.className = "cell-unit";
+        unitInput.value = unitPrice;
+        tdUnit.appendChild(unitInput);
+
+        const tdSub = document.createElement("td");
+        tdSub.className = "cell-subtotal right";
+        tdSub.textContent = "0";
+
+        const tdUnitW = document.createElement("td");
+        tdUnitW.className = "cell-unitweight right";
+        tdUnitW.dataset.weight = unitWeight;
+        tdUnitW.textContent = unitWeight.toLocaleString();
+
+        const tdRowW = document.createElement("td");
+        tdRowW.className = "cell-rowweight right";
+        tdRowW.textContent = "0";
+
+        tr.appendChild(tdNo);
+        tr.appendChild(tdName);
+        tr.appendChild(tdQty);
+        tr.appendChild(tdMat);
+        tr.appendChild(tdUnit);
+        tr.appendChild(tdSub);
+        tr.appendChild(tdUnitW);
+        tr.appendChild(tdRowW);
+
+        tbody.appendChild(tr);
+
+        // 入力イベントで再計算
+        qtyInput.addEventListener("input", () => recalcTotals(data.total));
+        unitInput.addEventListener("input", () => recalcTotals(data.total));
+        
+        // 材質変更時も再計算（select要素がある場合のみ）
+        if (matSelect) {
+          matSelect.addEventListener("change", () => {
+            // 材質変更に応じて単価を更新
+            const newMat = matSelect.value;
+            // getPartInfoに渡す材質は、部材タイプに応じて処理
+            let matForGetPartInfo;
+            if (partKey.startsWith("shelfBoard_") || partKey.startsWith("wallPanel_")) {
+              // 棚板/壁板はそのまま使用
+              matForGetPartInfo = newMat;
+            } else {
+              // その他の部材はnormalizeMaterialを通す
+              matForGetPartInfo = (typeof window.normalizeMaterial === "function")
+                ? window.normalizeMaterial(newMat)
+                : newMat;
+            }
+            
+            const newInfo = window.getPartInfo ? window.getPartInfo(partKey, matForGetPartInfo) : null;
+            const newUnitPrice = Number(newInfo?.unitPrice) || 0;
+            unitInput.value = newUnitPrice;
+            
+            // 単重も更新（もし材質によって変わる場合）
+            const newUnitWeight = Number(newInfo?.unitWeightG) || 0;
+            tdUnitW.dataset.weight = newUnitWeight;
+            tdUnitW.textContent = newUnitWeight.toLocaleString();
+            
+            // 行重量を再計算
+            const newQty = Number(qtyInput.value) || 0;
+            const newRowWeight = newUnitWeight * newQty;
+            tdRowW.textContent = formatWeight(newRowWeight);
+            
+            recalcTotals(data.total);
+          });
+        }
+      });
+
+      // ★ 初期表示時に一度だけ再計算
+        recalcTotals(data.total);
+
+      // 初回計算
+      recalcTotals(data.total);
+
+      // 一度使ったら削除（連続オープン時の混乱防止）
+      //　localStorage.removeItem("draftEstimate");
+
+      // 発行日を今日で初期化
+      const issueDateInput = document.getElementById("issueDate");
+      const validUntilInput = document.getElementById("validUntil");
+      const estimateNoInput = document.getElementById("estimateNo");
+      
+      function updateValidUntil() {
+        if (issueDateInput && validUntilInput) {
+          const issueDate = issueDateInput.value;
+          if (issueDate) {
+            const date = new Date(issueDate);
+            date.setDate(date.getDate() + 30);
+            const yyyy = date.getFullYear();
+            const mm = String(date.getMonth() + 1).padStart(2, "0");
+            const dd = String(date.getDate()).padStart(2, "0");
+            validUntilInput.value = `${yyyy}-${mm}-${dd}`;
+          }
+        }
+      }
+      
+      if (issueDateInput && !issueDateInput.value) {
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, "0");
+        const dd = String(now.getDate()).padStart(2, "0");
+        issueDateInput.value = `${yyyy}-${mm}-${dd}`;
+        
+        // 有効期限を発行日から30日後に設定
+        updateValidUntil();
+      }
+      
+      // 発行日変更時に有効期限を自動更新
+      if (issueDateInput) {
+        issueDateInput.addEventListener("change", updateValidUntil);
+      }
+      
+      // 見積番号を自動採番（YYYYMMDD-001形式）
+      if (estimateNoInput && !estimateNoInput.value) {
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, "0");
+        const dd = String(now.getDate()).padStart(2, "0");
+        // localStorageから連番を取得してインクリメント（日付が変わったらリセット）
+        const todayKey = `${yyyy}${mm}${dd}`;
+        const lastDateKey = localStorage.getItem("estimateLastDate");
+        let sequence = 1;
+        
+        if (lastDateKey === todayKey) {
+          // 同じ日付の場合は連番をインクリメント
+          sequence = parseInt(localStorage.getItem("estimateSequence") || "1", 10) + 1;
+        }
+        
+        localStorage.setItem("estimateLastDate", todayKey);
+        localStorage.setItem("estimateSequence", String(sequence));
+        
+        const estimateNo = `${todayKey}-${String(sequence).padStart(3, "0")}`;
+        estimateNoInput.value = estimateNo;
+      }
+    }
+
+    renderFromDraftEstimate();
+
+     </script>
+</body>
+</html>
