@@ -334,9 +334,13 @@
       }
     }
   </style>
+  <link rel="stylesheet" href="js/ui/admin-menu.css" />
 </head>
 
 <body>
+  <div class="estimate-admin-bar">
+    <button type="button" id="admin-menu-open-btn" class="admin-menu-trigger">管理者用</button>
+  </div>
   <div class="app-wrap">
     <!-- ヘッダー -->
     <div class="doc-header">
@@ -898,5 +902,29 @@ window._orderSurchargePerPiece =
       }
     })();
   </script>
+
+  <div id="admin-menu-overlay" class="admin-menu-overlay hidden" aria-hidden="true">
+    <div class="admin-menu-dialog" role="dialog" aria-labelledby="admin-menu-title">
+      <header class="admin-menu-header">
+        <h2 id="admin-menu-title">管理者用</h2>
+        <button type="button" id="admin-menu-close-btn">閉じる</button>
+      </header>
+      <div id="admin-menu-home">
+        <p class="admin-menu-hint">スタッフ向け機能です。在庫照合は3D画面（index.html）で行います。</p>
+        <div class="admin-menu-actions">
+          <button type="button" id="admin-menu-stock-btn" class="btn-secondary btn-full">在庫照合</button>
+          <a id="admin-menu-pricing-link" class="btn-secondary btn-full admin-menu-link-btn" href="https://cube-rack-stadio.netlify.app/admin-pricing-9fd83.html" target="_blank" rel="noopener noreferrer">価格管理</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    window.ADMIN_MENU_OPTIONS = {
+      stockMode: "redirect",
+      stockRedirectUrl: "index.html",
+    };
+  </script>
+  <script src="js/ui/admin-menu.js"></script>
 </body>
 </html>

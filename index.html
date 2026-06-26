@@ -4,6 +4,7 @@
   <link rel="icon" href="data:,">
   <meta charset="UTF-8" />
   <title>モジュール家具 見積り</title>
+  <link rel="stylesheet" href="js/ui/admin-menu.css" />
 
   <style>
     /* =========================================================
@@ -310,7 +311,8 @@
     }
     .utility-row{ 
       display:flex; 
-      gap:var(--sp-2); 
+      gap:var(--sp-2);
+      flex-wrap:wrap;
     }
     .utility-row button{ 
       flex:1; 
@@ -1277,6 +1279,7 @@
         <button id="grid-toggle-btn" class="btn-ghost btn-flex is-off">グリッドOFF</button>
         <button id="help-toggle-btn" class="btn-ghost btn-flex">操作ヘルプ</button>
         <button id="help-page-btn" class="btn-ghost btn-flex">説明書</button>
+        <button type="button" id="admin-menu-open-btn" class="btn-ghost btn-flex admin-menu-trigger">管理者用</button>
       </div>
     </section>
 
@@ -1554,6 +1557,25 @@
       </div>
     </section>
 
+  </div><!-- /panel -->
+
+  <!-- 管理者用メニュー -->
+  <div id="admin-menu-overlay" class="admin-menu-overlay hidden" aria-hidden="true">
+    <div class="admin-menu-dialog" role="dialog" aria-labelledby="admin-menu-title">
+      <header class="admin-menu-header">
+        <h2 id="admin-menu-title">管理者用</h2>
+        <button type="button" id="admin-menu-close-btn">閉じる</button>
+      </header>
+      <div id="admin-menu-home">
+        <p class="admin-menu-hint">スタッフ向け機能です。一般の操作には不要です。</p>
+        <div class="admin-menu-actions">
+          <button type="button" id="admin-menu-stock-btn" class="btn-secondary btn-full">在庫照合</button>
+          <a id="admin-menu-pricing-link" class="btn-secondary btn-full admin-menu-link-btn" href="https://cube-rack-stadio.netlify.app/admin-pricing-9fd83.html" target="_blank" rel="noopener noreferrer">価格管理</a>
+        </div>
+      </div>
+      <div id="admin-menu-stock-wrap" class="hidden">
+        <button type="button" id="admin-menu-stock-back-btn" class="admin-menu-stock-back">← メニューに戻る</button>
+        <div id="admin-stock-reconcile-host">
     <!-- 在庫照合（スタッフ向け・簡易ロック付き） -->
     <section class="card" id="stock-reconcile-card">
       <!-- 初期表示: 開くボタンのみ -->
@@ -1563,7 +1585,7 @@
         </button>
       </div>
       <!-- パスワード入力UI（モーダル） -->
-      <div id="stock-reconcile-gate-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; flex-direction: column; align-items: center; justify-content: center;">
+      <div id="stock-reconcile-gate-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1200; flex-direction: column; align-items: center; justify-content: center;">
         <div style="background: var(--panel-bg, #fff); padding: 20px; border-radius: var(--r-md, 10px); min-width: 280px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
           <div style="font-weight: 600; margin-bottom: 12px;">スタッフ用パスワード</div>
           <input type="password" id="stock-gate-password-input" placeholder="パスワード" style="width: 100%; padding: 8px 12px; margin-bottom: 8px; box-sizing: border-box; border: 1px solid var(--border); border-radius: var(--r-sm, 8px);" autocomplete="off" />
@@ -1604,8 +1626,10 @@
         </button>
       </div>
     </section>
-
-  </div><!-- /panel -->
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- three.js & OrbitControls（r128） -->
   <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
@@ -1659,6 +1683,8 @@
   <script src="js/features/display.js"></script>
 
   <!-- main -->
+  <script>window.ADMIN_MENU_OPTIONS = { stockMode: "embedded" };</script>
+  <script src="js/ui/admin-menu.js"></script>
   <script src="main.js"></script>
 </body>
 </html>

@@ -1,0 +1,161 @@
+/* 管理者用メニュー（index.html / estimate.html 共通） */
+.admin-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.admin-menu-overlay.hidden {
+  display: none;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.admin-menu-dialog {
+  width: min(100%, 520px);
+  max-height: min(92vh, 720px);
+  overflow: auto;
+  background: var(--panel-bg, #fff);
+  color: var(--text, #0f172a);
+  border-radius: var(--r-md, 10px);
+  border: 1px solid var(--border, #e2e8f0);
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.2);
+  padding: 14px 16px 16px;
+}
+
+.admin-menu-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.admin-menu-header h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+#admin-menu-close-btn,
+#admin-menu-stock-back-btn {
+  border: 1px solid var(--border, #d1d5db);
+  background: transparent;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  color: inherit;
+}
+
+#admin-menu-close-btn:hover,
+#admin-menu-stock-back-btn:hover {
+  background: var(--ghost-hover, #f3f4f6);
+}
+
+.admin-menu-hint {
+  margin: 0 0 12px;
+  font-size: 11px;
+  color: var(--muted, #64748b);
+  line-height: 1.45;
+}
+
+.admin-menu-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-menu-actions .btn-secondary,
+.admin-menu-actions .btn-full {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #d1d5db);
+  background: var(--ghost-bg, #f9fafb);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  color: inherit;
+  text-align: center;
+}
+
+.admin-menu-actions button.btn-secondary:hover {
+  background: var(--ghost-hover, #f3f4f6);
+}
+
+.admin-menu-link-btn {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+  box-sizing: border-box;
+  line-height: var(--control-h, 36px);
+}
+
+.admin-menu-stock-back {
+  margin-bottom: 10px;
+}
+
+#admin-stock-reconcile-host .card,
+#admin-stock-reconcile-host#stock-reconcile-card {
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.admin-menu-trigger {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  flex: 1 1 calc(50% - 4px);
+  min-width: 72px;
+}
+
+.utility-row {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 480px) {
+  .admin-menu-dialog {
+    width: 100%;
+    max-height: 94vh;
+    padding: 12px;
+  }
+
+  .admin-menu-trigger {
+    flex: 1 1 100%;
+  }
+}
+
+/* estimate.html 用トリガー */
+.estimate-admin-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+.estimate-admin-bar .admin-menu-trigger {
+  flex: 0 0 auto;
+  min-width: 88px;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  color: #374151;
+  cursor: pointer;
+}
+
+.estimate-admin-bar .admin-menu-trigger:hover {
+  background: #f3f4f6;
+}
