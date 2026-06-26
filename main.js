@@ -6353,7 +6353,7 @@ async function bootAppWithPrices() {
     try {
       await window.loadPriceCatalog();
     } catch (e) {
-      console.warn("[pricing] 価格表の読み込みに失敗。同梱デフォルトを使用します。", e);
+          console.warn("[pricing] 価格表の読み込みに失敗。parts-catalog.js の価格を使用します。", e);
     }
   }
   bootApp();

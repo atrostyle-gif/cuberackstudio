@@ -1,8 +1,17 @@
 // js/data/price-loader.js
-// Supabase 上の価格表 JSON を取得し、同梱デフォルトへマージする
+// リモート価格表 JSON を取得し、parts-catalog.js へマージする（開発時フォールバックあり）
 
 (function () {
   "use strict";
+
+  const CORE_PRICE_PART_KEYS = [
+    "jointBall", "jointCap", "topCap", "sideCap", "legBoss", "leg",
+    "m5Screw", "beamNut",
+    "beam_25", "beam_50", "beam_100", "beam_150", "beam_200",
+    "beam_300", "beam_400", "beam_600", "beam_800",
+    "pole_50", "pole_100", "pole_200", "pole_300", "pole_400",
+    "pole_500", "pole_600", "pole_800",
+  ];
 
   function isPlainObject(v) {
     return v !== null && typeof v === "object" && !Array.isArray(v);
@@ -35,15 +44,15 @@
     }
   }
 
-  function isSupabaseConfigured() {
+  function isRemoteConfigured() {
     const cfg = window.PRICING_CONFIG || {};
     return !!(cfg.supabaseUrl && cfg.supabaseAnonKey);
   }
 
-  function getSupabaseClient() {
-    if (!isSupabaseConfigured()) return null;
+  function getRemoteClient() {
+    if (!isRemoteConfigured()) return null;
     if (!window.supabase?.createClient) {
-      console.warn("[price-loader] @supabase/supabase-js が読み込まれていません");
+      console.warn("[price-loader] 価格クライアントが読み込まれていません");
       return null;
     }
     if (!window.__cuberackSupabaseClient) {
@@ -84,7 +93,7 @@
     }
     if (!hasCatalogPayload(catalog)) return null;
     catalog.updatedAt = catalog.updatedAt || row.updated_at || null;
-    catalog._source = "supabase";
+    catalog._source = "remote";
     return catalog;
   }
 
@@ -186,77 +195,72 @@
     };
   }
 
-  // parts-catalog.js 読み込み直後の価格（マージ前の同梱正本）
-  const bundledCatalogSnapshot = exportPriceCatalogSnapshot();
+  /**
+   * 価格表の内部整合性を検証（必須キー・単価の妥当性・IRON価格の一致など）
+   */
+  function checkPriceCatalogIntegrity(catalog) {
+    const issues = [];
+    let checked = 0;
 
-  const CORE_PRICE_PART_KEYS = [
-    "jointBall",
-    "jointCap",
-    "topCap",
-    "sideCap",
-    "legBoss",
-    "leg",
-    "m5Screw",
-    "beamNut",
-    "beam_25",
-    "beam_50",
-    "beam_100",
-    "beam_150",
-    "beam_200",
-    "beam_300",
-    "beam_400",
-    "beam_600",
-    "beam_800",
-    "pole_50",
-    "pole_100",
-    "pole_200",
-    "pole_300",
-    "pole_400",
-    "pole_500",
-    "pole_600",
-    "pole_800",
-  ];
-
-  function getBundledPriceCatalogSnapshot() {
-    return JSON.parse(JSON.stringify(bundledCatalogSnapshot));
-  }
-
-  function comparePriceCatalogToBundled(catalog) {
-    const bundled = bundledCatalogSnapshot;
-    const rows = [];
-    let allMatch = true;
-
-    function addRow(key, field, expected, actual) {
-      const match = Number(expected) === Number(actual);
-      if (!match) allMatch = false;
-      rows.push({ key, field, expected, actual, match });
+    function issue(key, field, message) {
+      issues.push({ key, field, message });
     }
 
     for (const key of CORE_PRICE_PART_KEYS) {
-      const expPrice = bundled.partsCatalog?.[key]?.unitPrice;
-      if (typeof expPrice === "number") {
-        addRow(
-          key,
-          "unitPrice (IRON)",
-          expPrice,
-          catalog?.partsCatalog?.[key]?.unitPrice
-        );
+      const cat = catalog?.partsCatalog?.[key];
+      const mat = catalog?.partPriceByMaterial?.[key];
+
+      if (!cat || typeof cat.unitPrice !== "number") {
+        issue(key, "unitPrice", "基本単価が未設定です");
+      } else {
+        checked++;
+        if (cat.unitPrice < 0) issue(key, "unitPrice", "単価が負の値です");
       }
 
-      const expByMat = bundled.partPriceByMaterial?.[key] || {};
-      const actByMat = catalog?.partPriceByMaterial?.[key] || {};
-      for (const mat of ["IRON", "BS", "SUS"]) {
-        if (typeof expByMat[mat] === "number") {
-          addRow(key, mat, expByMat[mat], actByMat[mat]);
+      if (!mat || typeof mat.IRON !== "number") {
+        issue(key, "IRON", "材種別単価（IRON）が未設定です");
+      } else {
+        checked++;
+        if (mat.IRON < 0) issue(key, "IRON", "単価が負の値です");
+        if (cat && typeof cat.unitPrice === "number" && cat.unitPrice !== mat.IRON) {
+          issue(key, "IRON", `基本単価（${cat.unitPrice}）と IRON 単価（${mat.IRON}）が一致しません`);
+        }
+      }
+
+      for (const m of ["BS", "SUS"]) {
+        if (mat && typeof mat[m] === "number") {
+          checked++;
+          if (mat[m] < 0) issue(key, m, "単価が負の値です");
         }
       }
     }
 
-    return { allMatch, rows, checkedCount: rows.length };
+    const boardKeys = Object.keys(catalog?.scaffoldBoardPrices || {});
+    const panelKeys = Object.keys(catalog?.scaffoldPanelPrices || {});
+    checked += boardKeys.length + panelKeys.length;
+
+    for (const k of boardKeys) {
+      const v = catalog.scaffoldBoardPrices[k];
+      if (typeof v !== "number" || v < 0) {
+        issue(k, "棚板", "単価が不正です");
+      }
+    }
+    for (const k of panelKeys) {
+      const v = catalog.scaffoldPanelPrices[k];
+      if (typeof v !== "number" || v < 0) {
+        issue(k, "壁板", "単価が不正です");
+      }
+    }
+
+    return {
+      ok: issues.length === 0,
+      issues,
+      checkedCount: checked,
+    };
   }
 
-  async function fetchSupabaseCatalog() {
-    const client = getSupabaseClient();
+  async function fetchRemoteCatalog() {
+    const client = getRemoteClient();
     if (!client) return null;
 
     const { data, error } = await client
@@ -275,7 +279,7 @@
     if (loadPromise && !options.force) return loadPromise;
 
     loadPromise = (async () => {
-      if (!isSupabaseConfigured()) {
+      if (!isRemoteConfigured()) {
         window.__PRICE_CATALOG_META__ = { source: "bundled" };
         return { source: "bundled" };
       }
@@ -289,7 +293,7 @@
         const cached = readCache();
         if (cached && hasCatalogPayload(cached)) {
           applyPriceCatalog({ ...cached, _source: "cache" });
-          fetchSupabaseCatalog()
+          fetchRemoteCatalog()
             .then((fresh) => {
               if (!fresh) return;
               writeCache(fresh);
@@ -303,22 +307,22 @@
       }
 
       try {
-        const remote = await fetchSupabaseCatalog();
+        const remote = await fetchRemoteCatalog();
         if (remote) {
           writeCache(remote);
           applyPriceCatalog(remote);
-          return { source: "supabase", data: remote };
+          return { source: "remote", data: remote };
         }
         return applyBundled();
       } catch (e) {
         const stale = readCache();
         if (stale && hasCatalogPayload(stale)) {
-          console.warn("[price-loader] Supabase failed, using stale cache", e);
+          console.warn("[price-loader] remote failed, using stale cache", e);
           applyPriceCatalog({ ...stale, _source: "stale-cache" });
           return { source: "stale-cache", data: stale, error: e };
         }
         console.warn(
-          "[price-loader] Supabase load failed, using bundled defaults",
+          "[price-loader] remote load failed, using parts-catalog fallback",
           e
         );
         return applyBundled();
@@ -329,12 +333,12 @@
   }
 
   async function savePriceCatalog(payload, options = {}) {
-    const client = getSupabaseClient();
-    if (!client) throw new Error("[price-loader] Supabase が未設定です");
+    const client = getRemoteClient();
+    if (!client) throw new Error("価格の保存先が未設定です");
 
     const adminPassword = options.adminPassword || "";
     if (!adminPassword) {
-      throw new Error("[price-loader] 管理者パスワードが必要です");
+      throw new Error("管理者パスワードが必要です");
     }
 
     const body = {
@@ -349,7 +353,9 @@
 
     if (error) throw error;
 
-    const saved = normalizeCatalogRow({ catalog_json: data, updated_at: body.updatedAt }) || body;
+    const saved =
+      normalizeCatalogRow({ catalog_json: data, updated_at: body.updatedAt }) ||
+      body;
     writeCache(saved);
     applyPriceCatalog(saved);
     return saved;
@@ -358,10 +364,10 @@
   window.deepMergePriceCatalog = deepMerge;
   window.applyPriceCatalog = applyPriceCatalog;
   window.exportPriceCatalogSnapshot = exportPriceCatalogSnapshot;
-  window.getBundledPriceCatalogSnapshot = getBundledPriceCatalogSnapshot;
-  window.comparePriceCatalogToBundled = comparePriceCatalogToBundled;
+  window.checkPriceCatalogIntegrity = checkPriceCatalogIntegrity;
   window.CORE_PRICE_PART_KEYS = CORE_PRICE_PART_KEYS;
-  window.fetchSupabaseCatalog = fetchSupabaseCatalog;
+  window.fetchRemoteCatalog = fetchRemoteCatalog;
+  window.fetchSupabaseCatalog = fetchRemoteCatalog;
   window.loadPriceCatalog = loadPriceCatalog;
   window.savePriceCatalog = savePriceCatalog;
 })();
