@@ -445,7 +445,10 @@
   <!-- 共通ユーティリティ -->
   <script src="js/utils/common.js"></script>
   
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
+  <script src="js/config/pricing-config.js"></script>
   <script src="js/data/parts-catalog.js"></script>
+  <script src="js/data/price-loader.js"></script>
 
   <script>
 
@@ -880,8 +883,20 @@ window._orderSurchargePerPiece =
       }
     }
 
-    renderFromDraftEstimate();
-
      </script>
+  <script>
+    (async function bootEstimateWithPrices() {
+      if (typeof window.loadPriceCatalog === "function") {
+        try {
+          await window.loadPriceCatalog();
+        } catch (e) {
+          console.warn("[pricing] 価格表の読み込みに失敗。同梱デフォルトを使用します。", e);
+        }
+      }
+      if (typeof renderFromDraftEstimate === "function") {
+        renderFromDraftEstimate();
+      }
+    })();
+  </script>
 </body>
 </html>

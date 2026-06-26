@@ -7,7 +7,7 @@ const STOCK_LENS_BEAM = [25, 50, 100, 150, 200, 300, 400, 600, 800];
 const STOCK_LENS_POLE = [50, 100, 200, 300, 400, 500, 600, 800];
 
 // 既製価格（あなたの表：材質別）
-const STOCK_PRICE = {
+const DEFAULT_STOCK_PRICE = {
   IRON: {
     BEAM: { 25:380, 50:420, 100:470, 150:470, 200:500, 300:580, 400:680, 600:800, 800:930 },
     POLE: { 50:410, 100:470, 200:500, 300:580, 400:680, 500:750, 600:800, 800:930 },
@@ -22,8 +22,10 @@ const STOCK_PRICE = {
   },
 };
 
+let STOCK_PRICE = JSON.parse(JSON.stringify(DEFAULT_STOCK_PRICE));
+
 // パラメータ（IRONは確定、BS/SUSは暫定）
-const PARAMS = {
+const DEFAULT_PARAMS = {
   IRON: {
     BEAM: { A: 390.68, B: 0.6797, k_cut: 2.10, k_build: 1.92 },
     POLE: { A: 390.68, B: 0.6797, k_cut: 2.10, k_build: 1.92 },
@@ -36,6 +38,38 @@ const PARAMS = {
     BEAM: { A: 406.95, B: 1.9915, k_cut: 2.10, k_build: 1.92 }, // 暫定
     POLE: { A: 545.42, B: 1.6373, k_cut: 2.10, k_build: 1.92 }, // 暫定
   },
+};
+
+let PARAMS = JSON.parse(JSON.stringify(DEFAULT_PARAMS));
+
+function mergeOrderPricingTable(base, patch) {
+  if (!patch || typeof patch !== "object") return base;
+  const out = JSON.parse(JSON.stringify(base));
+  for (const mat of Object.keys(patch)) {
+    if (!out[mat]) out[mat] = {};
+    for (const type of Object.keys(patch[mat] || {})) {
+      if (!out[mat][type]) out[mat][type] = {};
+      Object.assign(out[mat][type], patch[mat][type]);
+    }
+  }
+  return out;
+}
+
+window.applyOrderPricingOverrides = function applyOrderPricingOverrides(overrides) {
+  if (!overrides || typeof overrides !== "object") return;
+  if (overrides.stockPrice) {
+    STOCK_PRICE = mergeOrderPricingTable(DEFAULT_STOCK_PRICE, overrides.stockPrice);
+  }
+  if (overrides.params) {
+    PARAMS = mergeOrderPricingTable(DEFAULT_PARAMS, overrides.params);
+  }
+};
+
+window.exportOrderPricingSnapshot = function exportOrderPricingSnapshot() {
+  return {
+    stockPrice: JSON.parse(JSON.stringify(STOCK_PRICE)),
+    params: JSON.parse(JSON.stringify(PARAMS)),
+  };
 };
 
 function roundYen(x) { return Math.round(x); }

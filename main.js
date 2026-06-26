@@ -6342,13 +6342,28 @@ function bootApp() {
   if (typeof window.initDisplayFeatures === "function") {
     window.initDisplayFeatures();
   }
+
+  if (typeof window.calcAndRenderEstimate === "function") {
+    try { window.calcAndRenderEstimate(); } catch (_) {}
+  }
+}
+
+async function bootAppWithPrices() {
+  if (typeof window.loadPriceCatalog === "function") {
+    try {
+      await window.loadPriceCatalog();
+    } catch (e) {
+      console.warn("[pricing] 価格表の読み込みに失敗。同梱デフォルトを使用します。", e);
+    }
+  }
+  bootApp();
 }
 
 // DOMの準備ができたタイミングで確実に起動
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", bootApp);
+  document.addEventListener("DOMContentLoaded", bootAppWithPrices);
 } else {
-  bootApp();
+  bootAppWithPrices();
 }
 
 function getSelectedConnectorInfo() {

@@ -1,0 +1,2 @@
+User-agent: *
+Disallow: /admin-pricing-9fd83.html

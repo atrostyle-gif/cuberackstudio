@@ -1368,3 +1368,9 @@ window.getRealPoleLength = getRealPoleLength;
 window.REAL_DIM = REAL_DIM;
 window.REAL_RADIUS = REAL_RADIUS;
 window.REAL_STACK = REAL_STACK;
+
+window.addEventListener("cuberack:prices-loaded", () => {
+  if (typeof window.calcAndRenderEstimate === "function") {
+    try { window.calcAndRenderEstimate(); } catch (_) {}
+  }
+});

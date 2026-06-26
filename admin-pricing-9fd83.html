@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex,nofollow">
+  <title>CUBERACK 価格表管理</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; color: #222; }
+    body { margin: 0; padding: 16px 20px 40px; background: #f6f7f9; }
+    h1 { font-size: 1.25rem; margin: 0 0 12px; }
+    .panel { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 14px; margin-bottom: 14px; max-width: 960px; }
+    label { display: block; font-size: 0.85rem; margin-bottom: 4px; color: #444; }
+    input[type="password"], input[type="number"] {
+      width: 100%; max-width: 320px; box-sizing: border-box; padding: 8px;
+      border: 1px solid #ccc; border-radius: 6px;
+    }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    button {
+      padding: 8px 14px; border-radius: 6px; border: 1px solid #888; background: #fff; cursor: pointer;
+    }
+    button.primary { background: #1f6feb; color: #fff; border-color: #1f6feb; }
+    #status, #loginError { font-size: 0.9rem; margin-top: 8px; min-height: 1.2em; }
+    #loginError { color: #b00020; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th, td { border: 1px solid #e2e2e2; padding: 6px 8px; text-align: left; }
+    th { background: #f0f2f5; }
+    td input { width: 90px; }
+    .tabs { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+    .tab { padding: 6px 10px; border: 1px solid #bbb; border-radius: 999px; background: #fff; cursor: pointer; }
+    .tab.active { background: #1f6feb; color: #fff; border-color: #1f6feb; }
+    .hidden { display: none; }
+    .hint { font-size: 0.8rem; color: #666; margin-top: 6px; }
+    #loginScreen { max-width: 400px; margin: 40px auto; }
+    #comparePanel { max-width: 960px; font-size: 0.85rem; }
+    #comparePanel.ok { border-color: #2e7d32; background: #f1f8f4; }
+    #comparePanel.ng { border-color: #c62828; background: #fff5f5; }
+    .match-ok { color: #2e7d32; }
+    .match-ng { color: #c62828; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div id="loginScreen" class="panel">
+    <h1>CUBERACK 価格表管理</h1>
+    <p class="hint">管理者パスワードを入力してください。</p>
+    <label for="loginPassword">パスワード</label>
+    <input id="loginPassword" type="password" autocomplete="current-password" />
+    <div class="actions">
+      <button type="button" class="primary" id="btnLogin">ログイン</button>
+    </div>
+    <div id="loginError"></div>
+  </div>
+
+  <div id="adminApp" class="hidden">
+    <h1>CUBERACK 価格表管理</h1>
+
+    <div class="panel">
+      <div class="actions">
+        <button type="button" id="btnLoad">Supabase から読み込み</button>
+        <button type="button" id="btnDefaults">同梱デフォルトを読み込み</button>
+        <button type="button" class="primary" id="btnSave">Supabase へ保存</button>
+        <button type="button" id="btnVerify">同梱価格と照合</button>
+        <button type="button" id="btnExport">JSON ダウンロード</button>
+        <button type="button" id="btnLogout">ログアウト</button>
+      </div>
+      <div id="status"></div>
+      <p class="hint">初回登録: 「同梱デフォルトを読み込み」→「Supabase へ保存」→「Supabase から読み込み」→「同梱価格と照合」で一致を確認できます。</p>
+    </div>
+
+    <div id="comparePanel" class="panel hidden"></div>
+
+    <div class="panel">
+      <div class="tabs">
+        <button type="button" class="tab active" data-tab="basic">基本パーツ（IRON）</button>
+        <button type="button" class="tab" data-tab="material">材種別（Beam/Pole）</button>
+        <button type="button" class="tab" data-tab="board">棚板サイズ別</button>
+        <button type="button" class="tab" data-tab="panel">壁板サイズ別</button>
+      </div>
+      <div id="tab-basic"></div>
+      <div id="tab-material" class="hidden"></div>
+      <div id="tab-board" class="hidden"></div>
+      <div id="tab-panel" class="hidden"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
+  <script src="js/config/pricing-config.js"></script>
+  <script src="js/data/parts-catalog.js"></script>
+  <script src="js/app/order-pricing.js"></script>
+  <script src="js/data/price-loader.js"></script>
+  <script>
+    const AUTH_KEY = "cuberack_price_admin_auth";
+    const loginScreen = document.getElementById("loginScreen");
+    const adminApp = document.getElementById("adminApp");
+    const loginPasswordEl = document.getElementById("loginPassword");
+    const loginErrorEl = document.getElementById("loginError");
+    const statusEl = document.getElementById("status");
+
+    let catalog = window.getBundledPriceCatalogSnapshot
+      ? window.getBundledPriceCatalogSnapshot()
+      : window.exportPriceCatalogSnapshot();
+    let sessionPassword = "";
+
+    function renderCompareResult(result) {
+      const panel = document.getElementById("comparePanel");
+      if (!result) {
+        panel.classList.add("hidden");
+        return;
+      }
+      panel.classList.remove("hidden");
+      panel.classList.toggle("ok", result.allMatch);
+      panel.classList.toggle("ng", !result.allMatch);
+
+      const mismatches = result.rows.filter((r) => !r.match);
+      const summary = result.allMatch
+        ? `✓ 一致（${result.checkedCount} 項目すべて parts-catalog.js と同じ）`
+        : `✗ 不一致（${mismatches.length} / ${result.checkedCount} 項目）`;
+
+      panel.innerHTML = `<h2 style="font-size:1rem;margin:0 0 8px;">照合結果: ${summary}</h2>
+        <table><thead><tr><th>パーツ</th><th>項目</th><th>同梱 (parts-catalog.js)</th><th>比較対象</th><th>結果</th></tr></thead>
+        <tbody>${result.rows.map((r) => `<tr>
+          <td>${r.key}</td><td>${r.field}</td>
+          <td>${r.expected}</td><td>${r.actual ?? "—"}</td>
+          <td class="${r.match ? "match-ok" : "match-ng"}">${r.match ? "一致" : "不一致"}</td>
+        </tr>`).join("")}</tbody></table>`;
+    }
+
+    function verifyCatalog(target, statusPrefix) {
+      if (typeof window.comparePriceCatalogToBundled !== "function") {
+        setStatus("照合機能が読み込まれていません。", true);
+        return null;
+      }
+      const result = window.comparePriceCatalogToBundled(target);
+      renderCompareResult(result);
+      if (result.allMatch) {
+        setStatus(`${statusPrefix} parts-catalog.js の価格と完全一致しました（${result.checkedCount} 項目）。`);
+      } else {
+        const n = result.rows.filter((r) => !r.match).length;
+        setStatus(`${statusPrefix} ${n} 項目が同梱価格と異なります。`, true);
+      }
+      return result;
+    }
+
+    function setStatus(msg, isError) {
+      statusEl.textContent = msg || "";
+      statusEl.style.color = isError ? "#b00020" : "#333";
+    }
+
+    function getExpectedPassword() {
+      return (window.PRICING_CONFIG && window.PRICING_CONFIG.adminPassword) || "";
+    }
+
+    function showAdmin() {
+      loginScreen.classList.add("hidden");
+      adminApp.classList.remove("hidden");
+      renderAll();
+    }
+
+    function showLogin() {
+      sessionPassword = "";
+      sessionStorage.removeItem(AUTH_KEY);
+      adminApp.classList.add("hidden");
+      loginScreen.classList.remove("hidden");
+      loginPasswordEl.value = "";
+      loginErrorEl.textContent = "";
+    }
+
+    function tryLogin() {
+      const expected = getExpectedPassword();
+      const input = loginPasswordEl.value;
+      if (!expected) {
+        loginErrorEl.textContent = "pricing-config.js に adminPassword が設定されていません。";
+        return;
+      }
+      if (input !== expected) {
+        loginErrorEl.textContent = "パスワードが正しくありません。";
+        return;
+      }
+      sessionPassword = input;
+      sessionStorage.setItem(AUTH_KEY, "1");
+      loginErrorEl.textContent = "";
+      showAdmin();
+    }
+
+    function renderBasicTable() {
+      const el = document.getElementById("tab-basic");
+      const keys = Object.keys(catalog.partsCatalog || {}).filter((k) => {
+        const v = catalog.partsCatalog[k];
+        return v && typeof v.unitPrice === "number";
+      });
+      el.innerHTML = `<table><thead><tr><th>キー</th><th>名称</th><th>単価（円）</th></tr></thead><tbody>${
+        keys.map((k) => {
+          const item = catalog.partsCatalog[k];
+          return `<tr data-group="partsCatalog" data-key="${k}">
+            <td>${k}</td><td>${item.label || ""}</td>
+            <td><input type="number" min="0" step="1" value="${item.unitPrice || 0}" data-field="unitPrice" /></td>
+          </tr>`;
+        }).join("")
+      }</tbody></table>`;
+    }
+
+    function renderMaterialTable() {
+      const el = document.getElementById("tab-material");
+      const map = catalog.partPriceByMaterial || {};
+      const keys = Object.keys(map);
+      el.innerHTML = `<table><thead><tr><th>キー</th><th>IRON</th><th>BS</th><th>SUS</th></tr></thead><tbody>${
+        keys.map((k) => {
+          const row = map[k] || {};
+          return `<tr data-group="partPriceByMaterial" data-key="${k}">
+            <td>${k}</td>
+            <td><input type="number" min="0" step="1" value="${row.IRON ?? ""}" data-mat="IRON" /></td>
+            <td><input type="number" min="0" step="1" value="${row.BS ?? ""}" data-mat="BS" /></td>
+            <td><input type="number" min="0" step="1" value="${row.SUS ?? ""}" data-mat="SUS" /></td>
+          </tr>`;
+        }).join("")
+      }</tbody></table>`;
+    }
+
+    function renderSizeTable(targetId, groupName, tableObj) {
+      const el = document.getElementById(targetId);
+      const keys = Object.keys(tableObj || {}).sort();
+      el.innerHTML = `<table><thead><tr><th>サイズ</th><th>単価（円）</th></tr></thead><tbody>${
+        keys.map((k) => `<tr data-group="${groupName}" data-key="${k}">
+          <td>${k}</td><td><input type="number" min="0" step="1" value="${tableObj[k] || 0}" /></td>
+        </tr>`).join("")
+      }</tbody></table>`;
+    }
+
+    function renderAll() {
+      renderBasicTable();
+      renderMaterialTable();
+      renderSizeTable("tab-board", "scaffoldBoardPrices", catalog.scaffoldBoardPrices);
+      renderSizeTable("tab-panel", "scaffoldPanelPrices", catalog.scaffoldPanelPrices);
+    }
+
+    function collectFromDom() {
+      document.querySelectorAll("tr[data-group]").forEach((tr) => {
+        const group = tr.dataset.group;
+        const key = tr.dataset.key;
+        if (!group || !key) return;
+
+        if (group === "partsCatalog") {
+          const input = tr.querySelector('input[data-field="unitPrice"]');
+          const price = Number(input?.value) || 0;
+          if (!catalog.partsCatalog[key]) catalog.partsCatalog[key] = {};
+          catalog.partsCatalog[key].unitPrice = price;
+          if (catalog.partPriceByMaterial[key]) {
+            catalog.partPriceByMaterial[key].IRON = price;
+          }
+        } else if (group === "partPriceByMaterial") {
+          if (!catalog.partPriceByMaterial[key]) catalog.partPriceByMaterial[key] = {};
+          tr.querySelectorAll("input[data-mat]").forEach((inp) => {
+            const mat = inp.dataset.mat;
+            const v = inp.value.trim();
+            if (v === "") return;
+            catalog.partPriceByMaterial[key][mat] = Number(v) || 0;
+          });
+        } else if (group === "scaffoldBoardPrices" || group === "scaffoldPanelPrices") {
+          const input = tr.querySelector("input");
+          catalog[group][key] = Number(input?.value) || 0;
+        }
+      });
+      catalog.updatedAt = new Date().toISOString();
+    }
+
+    document.getElementById("btnLogin").addEventListener("click", tryLogin);
+    loginPasswordEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") tryLogin();
+    });
+    document.getElementById("btnLogout").addEventListener("click", showLogin);
+
+    document.querySelectorAll(".tab").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        const tab = btn.dataset.tab;
+        ["basic", "material", "board", "panel"].forEach((id) => {
+          document.getElementById(`tab-${id}`).classList.toggle("hidden", id !== tab);
+        });
+      });
+    });
+
+    document.getElementById("btnDefaults").addEventListener("click", () => {
+      catalog = window.getBundledPriceCatalogSnapshot();
+      renderAll();
+      const result = verifyCatalog(catalog, "同梱デフォルト:");
+      if (result?.allMatch) {
+        setStatus("同梱デフォルトを読み込みました。Supabase へ保存できます。");
+      }
+    });
+
+    document.getElementById("btnVerify").addEventListener("click", () => {
+      collectFromDom();
+      verifyCatalog(catalog, "現在の編集内容:");
+    });
+
+    document.getElementById("btnLoad").addEventListener("click", async () => {
+      try {
+        setStatus("読み込み中…");
+        const remote = await window.fetchSupabaseCatalog();
+        if (!remote) {
+          setStatus("Supabase に価格データがまだありません。デフォルトを編集して保存してください。", true);
+          return;
+        }
+        catalog = remote;
+        renderAll();
+        verifyCatalog(catalog, "Supabase 読み込み後:");
+      } catch (e) {
+        setStatus("読み込み失敗: " + e.message, true);
+      }
+    });
+
+    document.getElementById("btnSave").addEventListener("click", async () => {
+      collectFromDom();
+      if (!sessionPassword) {
+        setStatus("セッションが切れました。再ログインしてください。", true);
+        showLogin();
+        return;
+      }
+      try {
+        setStatus("保存中…");
+        await window.savePriceCatalog(catalog, { adminPassword: sessionPassword });
+        const remote = await window.fetchSupabaseCatalog();
+        if (remote) {
+          catalog = remote;
+          renderAll();
+          verifyCatalog(catalog, "保存後の Supabase:");
+        } else {
+          setStatus("Supabase へ保存しました。");
+        }
+      } catch (e) {
+        setStatus("保存失敗: " + e.message, true);
+      }
+    });
+
+    document.getElementById("btnExport").addEventListener("click", () => {
+      collectFromDom();
+      const blob = new Blob([JSON.stringify(catalog, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "cuberack-prices.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+      setStatus("JSON をダウンロードしました。");
+    });
+
+    if (sessionStorage.getItem(AUTH_KEY) === "1" && getExpectedPassword()) {
+      sessionPassword = getExpectedPassword();
+      showAdmin();
+    }
+  </script>
+</body>
+</html>
