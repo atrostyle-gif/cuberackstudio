@@ -3,7 +3,7 @@
   "use strict";
 
   var DEFAULT_PRICING_URL =
-    "https://cube-rack-stadio.netlify.app/admin-pricing-9fd83.html";
+    "https://cube-rack-studio.netlify.app/admin-pricing-9fd83.html";
 
   function initAdminMenu(options) {
     options = options || {};
