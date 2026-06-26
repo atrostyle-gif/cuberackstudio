@@ -32,10 +32,10 @@
     if (key === "wallPanel") return 2001;
 
     const shelfBracket = /^shelfBracket_(\d+)$/.exec(key);
-    if (shelfBracket) return 2100 + Number(shelfBracket[1]);
+    if (shelfBracket) return 3000 + Number(shelfBracket[1]);
 
     const wallBracket = /^wallBracket_(\d+)$/.exec(key);
-    if (wallBracket) return 2200 + Number(wallBracket[1]);
+    if (wallBracket) return 4000 + Number(wallBracket[1]);
 
     return 9000;
   }
