@@ -441,12 +441,20 @@
       });
     }
 
+    function sortKeys(keys) {
+      return typeof window.sortPriceCatalogKeys === "function"
+        ? window.sortPriceCatalogKeys(keys)
+        : keys.slice().sort();
+    }
+
     function renderBasicTable() {
       const el = document.getElementById("tab-basic");
-      const keys = Object.keys(catalog.partsCatalog || {}).filter((k) => {
-        const v = catalog.partsCatalog[k];
-        return v && typeof v.unitPrice === "number";
-      });
+      const keys = sortKeys(
+        Object.keys(catalog.partsCatalog || {}).filter((k) => {
+          const v = catalog.partsCatalog[k];
+          return v && typeof v.unitPrice === "number";
+        })
+      );
       el.innerHTML = `<table><thead><tr><th>キー</th><th>名称</th><th>単価</th></tr></thead><tbody>${
         keys.map((k) => {
           const item = catalog.partsCatalog[k];
@@ -461,7 +469,7 @@
     function renderMaterialTable() {
       const el = document.getElementById("tab-material");
       const map = catalog.partPriceByMaterial || {};
-      const keys = Object.keys(map);
+      const keys = sortKeys(Object.keys(map));
       el.innerHTML = `<table><thead><tr><th>キー</th><th>IRON</th><th>BS</th><th>SUS</th></tr></thead><tbody>${
         keys.map((k) => {
           const row = map[k] || {};

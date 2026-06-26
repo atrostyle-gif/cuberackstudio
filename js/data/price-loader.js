@@ -13,6 +13,41 @@
     "pole_500", "pole_600", "pole_800",
   ];
 
+  const BASIC_PART_KEYS = [
+    "jointBall", "jointCap", "topCap", "sideCap",
+    "legBoss", "leg", "beamNut", "m5Screw",
+  ];
+
+  function catalogKeyRank(key) {
+    const basicIdx = BASIC_PART_KEYS.indexOf(key);
+    if (basicIdx >= 0) return basicIdx;
+
+    const beam = /^beam_(\d+)$/.exec(key);
+    if (beam) return 100 + Number(beam[1]);
+
+    const pole = /^pole_(\d+)$/.exec(key);
+    if (pole) return 1000 + Number(pole[1]);
+
+    if (key === "shelfBoard") return 2000;
+    if (key === "wallPanel") return 2001;
+
+    const shelfBracket = /^shelfBracket_(\d+)$/.exec(key);
+    if (shelfBracket) return 2100 + Number(shelfBracket[1]);
+
+    const wallBracket = /^wallBracket_(\d+)$/.exec(key);
+    if (wallBracket) return 2200 + Number(wallBracket[1]);
+
+    return 9000;
+  }
+
+  function sortPriceCatalogKeys(keys) {
+    return [...keys].sort((a, b) => {
+      const diff = catalogKeyRank(a) - catalogKeyRank(b);
+      if (diff !== 0) return diff;
+      return a.localeCompare(b);
+    });
+  }
+
   function isPlainObject(v) {
     return v !== null && typeof v === "object" && !Array.isArray(v);
   }
@@ -366,6 +401,7 @@
   window.exportPriceCatalogSnapshot = exportPriceCatalogSnapshot;
   window.checkPriceCatalogIntegrity = checkPriceCatalogIntegrity;
   window.CORE_PRICE_PART_KEYS = CORE_PRICE_PART_KEYS;
+  window.sortPriceCatalogKeys = sortPriceCatalogKeys;
   window.fetchRemoteCatalog = fetchRemoteCatalog;
   window.fetchSupabaseCatalog = fetchRemoteCatalog;
   window.loadPriceCatalog = loadPriceCatalog;
