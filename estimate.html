@@ -735,12 +735,22 @@ window._orderSurchargePerPiece =
           matSelect.style.fontSize = "12px";
           matSelect.style.textAlign = "center";
           
-          const options = ["IRON", "BS", "SUS"];
-          options.forEach(opt => {
+          const options = window.MATERIALS || ["IRON", "BS", "SUS"];
+          const currentMat = (typeof window.normalizeMaterial === "function")
+            ? window.normalizeMaterial(mat)
+            : mat;
+          options.forEach((opt) => {
+            const isSelectable = typeof window.isMaterialSelectable === "function"
+              ? window.isMaterialSelectable(opt)
+              : true;
+            const isCurrent = opt === currentMat;
+            if (!isSelectable && !isCurrent) return;
+
             const option = document.createElement("option");
             option.value = opt;
-            option.textContent = opt;
-            if (opt === mat) option.selected = true;
+            option.textContent = (!isSelectable && isCurrent) ? `${opt}（一時停止）` : opt;
+            option.disabled = !isSelectable;
+            if (isCurrent) option.selected = true;
             matSelect.appendChild(option);
           });
           tdMat.appendChild(matSelect);
@@ -786,6 +796,10 @@ window._orderSurchargePerPiece =
         // 材質変更時も再計算（select要素がある場合のみ）
         if (matSelect) {
           matSelect.addEventListener("change", () => {
+            if (typeof window.isMaterialSelectable === "function" && !window.isMaterialSelectable(matSelect.value)) {
+              matSelect.value = window.coerceSelectableMaterial?.(matSelect.value) || "IRON";
+              return;
+            }
             // 材質変更に応じて単価を更新
             const newMat = matSelect.value;
             // getPartInfoに渡す材質は、部材タイプに応じて処理

@@ -19,7 +19,10 @@ const MATERIAL_COLOR = {
 window.__CR_CURRENT_MATERIAL__ = window.__CR_CURRENT_MATERIAL__ || "IRON";
 
 function getCurrentMaterial() {
-  return normalizeMaterial(window.__CR_CURRENT_MATERIAL__);
+  const m = normalizeMaterial(window.__CR_CURRENT_MATERIAL__);
+  return typeof window.coerceSelectableMaterial === "function"
+    ? window.coerceSelectableMaterial(m)
+    : m;
 }
 
 // =========================================================

@@ -422,10 +422,15 @@ function initMaterialSelectUI() {
   if (sel.__matBound) return;
   sel.__matBound = true;
 
+  window.syncMaterialSelectOptions?.(sel);
+
   function applyUI(mat) {
-    const m = (typeof window.normalizeMaterial === "function") 
-      ? window.normalizeMaterial(mat || "IRON") 
+    let m = (typeof window.normalizeMaterial === "function")
+      ? window.normalizeMaterial(mat || "IRON")
       : (mat || "IRON");
+    if (typeof window.coerceSelectableMaterial === "function") {
+      m = window.coerceSelectableMaterial(m);
+    }
     window.__CR_CURRENT_MATERIAL__ = m;
     sel.value = m;
 

@@ -2286,17 +2286,21 @@ function initSmallPartsMaterialUI() {
   // JointSetに含まれるパーツタイプ
   const jointSetTypes = ["jointBall", "leg", "jointCap", "topCap", "sideCap", "beamNut", "m5Screw"];
 
-  // 初期値：既存の材質があればそれを使用、なければIRON
+  window.syncMaterialSelectOptions?.(sel, { resetIfDisabled: false });
+
+  // 初期値：既存の材質があればそれを使用、なければIRON（選択不可材種はIRONへ）
   let initialMat = "IRON";
   try {
     const firstType = jointSetTypes[0];
     initialMat = getPartTypeMaterial(firstType);
   } catch {}
-  sel.value = initialMat;
+  sel.value = window.coerceSelectableMaterial?.(initialMat) || "IRON";
 
   // 材質をJointSetのすべてのパーツタイプに適用する関数
   function applyMaterialToJointSet(mat) {
-    const normalizedMat = normalizeMaterial(mat || "IRON");
+    const normalizedMat = typeof window.coerceSelectableMaterial === "function"
+      ? window.coerceSelectableMaterial(mat || "IRON")
+      : normalizeMaterial(mat || "IRON");
     
     for (const type of jointSetTypes) {
       setPartTypeMaterial(type, normalizedMat);
@@ -2546,7 +2550,10 @@ if (!window.viewEl) {
       // JointSet材質適用モードが有効な場合はLegの材質も適用
       if (window.__CR_JOINTSET_MATERIAL_APPLY_MODE__) {
         const sel = document.getElementById("mat-jointSet");
-        const mat = normalizeMaterial(sel?.value || "IRON");
+        const raw = sel?.value || "IRON";
+        const mat = typeof window.coerceSelectableMaterial === "function"
+          ? window.coerceSelectableMaterial(raw)
+          : normalizeMaterial(raw);
         setPartTypeMaterial("leg", mat);
         
         // 見積/部材明細更新
@@ -2885,11 +2892,12 @@ if (!window.isConnectModeOn && !window.isLengthEditModeOn && !window.__CR_MATERI
 
             // 材質適用モードが有効な場合は自動的に材質を適用
             if (window.__CR_MATERIAL_APPLY_MODE__) {
-              const mat = normalizeMaterial(
-                document.getElementById("material-select")?.value || 
-                window.__CR_CURRENT_MATERIAL__ || 
-                "IRON"
-              );
+              const raw = document.getElementById("material-select")?.value ||
+                window.__CR_CURRENT_MATERIAL__ ||
+                "IRON";
+              const mat = typeof window.coerceSelectableMaterial === "function"
+                ? window.coerceSelectableMaterial(raw)
+                : normalizeMaterial(raw);
               const ok = applyMaterialToConnector("beam", bIdx, mat);
               if (ok) {
                 afterMaterialChange("apply material to clicked beam");
@@ -2927,11 +2935,12 @@ return;
 
             // 材質適用モードが有効な場合は自動的に材質を適用
             if (window.__CR_MATERIAL_APPLY_MODE__) {
-              const mat = normalizeMaterial(
-                document.getElementById("material-select")?.value || 
-                window.__CR_CURRENT_MATERIAL__ || 
-                "IRON"
-              );
+              const raw = document.getElementById("material-select")?.value ||
+                window.__CR_CURRENT_MATERIAL__ ||
+                "IRON";
+              const mat = typeof window.coerceSelectableMaterial === "function"
+                ? window.coerceSelectableMaterial(raw)
+                : normalizeMaterial(raw);
               const ok = applyMaterialToConnector("pole", pIdx, mat);
               if (ok) {
                 afterMaterialChange("apply material to clicked pole");
@@ -3000,7 +3009,10 @@ return;
         }
         
         const sel = document.getElementById("mat-jointSet");
-        const mat = (typeof window.normalizeMaterial === "function" ? window.normalizeMaterial : normalizeMaterial)(sel?.value || "IRON");
+        const raw = sel?.value || "IRON";
+        const mat = typeof window.coerceSelectableMaterial === "function"
+          ? window.coerceSelectableMaterial(raw)
+          : (typeof window.normalizeMaterial === "function" ? window.normalizeMaterial : normalizeMaterial)(raw);
         if (typeof window.setPartTypeMaterial === "function") {
           window.setPartTypeMaterial("jointBall", mat);
         } else if (typeof setPartTypeMaterial === "function") {
@@ -3033,7 +3045,10 @@ return;
       // JointSet材質適用モード中は、setSelectedJointの後に材質色と選択色を再適用
       if (window.__CR_JOINTSET_MATERIAL_APPLY_MODE__) {
         const sel = document.getElementById("mat-jointSet");
-        const mat = (typeof window.normalizeMaterial === "function" ? window.normalizeMaterial : normalizeMaterial)(sel?.value || "IRON");
+        const raw = sel?.value || "IRON";
+        const mat = typeof window.coerceSelectableMaterial === "function"
+          ? window.coerceSelectableMaterial(raw)
+          : (typeof window.normalizeMaterial === "function" ? window.normalizeMaterial : normalizeMaterial)(raw);
         const clickedMesh = (Array.isArray(window.jointMeshes) ? window.jointMeshes[idx] : null) ||
                             (Array.isArray(jointMeshes) ? jointMeshes[idx] : null);
         if (clickedMesh) {
@@ -6390,7 +6405,9 @@ function getSelectedConnectorInfo() {
 }
 
 function applyMaterialToConnector(type, index, mat) {
-  const m = normalizeMaterial(mat || "IRON");
+  const m = typeof window.coerceSelectableMaterial === "function"
+    ? window.coerceSelectableMaterial(mat || "IRON")
+    : normalizeMaterial(mat || "IRON");
 
   if (type === "beam") {
     const b = window.beams?.[index];
@@ -6412,7 +6429,9 @@ function applyMaterialToConnector(type, index, mat) {
 }
 
 function applyMaterialToAllOfType(type, mat) {
-  const m = normalizeMaterial(mat || "IRON");
+  const m = typeof window.coerceSelectableMaterial === "function"
+    ? window.coerceSelectableMaterial(mat || "IRON")
+    : normalizeMaterial(mat || "IRON");
 
   if (type === "beam" && Array.isArray(window.beams)) {
     for (const b of window.beams) {
@@ -6454,7 +6473,10 @@ function initMaterialApplyButtonsUI() {
   btnSel.__matBound = btnBeam.__matBound = btnPole.__matBound = true;
 
   function currentMatFromUI() {
-    return normalizeMaterial(selMat.value || window.__CR_CURRENT_MATERIAL__ || "IRON");
+    const raw = selMat.value || window.__CR_CURRENT_MATERIAL__ || "IRON";
+    return typeof window.coerceSelectableMaterial === "function"
+      ? window.coerceSelectableMaterial(raw)
+      : normalizeMaterial(raw);
   }
 
   btnSel.addEventListener("click", () => {

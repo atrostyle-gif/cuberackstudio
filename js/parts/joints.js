@@ -71,7 +71,10 @@ function setSelectedJoint(index) {
       // JointSet材質適用モード中は、UIから最新の材質を取得
       const sel = document.getElementById("mat-jointSet");
       if (sel) {
-        const normalizedMat = (typeof window.normalizeMaterial === "function" ? window.normalizeMaterial : normalizeMaterial)(sel.value || "IRON");
+        const raw = sel.value || "IRON";
+        const normalizedMat = typeof window.coerceSelectableMaterial === "function"
+          ? window.coerceSelectableMaterial(raw)
+          : (typeof window.normalizeMaterial === "function" ? window.normalizeMaterial : normalizeMaterial)(raw);
         baseMat = normalizedMat;
       } else {
         baseMat = (typeof getPartTypeMaterial === "function" ? getPartTypeMaterial("jointBall") : null) ||
@@ -105,7 +108,10 @@ function setSelectedJoint(index) {
     // JointSet材質適用モード中は、UIから最新の材質を取得
     const sel = document.getElementById("mat-jointSet");
     if (sel) {
-      const normalizedMat = (typeof window.normalizeMaterial === "function" ? window.normalizeMaterial : normalizeMaterial)(sel.value || "IRON");
+      const raw = sel.value || "IRON";
+      const normalizedMat = typeof window.coerceSelectableMaterial === "function"
+        ? window.coerceSelectableMaterial(raw)
+        : (typeof window.normalizeMaterial === "function" ? window.normalizeMaterial : normalizeMaterial)(raw);
       baseMat = normalizedMat;
     } else {
       baseMat = (typeof getPartTypeMaterial === "function" ? getPartTypeMaterial("jointBall") : null) ||
