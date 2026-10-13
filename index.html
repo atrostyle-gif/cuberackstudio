@@ -1580,6 +1580,7 @@
         <p class="admin-menu-hint">STAFFモードが有効です。価格を変更すると、見積と部材明細に反映されます。</p>
         <div class="admin-menu-actions">
           <button type="button" id="admin-menu-stock-btn" class="btn-secondary btn-full">在庫照合</button>
+          <button type="button" id="admin-menu-collab-btn" class="btn-secondary btn-full">同時編集・ToDo</button>
           <a id="admin-menu-pricing-link" class="btn-secondary btn-full admin-menu-link-btn" href="admin-pricing-9fd83.html">価格を変更</a>
         </div>
         <button type="button" id="admin-menu-logout-btn" class="admin-menu-logout">STAFFモードを終了</button>
@@ -1639,6 +1640,10 @@
     </section>
         </div>
       </div>
+      <div id="staff-collab-wrap" class="hidden">
+        <button type="button" id="staff-collab-back-btn" class="admin-menu-stock-back">← メニューに戻る</button>
+        <div id="staff-collab-host"></div>
+      </div>
     </div>
   </div>
 
@@ -1696,6 +1701,8 @@
   <!-- main -->
   <script>window.ADMIN_MENU_OPTIONS = { stockMode: "embedded" };</script>
   <script src="js/ui/admin-menu.js"></script>
+  <script src="staff-config.js"></script>
+  <script src="js/ui/staff-collab-mode.js"></script>
   <script src="main.js"></script>
 </body>
 </html>

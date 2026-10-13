@@ -33,6 +33,9 @@
     var staffError = document.getElementById("admin-menu-login-error");
     var staffLoginBtn = document.getElementById("admin-menu-login-btn");
     var staffLogoutBtn = document.getElementById("admin-menu-logout-btn");
+    var collabBtn = document.getElementById("admin-menu-collab-btn");
+    var collabBackBtn = document.getElementById("staff-collab-back-btn");
+    var collabWrap = document.getElementById("staff-collab-wrap");
 
     if (!overlay || !openBtn) return;
 
@@ -45,6 +48,7 @@
       if (staffLogin) staffLogin.classList.add("hidden");
       if (home) home.classList.remove("hidden");
       if (stockWrap) stockWrap.classList.add("hidden");
+      if (collabWrap) collabWrap.classList.add("hidden");
     }
 
     function showLogin() {
@@ -91,6 +95,12 @@
     if (stockBack) {
       stockBack.addEventListener("click", showHome);
     }
+    if (collabBtn) collabBtn.addEventListener("click", function () {
+      if (home) home.classList.add("hidden");
+      if (collabWrap) collabWrap.classList.remove("hidden");
+      if (typeof global.openStaffCollaboration === "function") global.openStaffCollaboration();
+    });
+    if (collabBackBtn) collabBackBtn.addEventListener("click", showHome);
 
     function tryLogin() {
       var expected = getExpectedPassword();
@@ -117,6 +127,7 @@
     }
     if (staffLogoutBtn) {
       staffLogoutBtn.addEventListener("click", function () {
+        if (typeof global.closeStaffCollaboration === "function") global.closeStaffCollaboration();
         global.sessionStorage.removeItem(STAFF_AUTH_KEY);
         global.sessionStorage.removeItem("cuberack_price_admin_auth");
         showLogin();

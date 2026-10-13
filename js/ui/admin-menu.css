@@ -101,6 +101,15 @@
   font-size: 12px;
   text-decoration: underline;
 }
+.staff-user-grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:8px; margin:10px 0; }
+.staff-user-grid .is-selected { border-color:var(--primary, #2563eb); background:#eff6ff; }
+.staff-collab-label { display:block; font-size:12px; font-weight:700; }
+.staff-collab-label input, .staff-todo-add input { display:block; width:100%; box-sizing:border-box; margin-top:6px; padding:9px; border:1px solid var(--border, #d1d5db); border-radius:8px; font:inherit; }
+.staff-collab-status { font-size:13px; margin-bottom:8px; }
+.staff-todo { border-top:1px solid var(--border, #e2e8f0); margin-top:12px; padding-top:12px; }
+#staff-todo-list { display:grid; gap:6px; margin:8px 0; font-size:13px; }
+.staff-todo-add { display:flex; gap:6px; align-items:end; }
+.staff-todo-add input { margin:0; flex:1; }
 
 .admin-menu-actions {
   display: flex;
