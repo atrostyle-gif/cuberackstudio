@@ -45,7 +45,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  expected text := 'CubeRack3296';
+  expected text := '513399';
 BEGIN
   IF admin_password IS NULL OR admin_password <> expected THEN
     RAISE EXCEPTION 'unauthorized'
