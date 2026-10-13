@@ -275,6 +275,12 @@
       if (errorEl) errorEl.textContent = msg || "";
     }
 
+    // STAFFモードで入室済みなら、在庫照合のために再入力させない。
+    if (typeof global.isCubeRackStaffMode === "function" && global.isCubeRackStaffMode()) {
+      unlock();
+    }
+    global.document.addEventListener("cuberack:staff-mode-enabled", unlock);
+
     if (openBtn) {
       openBtn.addEventListener("click", function () {
         showModal();

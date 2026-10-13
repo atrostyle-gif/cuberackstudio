@@ -1279,7 +1279,7 @@
         <button id="grid-toggle-btn" class="btn-ghost btn-flex is-off">グリッドOFF</button>
         <button id="help-toggle-btn" class="btn-ghost btn-flex">操作ヘルプ</button>
         <button id="help-page-btn" class="btn-ghost btn-flex">説明書</button>
-        <button type="button" id="admin-menu-open-btn" class="btn-ghost btn-flex admin-menu-trigger">管理者用</button>
+        <button type="button" id="admin-menu-open-btn" class="btn-ghost btn-flex admin-menu-trigger">STAFFモード</button>
       </div>
     </section>
 
@@ -1562,19 +1562,27 @@
 
   </div><!-- /panel -->
 
-  <!-- 管理者用メニュー -->
+  <!-- STAFFモード -->
   <div id="admin-menu-overlay" class="admin-menu-overlay hidden" aria-hidden="true">
     <div class="admin-menu-dialog" role="dialog" aria-labelledby="admin-menu-title">
       <header class="admin-menu-header">
-        <h2 id="admin-menu-title">管理者用</h2>
+        <h2 id="admin-menu-title">STAFFモード</h2>
         <button type="button" id="admin-menu-close-btn">閉じる</button>
       </header>
+      <div id="admin-menu-login" class="admin-menu-login">
+        <p class="admin-menu-hint">スタッフ用パスワードを入力してください。</p>
+        <label for="admin-menu-password">パスワード</label>
+        <input id="admin-menu-password" type="password" autocomplete="current-password" />
+        <div id="admin-menu-login-error" class="admin-menu-login-error" aria-live="polite"></div>
+        <button type="button" id="admin-menu-login-btn" class="btn-primary btn-full">STAFFモードに入る</button>
+      </div>
       <div id="admin-menu-home">
-        <p class="admin-menu-hint">スタッフ向け機能です。一般の操作には不要です。</p>
+        <p class="admin-menu-hint">STAFFモードが有効です。価格を変更すると、見積と部材明細に反映されます。</p>
         <div class="admin-menu-actions">
           <button type="button" id="admin-menu-stock-btn" class="btn-secondary btn-full">在庫照合</button>
-          <a id="admin-menu-pricing-link" class="btn-secondary btn-full admin-menu-link-btn" href="https://cube-rack-studio.netlify.app/admin-pricing-9fd83.html" target="_blank" rel="noopener noreferrer">価格管理</a>
+          <a id="admin-menu-pricing-link" class="btn-secondary btn-full admin-menu-link-btn" href="admin-pricing-9fd83.html">価格を変更</a>
         </div>
+        <button type="button" id="admin-menu-logout-btn" class="admin-menu-logout">STAFFモードを終了</button>
       </div>
       <div id="admin-menu-stock-wrap" class="hidden">
         <button type="button" id="admin-menu-stock-back-btn" class="admin-menu-stock-back">← メニューに戻る</button>

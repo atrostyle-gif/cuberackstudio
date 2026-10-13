@@ -1,9 +1,19 @@
-// js/ui/admin-menu.js — 管理者用メニュー（在庫照合・価格管理）
+// js/ui/admin-menu.js — STAFFモード（在庫照合・価格管理）
 (function (global) {
   "use strict";
 
-  var DEFAULT_PRICING_URL =
-    "https://cube-rack-studio.netlify.app/admin-pricing-9fd83.html";
+  var DEFAULT_PRICING_URL = "admin-pricing-9fd83.html";
+  var STAFF_AUTH_KEY = "cuberack_staff_mode_auth";
+
+  function getExpectedPassword() {
+    return (global.PRICING_CONFIG && global.PRICING_CONFIG.adminPassword) || "";
+  }
+
+  function isStaffModeActive() {
+    return global.sessionStorage && global.sessionStorage.getItem(STAFF_AUTH_KEY) === "1";
+  }
+
+  global.isCubeRackStaffMode = isStaffModeActive;
 
   function initAdminMenu(options) {
     options = options || {};
@@ -18,24 +28,41 @@
     var stockBtn = document.getElementById("admin-menu-stock-btn");
     var stockBack = document.getElementById("admin-menu-stock-back-btn");
     var pricingLink = document.getElementById("admin-menu-pricing-link");
+    var staffLogin = document.getElementById("admin-menu-login");
+    var staffPassword = document.getElementById("admin-menu-password");
+    var staffError = document.getElementById("admin-menu-login-error");
+    var staffLoginBtn = document.getElementById("admin-menu-login-btn");
+    var staffLogoutBtn = document.getElementById("admin-menu-logout-btn");
 
     if (!overlay || !openBtn) return;
 
     if (pricingLink) {
       pricingLink.href = pricingUrl;
-      pricingLink.target = "_blank";
-      pricingLink.rel = "noopener noreferrer";
+      pricingLink.target = "_self";
     }
 
     function showHome() {
+      if (staffLogin) staffLogin.classList.add("hidden");
       if (home) home.classList.remove("hidden");
       if (stockWrap) stockWrap.classList.add("hidden");
+    }
+
+    function showLogin() {
+      if (home) home.classList.add("hidden");
+      if (stockWrap) stockWrap.classList.add("hidden");
+      if (staffLogin) staffLogin.classList.remove("hidden");
+      if (staffPassword) {
+        staffPassword.value = "";
+        global.setTimeout(function () { staffPassword.focus(); }, 0);
+      }
+      if (staffError) staffError.textContent = "";
     }
 
     function openOverlay() {
       overlay.classList.remove("hidden");
       overlay.setAttribute("aria-hidden", "false");
-      showHome();
+      if (isStaffModeActive()) showHome();
+      else showLogin();
     }
 
     function closeOverlay() {
@@ -63,6 +90,37 @@
 
     if (stockBack) {
       stockBack.addEventListener("click", showHome);
+    }
+
+    function tryLogin() {
+      var expected = getExpectedPassword();
+      var entered = staffPassword ? staffPassword.value : "";
+      if (!expected) {
+        if (staffError) staffError.textContent = "スタッフ用パスワードが設定されていません。";
+        return;
+      }
+      if (entered !== expected) {
+        if (staffError) staffError.textContent = "パスワードが正しくありません。";
+        return;
+      }
+      global.sessionStorage.setItem(STAFF_AUTH_KEY, "1");
+      global.document.dispatchEvent(new CustomEvent("cuberack:staff-mode-enabled"));
+      if (staffError) staffError.textContent = "";
+      showHome();
+    }
+
+    if (staffLoginBtn) staffLoginBtn.addEventListener("click", tryLogin);
+    if (staffPassword) {
+      staffPassword.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") tryLogin();
+      });
+    }
+    if (staffLogoutBtn) {
+      staffLogoutBtn.addEventListener("click", function () {
+        global.sessionStorage.removeItem(STAFF_AUTH_KEY);
+        global.sessionStorage.removeItem("cuberack_price_admin_auth");
+        showLogin();
+      });
     }
 
     document.addEventListener("keydown", function (e) {

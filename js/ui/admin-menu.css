@@ -68,6 +68,40 @@
   line-height: 1.45;
 }
 
+.admin-menu-login label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-menu-login input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--border, #d1d5db);
+  border-radius: 8px;
+  font: inherit;
+}
+
+.admin-menu-login-error {
+  min-height: 1.25em;
+  margin: 8px 0;
+  color: var(--danger, #dc2626);
+  font-size: 12px;
+}
+
+.admin-menu-logout {
+  margin-top: 14px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--muted, #64748b);
+  cursor: pointer;
+  font-size: 12px;
+  text-decoration: underline;
+}
+
 .admin-menu-actions {
   display: flex;
   flex-direction: column;

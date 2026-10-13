@@ -338,6 +338,7 @@
   <script src="js/data/price-loader.js"></script>
   <script>
     const AUTH_KEY = "cuberack_price_admin_auth";
+    const STAFF_AUTH_KEY = "cuberack_staff_mode_auth";
     const loginScreen = document.getElementById("loginScreen");
     const adminApp = document.getElementById("adminApp");
     const loginPasswordEl = document.getElementById("loginPassword");
@@ -581,6 +582,7 @@
       }
       sessionPassword = input;
       sessionStorage.setItem(AUTH_KEY, "1");
+      sessionStorage.setItem(STAFF_AUTH_KEY, "1");
       loginErrorEl.textContent = "";
       showAdmin();
     }
@@ -661,7 +663,7 @@
       closeManageSheet();
     });
 
-    if (sessionStorage.getItem(AUTH_KEY) === "1" && getExpectedPassword()) {
+    if ((sessionStorage.getItem(AUTH_KEY) === "1" || sessionStorage.getItem(STAFF_AUTH_KEY) === "1") && getExpectedPassword()) {
       sessionPassword = getExpectedPassword();
       showAdmin();
     } else {
