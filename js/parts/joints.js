@@ -200,7 +200,9 @@ function deleteJoint(index) {
   fixIndexInList(legs);
 
   setSelectedJoint(null);
-  rrequestEstimateRender("after delete joint");
+  if (typeof requestEstimateRender === "function") {
+    requestEstimateRender("after delete joint");
+  }
 
   // 全部消えちゃったときは原点に1個だけ作り直す
   if (joints.length === 0) {
