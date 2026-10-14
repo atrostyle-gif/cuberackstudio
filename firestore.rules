@@ -1,0 +1,181 @@
+rules_version = '2';
+
+// ============================================================================
+// Cube Rack Studio Ver3.0 — Firestore Security Rules (DRAFT)
+// ----------------------------------------------------------------------------
+// 本ファイルは Phase 0 時点の **ドラフト** である。
+// 以下のいずれかが完了するまで `firebase deploy --only firestore:rules`
+// してはならない:
+//   1. V3_FIRESTORE_SECURITY.md のレビューと承認
+//   2. 既存プロジェクトの `memberUids` 移行 (Phase 3 で実施)
+//   3. 現行 Firestore ルールの Firebase Console からのエクスポート保存
+//   4. `firebase.json` / `.firebaserc` の作成とプロジェクト ID 確定
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ========== ヘルパ関数 ==========
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // プロジェクトのメンバーかどうか。
+    // 旧 STAFF 版と同じ仕組み (memberUids 配列を get() で参照)。
+    function isMember(projectId) {
+      return signedIn()
+             && exists(/databases/$(database)/documents/projects/$(projectId))
+             && request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.memberUids;
+    }
+
+    // 自分が作成する時点でのメンバー追加を許す (create 時用)
+    function createdAsMember(data) {
+      return signedIn()
+             && data.memberUids is list
+             && data.memberUids.hasAny([request.auth.uid]);
+    }
+
+    // 変更前後で特定フィールドが同一か (createdByUid 等の改ざん防止)
+    function keepsField(name) {
+      return !(name in request.resource.data) || !(name in resource.data)
+             || request.resource.data[name] == resource.data[name];
+    }
+
+    // ========== pricing (STAFF 以外は読み取りすら不要なため、公開読取は不要) ==========
+    // 価格データは Supabase 側に置くため、Firestore 側では pricing を扱わない。
+    // ただし将来 Firestore で価格を同期する際のためにパスを予約する。
+    match /pricing/{docId} {
+      allow read: if false;
+      allow write: if false;
+    }
+
+    // ========== projects (親ドキュメント) ==========
+    match /projects/{projectId} {
+
+      // 作成: 認証済みユーザーが memberUids に自分を含めて作る場合のみ
+      allow create: if signedIn()
+                    && createdAsMember(request.resource.data)
+                    && request.resource.data.createdByUid == request.auth.uid;
+
+      // 読み取り: メンバーのみ
+      allow read: if isMember(projectId);
+
+      // 更新: メンバーで、createdByUid / createdAt / projectId は不変
+      // memberUids の変更は許す (招待フロー用)、ただし自分を外す操作は禁止
+      allow update: if isMember(projectId)
+                    && keepsField('createdByUid')
+                    && keepsField('createdAt')
+                    && keepsField('projectId')
+                    && (!(('memberUids' in request.resource.data))
+                        || request.auth.uid in request.resource.data.memberUids);
+
+      // 削除: 作成者のみ (他メンバーが誤削除するのを防ぐ)
+      allow delete: if signedIn()
+                    && resource.data.createdByUid == request.auth.uid;
+
+      // ========== ops (操作ログ) ==========
+      match /ops/{opId} {
+        // 作成: メンバーで、createdByUid が自分のもの、clientId 必須
+        allow create: if isMember(projectId)
+                      && request.resource.data.createdByUid == request.auth.uid
+                      && request.resource.data.clientId is string
+                      && request.resource.data.actionType is string;
+
+        // 読み取り: メンバー
+        allow read: if isMember(projectId);
+
+        // 更新: 禁止 (ops は append-only)
+        allow update: if false;
+
+        // 削除: メンバー (snapshot GC で古い世代を削除するため)
+        allow delete: if isMember(projectId);
+      }
+
+      // ========== snapshots (世代スナップショット) ==========
+      match /snapshots/{snapshotId} {
+        allow create: if isMember(projectId)
+                      && request.resource.data.actorUid == request.auth.uid;
+        allow read: if isMember(projectId);
+        allow update: if false;
+        allow delete: if isMember(projectId);
+      }
+
+      // ========== presence (在席情報) ==========
+      // ドキュメント ID は clientId を推奨 (旧 STAFF と互換)
+      match /presence/{clientId} {
+        // 作成/更新: 自分の presence のみ
+        allow create: if signedIn()
+                      && isMember(projectId)
+                      && request.resource.data.uid == request.auth.uid;
+        allow update: if signedIn()
+                      && isMember(projectId)
+                      && resource.data.uid == request.auth.uid;
+
+        // 読み取り: メンバー全員
+        allow read: if isMember(projectId);
+
+        // 削除: 自分の presence または管理者 (作成者)
+        allow delete: if signedIn()
+                      && isMember(projectId)
+                      && (resource.data.uid == request.auth.uid
+                          || get(/databases/$(database)/documents/projects/$(projectId)).data.createdByUid == request.auth.uid);
+      }
+
+      // ========== todos (Phase 4.1 で UI 復活時に有効化) ==========
+      match /todos/{todoId} {
+        allow create: if isMember(projectId)
+                      && request.resource.data.authorUid == request.auth.uid;
+        allow read: if isMember(projectId);
+        allow update: if isMember(projectId)
+                      && keepsField('authorUid')
+                      && keepsField('createdAt');
+        allow delete: if isMember(projectId);
+      }
+
+      // ========== entities (Phase 4 第 2 層: リビジョン検証用) ==========
+      // 各 beam/pole/leg に対応するバージョン doc。
+      // ops と同時に runTransaction で更新される。
+      match /entities/{entityId} {
+        allow create: if isMember(projectId)
+                      && request.resource.data.revision is number
+                      && request.resource.data.updatedByUid == request.auth.uid;
+        allow read: if isMember(projectId);
+        allow update: if isMember(projectId)
+                      && request.resource.data.updatedByUid == request.auth.uid
+                      && request.resource.data.revision is number
+                      && request.resource.data.revision > resource.data.revision;
+        allow delete: if isMember(projectId);
+      }
+    }
+
+    // ========== invitations (Phase 4.2 招待フロー用、予約) ==========
+    match /invitations/{inviteId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+                    && request.resource.data.invitedByUid == request.auth.uid;
+      allow update: if signedIn()
+                    && (resource.data.invitedByUid == request.auth.uid
+                        || resource.data.redeemedByUid == request.auth.uid);
+      allow delete: if signedIn()
+                    && resource.data.invitedByUid == request.auth.uid;
+    }
+
+    // ========== staff_members (将来のサーバー検証用、予約) ==========
+    // Cloud Function / Netlify Function から uid を照会して「このユーザーは STAFF か」を判定するために使う。
+    // Phase 5 の価格認証で ID Token verify 後の allowlist 判定に利用予定。
+    match /staff_members/{uid} {
+      allow read: if isSelf(uid);
+      allow write: if false;  // Firebase Console からのみ編集
+    }
+
+    // ========== デフォルト拒否 ==========
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
