@@ -80,11 +80,19 @@ function addBeamConnection(aIndex, bIndex) {
   const material = getCurrentMaterial();
   applyMaterialColorToMesh(mesh, material);
 
+  // V3 Phase 1: 安定ID (id / aId / bId) を併記する。インデックス参照は維持。
+  const _newBeamId = (typeof window.newBeamClientId === "function") ? window.newBeamClientId() : null;
+  const _aIdForBeam = (joints[aIndex] && typeof joints[aIndex].id === "string") ? joints[aIndex].id : null;
+  const _bIdForBeam = (joints[bIndex] && typeof joints[bIndex].id === "string") ? joints[bIndex].id : null;
+
   // ★ Beam として beams に積む
   beams.push({
+    id: _newBeamId,
     type: "beam",
     a: aIndex,
     b: bIndex,
+    aId: _aIdForBeam,
+    bId: _bIdForBeam,
     mesh,
     lengthMm,
     material, // ★確定値を保存
@@ -129,10 +137,18 @@ function addPoleConnection(aIndex, bIndex) {
   const material = getCurrentMaterial();
   applyMaterialColorToMesh(mesh, material);
 
+  // V3 Phase 1: 安定ID (id / aId / bId) を併記する。インデックス参照は維持。
+  const _newPoleId = (typeof window.newPoleClientId === "function") ? window.newPoleClientId() : null;
+  const _aIdForPole = (joints[aIndex] && typeof joints[aIndex].id === "string") ? joints[aIndex].id : null;
+  const _bIdForPole = (joints[bIndex] && typeof joints[bIndex].id === "string") ? joints[bIndex].id : null;
+
   poles.push({
+    id: _newPoleId,
     type: "pole",
     a: aIndex,
     b: bIndex,
+    aId: _aIdForPole,
+    bId: _bIdForPole,
     mesh,
     lengthMm,
     material, // ★確定値を保存

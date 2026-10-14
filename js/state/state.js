@@ -6,11 +6,11 @@
 // 3. データ構造
 // =========================================================
 
-const joints = [];
+const joints = []; // {id, x, y, z}  ※ id は V3 Phase 1 で併記。既存の index 参照は維持
 const jointMeshes = [];
-const beams = []; // {a,b,mesh,label,length}
-const poles = []; // {a,b,mesh,label,length}
-const legs = [];  // {jointIndex,mesh}
+const beams = []; // {id, a, b, aId, bId, mesh, label, length}  ※ a/b は index、aId/bId は安定ID
+const poles = []; // {id, a, b, aId, bId, mesh, label, length}
+const legs = [];  // {id, jointIndex, jointId, mesh}
 window.legs = legs;
 const customOrderBeams = [];
 

@@ -94,7 +94,13 @@ function addLegIfNeeded(jointIndex) {
   // ★材種色を適用（ベース色）
   applyMaterialColorToMesh(mesh, material);
 
-  legs.push({ jointIndex, material, mesh });
+  // V3 Phase 1: 安定ID (id / jointId) を併記する。jointIndex も引き続き保持。
+  const _newLegId = (typeof window.newLegClientId === "function") ? window.newLegClientId() : null;
+  const _jointIdForLeg = (joints[jointIndex] && typeof joints[jointIndex].id === "string")
+    ? joints[jointIndex].id
+    : null;
+
+  legs.push({ id: _newLegId, jointIndex, jointId: _jointIdForLeg, material, mesh });
 
   syncLegCountInput();
   window.requestEstimateRender?.("after add leg");

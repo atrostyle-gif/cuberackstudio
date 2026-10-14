@@ -61,32 +61,62 @@ function makeDesignJsonText() {
 }
 
 // スナップショット作成（ローカル関数）
+// V3 Phase 1:
+//   - joint/beam/pole/leg の安定ID (id / aId / bId / jointId) を併せて保存する。
+//   - 旧 Flat JSON 形式を維持（Phase 2 でラップ形式 { name, projectId, snapshot } に移行予定）。
+//   - 既存の a / b / jointIndex / customLength / material は従来どおり保存する。
 function createSnapshotLocal() {
-  return JSON.stringify({
-    joints: JSON.parse(JSON.stringify(joints)),
+  // joint は id が付いていれば一緒に保存（Phase 1 以降はほぼ必ず付く）
+  const joint_serialized = joints.map((j) => {
+    if (!j || typeof j !== "object") return j;
+    const out = { x: j.x, y: j.y, z: j.z };
+    if (typeof j.id === "string" && j.id.length > 0) out.id = j.id;
+    if (j.material !== undefined) out.material = j.material;
+    return out;
+  });
 
-    // ★ ビーム：オーダー情報も含めて保存
-    beams: beams.map((b) => ({
-      a: b.a,
-      b: b.b,
-      isCustom: !!b.isCustom,
-      customLength: b.customLength ?? null,
-      material: window.normalizeMaterial?.(b.material) || "IRON",
-    })),
+  return JSON.stringify({
+    joints: joint_serialized,
+
+    // ★ ビーム：オーダー情報も含めて保存。安定IDは **ある場合のみ** 書く（旧データのラウンドトリップ安定）
+    beams: beams.map((b) => {
+      const out = {
+        a: b.a,
+        b: b.b,
+        isCustom: !!b.isCustom,
+        customLength: b.customLength ?? null,
+        material: window.normalizeMaterial?.(b.material) || "IRON",
+      };
+      if (typeof b.id === "string" && b.id.length > 0) out.id = b.id;
+      if (typeof b.aId === "string" && b.aId.length > 0) out.aId = b.aId;
+      if (typeof b.bId === "string" && b.bId.length > 0) out.bId = b.bId;
+      return out;
+    }),
 
     // ★ ポール：同じくオーダー情報を保存
-    poles: poles.map((p) => ({
-      a: p.a,
-      b: p.b,
-      isCustom: !!p.isCustom,
-      customLength: p.customLength ?? null,
-      material: window.normalizeMaterial?.(p.material) || "IRON",
-    })),
+    poles: poles.map((p) => {
+      const out = {
+        a: p.a,
+        b: p.b,
+        isCustom: !!p.isCustom,
+        customLength: p.customLength ?? null,
+        material: window.normalizeMaterial?.(p.material) || "IRON",
+      };
+      if (typeof p.id === "string" && p.id.length > 0) out.id = p.id;
+      if (typeof p.aId === "string" && p.aId.length > 0) out.aId = p.aId;
+      if (typeof p.bId === "string" && p.bId.length > 0) out.bId = p.bId;
+      return out;
+    }),
 
-    legs: legs.map((l) => ({ 
-      jointIndex: l.jointIndex,
-      material: window.normalizeMaterial?.(l.material) || "IRON",
-    })),
+    legs: legs.map((l) => {
+      const out = {
+        jointIndex: l.jointIndex,
+        material: window.normalizeMaterial?.(l.material) || "IRON",
+      };
+      if (typeof l.id === "string" && l.id.length > 0) out.id = l.id;
+      if (typeof l.jointId === "string" && l.jointId.length > 0) out.jointId = l.jointId;
+      return out;
+    }),
     // v1.0.5+ manual legs: 手動LEGの jointIndex 一覧を保存（復元用）
     manualLegs: Array.from(window.manualLegJointSet || []),
 
@@ -260,27 +290,48 @@ function createSnapshot() {
 }
 
 // スナップショット適用
+// V3 Phase 1:
+//   - ラップ形式 ({ snapshot: {...} }) で来た場合は snapshot を剥がして中身を使う（旧STAFFラップJSON互換）。
+//     ただし外側のメタ (projectId / createdBy 等) は Phase 1 では一切 window に書き込まない。
+//   - 読み込んだ id / aId / bId / jointId はそのまま保持する（上書きしない）。
+//   - 配列再構築後に applyIdBackfillToWindow() を呼び、不足しているIDだけを補完する。
 function applySnapshotFromString(snapshotString) {
-  const data = JSON.parse(snapshotString);
+  const raw = JSON.parse(snapshotString);
+
+  // ラップ形式判定（旧STAFFラップ or 将来のV3ラップ）: snapshot キーの中身が object なら剥がす
+  const isWrapped = !!(raw && typeof raw === "object" && raw.snapshot && typeof raw.snapshot === "object");
+  const data = isWrapped ? raw.snapshot : raw;
+
+  if (isWrapped) {
+    try {
+      console.log("[applySnapshotFromString] detected wrapped format (snapshot unwrapped)", {
+        projectId: raw.projectId ?? null,
+        name: raw.name ?? null,
+      });
+    } catch (_) {}
+  }
 
   if (typeof clearAllMeshes === "function") clearAllMeshes();
 
 // ---- joints ----
 joints.length = 0;
 (data.joints || []).forEach((j) => {
-  joints.push({
+  // V3 Phase 1: id が入っていれば保持する（なければ後段の applyIdBackfillToWindow で補完）
+  const next = {
     x: j.x,
     y: j.y,
     z: j.z,
     material: window.normalizeMaterial?.(j.material) || "IRON",
-  });
+  };
+  if (typeof j.id === "string" && j.id.length > 0) next.id = j.id;
+  joints.push(next);
 });
 
   // ---- beams ----
   beams.length = 0;
   (data.beams || []).forEach((b) => {
     // スナップショットに入っていた lengthMm / isOrder など
-    // すべてそのまま引き継ぐ
+    // すべてそのまま引き継ぐ（id / aId / bId はスプレッドで保持される）
     const copy = {
       type: b.type || "beam",
       ...b,
@@ -320,7 +371,11 @@ if (data.legs) {
     const jm = joints?.[jointIndex]?.material;
     const material = window.normalizeMaterial?.(l.material ?? jm) || "IRON";
 
-    legs.push({ jointIndex, material, mesh: null });
+    // V3 Phase 1: id / jointId を保持
+    const next = { jointIndex, material, mesh: null };
+    if (typeof l.id === "string" && l.id.length > 0) next.id = l.id;
+    if (typeof l.jointId === "string" && l.jointId.length > 0) next.jointId = l.jointId;
+    legs.push(next);
   });
 }
 // v1.0.5+ manual legs: 手動LEGの jointIndex を復元（後方互換: 無ければ空Set）
@@ -349,6 +404,15 @@ window.manualLegJointSet = new Set(Array.isArray(data.manualLegs) ? data.manualL
     mesh: null,
   });
   });
+
+  // V3 Phase 1: 配列再構築後に ID 補完（冪等）。既存IDは上書きしない。
+  if (typeof window.applyIdBackfillToWindow === "function") {
+    try {
+      window.applyIdBackfillToWindow();
+    } catch (e) {
+      console.warn("[applySnapshotFromString] applyIdBackfillToWindow failed", e);
+    }
+  }
 
   if (typeof rebuildSceneFromData === "function") rebuildSceneFromData();
   

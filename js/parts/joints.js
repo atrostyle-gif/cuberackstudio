@@ -25,7 +25,11 @@ function createJoint(pos) {
   // ---- Material（材種）: A1（種類ごと一括）なので jointBall の材質を使う ----
   const material = getPartTypeMaterial("jointBall");
 
-  joints.push({ x: pos.x, y: pos.y, z: pos.z }); // ★materialは保持しない（混乱回避）
+  // V3 Phase 1: 安定ID (id) を同時に採番する。既存の index 参照は維持。
+  const _newJointId = (typeof window.newJointClientId === "function")
+    ? window.newJointClientId()
+    : null;
+  joints.push({ id: _newJointId, x: pos.x, y: pos.y, z: pos.z }); // ★materialは保持しない（混乱回避）
 
   const mesh = new THREE.Mesh(jointGeometry, jointMaterialNormal.clone());
   mesh.position.set(pos.x, pos.y, pos.z);
