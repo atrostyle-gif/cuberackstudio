@@ -1,5 +1,5 @@
 // =========================================================
-// CUI-3B: CAD アイコンツールバー
+// CUI-3B / 3B.1: CAD アイコンツールバー
 // - Phase 2B マトリクス WEST グループを正本にする
 // - NORTH のファイル/Undo/STAFF は重複させない
 // - 既存 ID / 既存関数へ委譲する（モード正本は増やさない）
@@ -7,54 +7,59 @@
 // =========================================================
 
 (function () {
+  const SA = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
   const SVG = {
-    select: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4l6 16 2.2-6.2L19 12z"/></svg>',
-    joint: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>',
-    beam: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="12" r="2.2"/><circle cx="19" cy="12" r="2.2"/><path d="M7.4 12h9.2"/></svg>',
-    pole: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="5" r="2.2"/><circle cx="12" cy="19" r="2.2"/><path d="M12 7.4v9.2"/></svg>',
-    leg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="6" r="2.4"/><path d="M12 8.5v6.5M8 21l4-6 4 6"/></svg>',
-    connect: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="12" r="2.4"/><circle cx="18" cy="12" r="2.4"/><path d="M8.6 12h6.8"/></svg>',
-    length: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8v8M19 8v8M5 12h14M8 10l-3 2 3 2M16 10l3 2-3 2"/></svg>',
-    material: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3s6 6.2 6 10.2A6 6 0 1 1 6 13.2C6 9.2 12 3 12 3z"/></svg>',
-    delete: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h14M9 7V5h6v2M8 7l1 13h6l1-13"/></svg>',
-    shelf: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 8h16M4 12h16M4 16h16M7 8v8M17 8v8"/></svg>',
-    wall: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="6" y="4" width="12" height="16" rx="1"/><path d="M6 10h12M6 15h12"/></svg>',
-    move: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v16M4 12h16M8 6l4-3 4 3M8 18l4 3 4-3M6 8l-3 4 3 4M18 8l3 4-3 4"/></svg>',
-    rotPos: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.2-5.5"/><path d="M20 5v5h-5"/></svg>',
-    rotNeg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.2-5.5"/><path d="M4 5v5h5"/></svg>',
-    cluster: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="6" width="10" height="12" rx="1"/><path d="M16 8h4M16 12h4M16 16h4M8 4v16"/></svg>',
-    autolayout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg>',
-    dimension: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 19h16M7 19V5M17 19V9M7 8h10M7 14h6"/></svg>',
-    estimate: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
+    select: '<svg ' + SA + '><path d="M5 3.8l6.2 16.2 2.1-6.4 6.5-2.2z"/></svg>',
+    joint: '<svg ' + SA + '><circle cx="12" cy="12" r="5.4"/></svg>',
+    beam: '<svg ' + SA + '><circle cx="3.8" cy="12" r="2.35"/><circle cx="13.4" cy="12" r="2.35"/><path d="M6.2 12h4.85"/><path d="M19.3 9.1v5.8M16.4 12h5.8"/></svg>',
+    pole: '<svg ' + SA + '><circle cx="8.6" cy="3.8" r="2.35"/><circle cx="8.6" cy="13.4" r="2.35"/><path d="M8.6 6.2v4.85"/><path d="M17.7 9.1v5.8M14.8 12h5.8"/></svg>',
+    leg: '<svg ' + SA + '><circle cx="12" cy="6.1" r="3.55"/><path d="M7.2 19.6L12 9.65 16.8 19.6z"/></svg>',
+    connect: '<svg ' + SA + '><circle cx="3.8" cy="12" r="2.35"/><circle cx="20.2" cy="12" r="2.35"/><path d="M6.4 12h7.2" stroke-dasharray="1.7 1.6"/><path d="M13.4 9.7L17.3 12l-3.9 2.3"/></svg>',
+    length: '<svg ' + SA + '><path d="M4.4 7.2v9.6M19.6 7.2v9.6M4.4 12h15.2"/><path d="M7.6 9.8L4.4 12l3.2 2.2M16.4 9.8l3.2 2.2-3.2 2.2"/></svg>',
+    material: '<svg ' + SA + '><rect x="3.4" y="8.2" width="9.2" height="9.2" rx="1.4"/><rect x="8.6" y="5.2" width="9.2" height="9.2" rx="1.4"/><rect x="6.2" y="11.2" width="8.4" height="7.4" rx="1.4"/></svg>',
+    delete: '<svg ' + SA + '><path d="M4.6 6.6h14.8M9 6.6V4.8h6v1.8M7.4 6.6l1.1 13.2h7l1.1-13.2"/><path d="M10.2 10.2v6.2M13.8 10.2v6.2"/></svg>',
+    shelf: '<svg ' + SA + '><path d="M4 13.2L12 9.4l8 3.8-8 3.8z"/><path d="M4 13.2v2.3L12 19.3v-2.3"/><path d="M20 13.2v2.3L12 19.3"/></svg>',
+    wall: '<svg ' + SA + '><path d="M7.2 4.4l9.6 2.4v12.4l-9.6-2.4z"/><path d="M7.2 9.2l9.6 2.4M7.2 14l9.6 2.4"/></svg>',
+    move: '<svg ' + SA + '><path d="M12 3.6v16.8M3.6 12h16.8"/><path d="M8.4 6.2L12 3.6l3.6 2.6M8.4 17.8L12 20.4l3.6-2.6M6.2 8.4L3.6 12l2.6 3.6M17.8 8.4L20.4 12l-2.6 3.6"/></svg>',
+    rotPos: '<svg ' + SA + '><path d="M19.6 12a7.6 7.6 0 1 1-2.1-5.3"/><path d="M19.6 4.8v5.2h-5.2"/></svg>',
+    rotNeg: '<svg ' + SA + '><path d="M4.4 12a7.6 7.6 0 1 0 2.1-5.3"/><path d="M4.4 4.8v5.2h5.2"/></svg>',
+    cluster: '<svg ' + SA + '><path d="M4.4 7.2v11.2M11.2 7.2v11.2M4.4 10.4h6.8M4.4 15.2h6.8"/><path d="M15.2 8.2l5.2 5.2M20.4 8.2l-5.2 5.2"/></svg>',
+    autolayout: '<svg ' + SA + '><rect x="3.6" y="3.6" width="7.2" height="7.2" rx="1"/><rect x="13.2" y="3.6" width="7.2" height="7.2" rx="1"/><rect x="3.6" y="13.2" width="7.2" height="7.2" rx="1"/><rect x="13.2" y="13.2" width="7.2" height="7.2" rx="1"/></svg>',
+    dimension: '<svg ' + SA + '><g transform="rotate(-28 12 12)"><rect x="3.2" y="9" width="17.6" height="6" rx="0.8"/><path d="M6.4 9v6M9.2 9v3.4M12 9v6M14.8 9v3.4M17.6 9v6"/></g></svg>',
+    estimate: '<svg ' + SA + '><rect x="5" y="3.4" width="14" height="17.2" rx="2"/><rect x="7.2" y="5.6" width="9.6" height="3.4" rx="0.6"/><path d="M8.2 12.2h2.2M13.6 12.2h2.2M8.2 15.4h2.2M13.6 15.4h2.2M8.2 18.4h7.6"/></svg>',
   };
 
   const GROUPS = [
     {
       id: "select",
+      title: "選択・操作",
       items: [
         { cmd: "select", label: "選択", tip: "選択（モード解除）", icon: "select" },
       ],
     },
     {
       id: "add",
+      title: "パーツ追加",
       items: [
-        { cmd: "joint", label: "Joint", tip: "Joint を追加 / 選択", icon: "joint" },
-        { cmd: "beam", label: "Beam", tip: "Beam を追加", icon: "beam" },
-        { cmd: "pole", label: "Pole", tip: "Pole を追加", icon: "pole" },
-        { cmd: "leg", label: "Leg", tip: "脚の ON / OFF", icon: "leg" },
-        { cmd: "connect", label: "接続", tip: "接続モード（始点 → 終点）", icon: "connect" },
+        { cmd: "joint", label: "Joint", tip: "Jointを追加 / 選択", icon: "joint" },
+        { cmd: "beam", label: "Beam", tip: "Beamを追加", icon: "beam" },
+        { cmd: "pole", label: "Pole", tip: "Poleを追加", icon: "pole" },
+        { cmd: "leg", label: "Leg", tip: "LegのON / OFF", icon: "leg" },
+        { cmd: "connect", label: "接続", tip: "接続モード", icon: "connect" },
       ],
     },
     {
       id: "edit",
+      title: "編集",
       items: [
-        { cmd: "length", label: "長さ", tip: "長さ変更モード", icon: "length" },
-        { cmd: "material", label: "材質", tip: "材質（CUI-3C 入口）", icon: "material" },
+        { cmd: "length", label: "長さ", tip: "長さを変更", icon: "length" },
+        { cmd: "material", label: "材質", tip: "材質を設定", icon: "material" },
         { cmd: "delete", label: "削除", tip: "削除モード（ラックをクリック）。単体は Alt+クリック", icon: "delete" },
       ],
     },
     {
       id: "board",
+      title: "板",
       items: [
         { cmd: "shelf", label: "棚板", tip: "棚板モード", icon: "shelf" },
         { cmd: "wall", label: "壁板", tip: "壁板モード", icon: "wall" },
@@ -62,8 +67,9 @@
     },
     {
       id: "place",
+      title: "配置",
       items: [
-        { cmd: "move", label: "移動", tip: "ラック移動モード", icon: "move" },
+        { cmd: "move", label: "移動", tip: "ラックを移動", icon: "move" },
         { cmd: "rotPos", label: "回転 +90", tip: "クラスタを +90° 回転", icon: "rotPos" },
         { cmd: "rotNeg", label: "回転 -90", tip: "クラスタを -90° 回転", icon: "rotNeg" },
         { cmd: "clusterDel", label: "クラスタ削除", tip: "選択ラックを削除", icon: "cluster" },
@@ -72,9 +78,10 @@
     },
     {
       id: "view",
+      title: "表示・出力",
       items: [
         { cmd: "dimension", label: "寸法", tip: "寸法を表示", icon: "dimension" },
-        { cmd: "estimate", label: "見積", tip: "見積明細（CUI-3C 入口）", icon: "estimate" },
+        { cmd: "estimate", label: "見積", tip: "見積明細", icon: "estimate" },
       ],
     },
   ];
@@ -362,6 +369,32 @@
       btn.classList.toggle("is-on", on);
       btn.setAttribute("aria-pressed", on ? "true" : "false");
     });
+    syncGroupActive();
+  }
+
+  function syncGroupActive() {
+    document.querySelectorAll(".v3-cad-group").forEach((group) => {
+      const on = !!group.querySelector(".v3-cad-btn.is-on");
+      group.classList.toggle("has-active", on);
+    });
+  }
+
+  function groupsState() {
+    const st = window.v3WorkspaceUi && window.v3WorkspaceUi.getState
+      ? window.v3WorkspaceUi.getState()
+      : null;
+    return (st && st.groups) || {};
+  }
+
+  function applyGroups() {
+    const openMap = groupsState();
+    document.querySelectorAll(".v3-cad-group").forEach((group) => {
+      const id = group.getAttribute("data-group");
+      const open = openMap[id] !== false;
+      group.classList.toggle("is-collapsed", !open);
+      const head = group.querySelector(".v3-cad-group-head");
+      if (head) head.setAttribute("aria-expanded", open ? "true" : "false");
+    });
   }
 
   function closeOverflow() {
@@ -372,25 +405,30 @@
     if (btn) btn.setAttribute("aria-expanded", "false");
   }
 
-  function fillOverflowMenu(hiddenItems) {
+  function fillOverflowMenu(hiddenGroups) {
     const menu = $("v3-cad-overflow-menu");
     if (!menu) return;
     menu.innerHTML = "";
-    hiddenItems.forEach((el) => {
-      if (el.classList.contains("v3-cad-sep")) return;
-      const cmd = el.getAttribute("data-v3-cad-cmd");
-      const copy = document.createElement("button");
-      copy.type = "button";
-      copy.setAttribute("role", "menuitem");
-      copy.setAttribute("data-v3-cad-cmd", cmd);
-      copy.innerHTML = (el.innerHTML || "") + "<span>" + (el.getAttribute("data-tip") || cmd) + "</span>";
-      copy.classList.toggle("is-on", el.classList.contains("is-on"));
-      copy.addEventListener("click", function (ev) {
-        ev.preventDefault();
-        closeOverflow();
-        runCommand(cmd);
+    hiddenGroups.forEach((group) => {
+      group.querySelectorAll("[data-v3-cad-cmd]").forEach((el) => {
+        const cmd = el.getAttribute("data-v3-cad-cmd");
+        const tip = el.getAttribute("data-tip") || el.getAttribute("aria-label") || cmd;
+        const copy = document.createElement("button");
+        copy.type = "button";
+        copy.setAttribute("role", "menuitem");
+        copy.setAttribute("data-v3-cad-cmd", cmd);
+        copy.setAttribute("data-tip", tip);
+        copy.setAttribute("title", tip);
+        copy.setAttribute("aria-label", tip);
+        copy.innerHTML = (el.innerHTML || "") + "<span>" + tip + "</span>";
+        copy.classList.toggle("is-on", el.classList.contains("is-on"));
+        copy.addEventListener("click", function (ev) {
+          ev.preventDefault();
+          closeOverflow();
+          runCommand(cmd);
+        });
+        menu.appendChild(copy);
       });
-      menu.appendChild(copy);
     });
   }
 
@@ -400,33 +438,36 @@
     const more = $("v3-cad-overflow-btn");
     if (!tb || !body || !more) return;
 
-    const items = Array.prototype.slice.call(body.querySelectorAll(".v3-cad-item"));
-    items.forEach((el) => { el.hidden = false; });
+    const groups = Array.prototype.slice.call(body.querySelectorAll(".v3-cad-group"));
+    groups.forEach((el) => { el.hidden = false; });
     more.hidden = true;
     closeOverflow();
 
-    const vertical = tb.classList.contains("is-vertical");
-    const measure = function (el) {
-      return vertical ? el.offsetHeight : el.offsetWidth;
-    };
-    const sizes = items.map(measure);
-    const total = sizes.reduce(function (sum, n) { return sum + n + 2; }, 0);
-    const avail = vertical ? body.clientHeight : body.clientWidth;
+    const horizontal = tb.classList.contains("is-horizontal");
+    if (!horizontal) {
+      const menu = $("v3-cad-overflow-menu");
+      if (menu) menu.innerHTML = "";
+      return;
+    }
+
+    const sizes = groups.map((el) => el.offsetWidth);
+    const total = sizes.reduce(function (sum, n) { return sum + n + 6; }, 0);
+    const avail = body.clientWidth;
     if (!avail || total <= avail) return;
 
     more.hidden = false;
-    const moreSize = measure(more) || 36;
-    let used = moreSize + 2;
-    let overflowAt = items.length;
-    for (let i = 0; i < items.length; i++) {
-      if (used + sizes[i] + 2 > avail) {
+    const moreSize = more.offsetWidth || 44;
+    let used = moreSize + 6;
+    let overflowAt = groups.length;
+    for (let i = 0; i < groups.length; i++) {
+      if (used + sizes[i] + 6 > avail) {
         overflowAt = Math.max(1, i);
         break;
       }
-      used += sizes[i] + 2;
+      used += sizes[i] + 6;
     }
-    if (overflowAt < items.length) {
-      const hidden = items.slice(overflowAt);
+    if (overflowAt < groups.length) {
+      const hidden = groups.slice(overflowAt);
       hidden.forEach((el) => { el.hidden = true; });
       fillOverflowMenu(hidden);
     } else {
@@ -438,19 +479,35 @@
     const body = $("v3-cad-body");
     if (!body || body.getAttribute("data-v3-cad-ready")) return;
     body.setAttribute("data-v3-cad-ready", "1");
-    GROUPS.forEach((group, gi) => {
-      if (gi > 0) {
-        const sep = document.createElement("div");
-        sep.className = "v3-cad-sep v3-cad-item";
-        sep.setAttribute("role", "separator");
-        sep.setAttribute("data-group", group.id);
-        body.appendChild(sep);
-      }
+    GROUPS.forEach((group) => {
+      const wrap = document.createElement("div");
+      wrap.className = "v3-cad-group v3-cad-item";
+      wrap.setAttribute("data-group", group.id);
+
+      const head = document.createElement("button");
+      head.type = "button";
+      head.className = "v3-cad-group-head";
+      head.setAttribute("aria-expanded", "true");
+      head.setAttribute("aria-controls", "v3-cad-group-" + group.id);
+      head.innerHTML = '<span class="v3-cad-group-chevron" aria-hidden="true">▾</span><span class="v3-cad-group-name">' + group.title + '</span><span class="v3-cad-group-dot" aria-hidden="true"></span>';
+      head.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        const next = wrap.classList.contains("is-collapsed");
+        if (window.v3WorkspaceUi && typeof window.v3WorkspaceUi.setGroupOpen === "function") {
+          window.v3WorkspaceUi.setGroupOpen(group.id, next);
+        }
+        applyGroups();
+        onLayout();
+      });
+
+      const items = document.createElement("div");
+      items.className = "v3-cad-group-items";
+      items.id = "v3-cad-group-" + group.id;
       group.items.forEach((item) => {
         const btn = document.createElement("button");
         btn.type = "button";
         btn.id = "v3-cad-" + item.cmd;
-        btn.className = "v3-icon-btn v3-cad-btn v3-cad-item";
+        btn.className = "v3-icon-btn v3-cad-btn";
         btn.setAttribute("data-v3-cad-cmd", item.cmd);
         btn.setAttribute("data-tip", item.tip);
         btn.setAttribute("title", item.tip);
@@ -461,9 +518,14 @@
           ev.preventDefault();
           runCommand(item.cmd);
         });
-        body.appendChild(btn);
+        items.appendChild(btn);
       });
+
+      wrap.appendChild(head);
+      wrap.appendChild(items);
+      body.appendChild(wrap);
     });
+    applyGroups();
   }
 
   function bindOverflow() {
@@ -508,6 +570,7 @@
   }
 
   function onLayout() {
+    applyGroups();
     layoutOverflow();
     syncActive();
   }
@@ -522,6 +585,7 @@
   window.v3CadToolbar = {
     onLayout,
     syncActive,
+    applyGroups,
     runCommand,
     GROUPS,
   };

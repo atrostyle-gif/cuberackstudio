@@ -10,6 +10,8 @@
   const DOCK_BAND = 40;
   const MARGIN = 8;
   const TOOLBAR_ID = "tools";
+  const SIDE_W = 112;
+  const EDGE_H = 72;
 
   let state = window.v3LayoutStore ? window.v3LayoutStore.load() : null;
   let drag = null;
@@ -95,9 +97,9 @@
 
     if (pose.mode === "float") {
       if (layer) layer.appendChild(tb);
-      tb.classList.add("is-floating", "is-horizontal");
-      const w = tb.offsetWidth || 280;
-      const h = tb.offsetHeight || 48;
+      tb.classList.add("is-floating", "is-vertical");
+      const w = tb.offsetWidth || SIDE_W;
+      const h = tb.offsetHeight || 320;
       const c = clampPos(pose.x, pose.y, w, h);
       pose.x = c.x;
       pose.y = c.y;
@@ -152,10 +154,10 @@
   function layoutGhosts() {
     const box = workspaceRect();
     const map = {
-      north: { left: box.left, top: box.top, width: box.width, height: 48 },
-      south: { left: box.left, top: box.bottom - 48, width: box.width, height: 48 },
-      west: { left: box.left, top: box.top, width: 48, height: box.height },
-      east: { left: box.right - 48, top: box.top, width: 48, height: box.height },
+      north: { left: box.left, top: box.top, width: box.width, height: EDGE_H },
+      south: { left: box.left, top: box.bottom - EDGE_H, width: box.width, height: EDGE_H },
+      west: { left: box.left, top: box.top, width: SIDE_W, height: box.height },
+      east: { left: box.right - SIDE_W, top: box.top, width: SIDE_W, height: box.height },
     };
     document.querySelectorAll(".v3-dock-ghost").forEach((g) => {
       const m = map[g.getAttribute("data-edge")];
@@ -246,8 +248,8 @@
 
   function floatToolbar(x, y) {
     const tb = toolbarEl();
-    const w = tb ? tb.offsetWidth : 280;
-    const h = tb ? tb.offsetHeight : 48;
+    const w = tb ? tb.offsetWidth : SIDE_W;
+    const h = tb ? tb.offsetHeight : 320;
     const c = clampPos(x, y, w, h);
     state.toolbars.tools.mode = "float";
     state.toolbars.tools.x = c.x;
@@ -261,8 +263,8 @@
     if (!tb) return;
     bindDrag(tb, ".v3-tb-grip, .v3-tb-title", {
       onStart(d) {
-        tb.classList.add("is-dragging", "is-floating", "is-horizontal");
-        tb.classList.remove("is-vertical");
+        tb.classList.add("is-dragging", "is-floating", "is-vertical");
+        tb.classList.remove("is-horizontal");
         const layer = $("v3-float-layer");
         if (layer && tb.parentElement !== layer) layer.appendChild(tb);
         layoutGhosts();
@@ -450,6 +452,19 @@
     if (more) more.classList.add("hidden");
     const moreBtn = $("v3-north-more");
     if (moreBtn) moreBtn.setAttribute("aria-expanded", "false");
+    if (window.v3CadToolbar && typeof window.v3CadToolbar.applyGroups === "function") {
+      window.v3CadToolbar.applyGroups();
+    }
+  }
+
+  function setGroupOpen(id, open) {
+    if (!state.groups) {
+      state.groups = window.v3LayoutStore
+        ? window.v3LayoutStore.defaultGroups()
+        : {};
+    }
+    state.groups[id] = !!open;
+    persist();
   }
 
   function bindChrome() {
@@ -485,7 +500,11 @@
   document.addEventListener("pointerup", function (ev) { finishDrag(ev, false); });
   document.addEventListener("pointercancel", function (ev) { finishDrag(ev, true); });
 
-  if (!state) state = { v: 1, toolbars: { tools: { mode: "dock", edge: "west", x: 72, y: 96 } }, popups: {} };
+  if (!state) {
+    state = window.v3LayoutStore
+      ? window.v3LayoutStore.defaultState()
+      : { v: 1, toolbars: { tools: { mode: "dock", edge: "west", x: 72, y: 96 } }, popups: {}, groups: {} };
+  }
 
   applyToolbar();
   bindToolbarDrag();
@@ -502,5 +521,6 @@
     closePopup,
     clampPopup,
     getOpenPopupId() { return openPopupId; },
+    setGroupOpen,
   };
 })();

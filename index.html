@@ -54,7 +54,11 @@
 
       --panel-w:380px;
       --v3-north-h:48px;
-      --v3-west-w:48px;
+      --v3-west-w:112px;
+      --v3-cad-side-w:112px;
+      --v3-cad-edge-h:72px;
+      --v3-cad-btn:44px;
+      --v3-cad-icon:28px;
       --control-h:44px;
       --control-h-sm:36px;
 
@@ -224,6 +228,36 @@
       outline:2px solid #93c5fd;
       outline-offset:2px;
     }
+    .v3-north-ver{
+      height:32px;
+      padding:0 8px;
+      border:1px solid #334155;
+      border-radius:8px;
+      background:transparent;
+      color:#94a3b8;
+      font-size:11px;
+      font-weight:700;
+      letter-spacing:0.01em;
+      white-space:nowrap;
+      flex:0 0 auto;
+      max-width:22ch;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .v3-north-ver:hover{
+      background:#1e293b;
+      color:#e2e8f0;
+    }
+    .v3-north-ver:focus-visible{
+      outline:2px solid #93c5fd;
+      outline-offset:2px;
+    }
+    .v3-north-ver[aria-expanded="true"]{
+      background:#1d4ed8;
+      border-color:#2563eb;
+      color:#fff;
+    }
+    .v3-north-ver-phase::before{ content:" · "; }
     .v3-north-menu-wrap{
       position:relative;
       flex:0 0 auto;
@@ -284,6 +318,7 @@
       .v3-north-name{ display:none; }
       .v3-hide-narrow{ display:none !important; }
       .v3-north-project{ max-width:12ch; }
+      .v3-north-ver-phase{ display:none; }
     }
     @media (max-width: 720px){
       .v3-north-total{ max-width:14ch; }
@@ -304,7 +339,7 @@
       z-index:20;
       display:flex;
       flex-direction:column;
-      align-items:center;
+      align-items:stretch;
       overflow:visible;
     }
     #v3-west.v3-dock-empty{
@@ -376,14 +411,14 @@
       z-index:21;
     }
     #v3-dock-north:not(.v3-dock-empty){
-      flex:0 0 48px;
-      height:48px;
+      flex:0 0 var(--v3-cad-edge-h);
+      height:var(--v3-cad-edge-h);
       overflow:visible;
       border-bottom:1px solid #1f2937;
     }
     #v3-dock-south:not(.v3-dock-empty){
-      flex:0 0 48px;
-      height:48px;
+      flex:0 0 var(--v3-cad-edge-h);
+      height:var(--v3-cad-edge-h);
       overflow:visible;
       border-top:1px solid #1f2937;
     }
@@ -396,8 +431,8 @@
       z-index:20;
     }
     #v3-dock-east:not(.v3-dock-empty){
-      flex:0 0 48px;
-      width:48px;
+      flex:0 0 var(--v3-cad-side-w);
+      width:var(--v3-cad-side-w);
       overflow:visible;
       border-left:1px solid #1f2937;
     }
@@ -419,26 +454,33 @@
     }
     .v3-toolbar.is-vertical{
       flex-direction:column;
-      width:48px;
+      width:var(--v3-cad-side-w);
+      padding:6px 6px 8px;
+      align-items:stretch;
+    }
+    .v3-toolbar.is-vertical:not(.is-floating){
       height:100%;
-      padding:6px 4px;
     }
     .v3-toolbar.is-horizontal{
       flex-direction:row;
-      height:48px;
+      height:var(--v3-cad-edge-h);
       width:100%;
       padding:4px 8px;
+      align-items:stretch;
     }
     .v3-toolbar.is-floating{
       position:fixed;
-      width:auto;
-      max-width:min(920px, calc(100vw - 24px));
-      height:48px;
-      flex-direction:row;
+      width:var(--v3-cad-side-w);
+      max-width:min(160px, calc(100vw - 24px));
+      height:auto;
+      max-height:min(720px, calc(100vh - 72px));
+      flex-direction:column;
+      align-items:stretch;
       border:1px solid #334155;
       border-radius:10px;
       box-shadow:0 12px 28px rgba(0,0,0,0.35);
       z-index:47;
+      padding:6px 6px 8px;
     }
     .v3-toolbar.is-dragging{
       opacity:0.92;
@@ -456,23 +498,27 @@
       color:#94a3b8;
       border-radius:6px;
     }
-    .v3-toolbar.is-vertical .v3-tb-grip{
+    .v3-toolbar.is-vertical .v3-tb-grip,
+    .v3-toolbar.is-floating .v3-tb-grip{
       width:100%;
       height:18px;
     }
     .v3-tb-grip:active{ cursor:grabbing; }
     .v3-tb-grip:hover{ background:#1e293b; color:#e2e8f0; }
     .v3-tb-title{
-      font-size:11px;
+      font-size:10px;
       font-weight:700;
       color:#93c5fd;
       white-space:nowrap;
       user-select:none;
+      letter-spacing:0.04em;
+      text-transform:uppercase;
+      text-align:center;
     }
-    .v3-toolbar.is-vertical .v3-tb-title{ display:none; }
+    .v3-toolbar.is-horizontal .v3-tb-title{ display:none; }
     .v3-toolbar .v3-icon-btn{
-      width:36px;
-      height:36px;
+      width:var(--v3-cad-btn);
+      height:var(--v3-cad-btn);
       padding:0;
       display:inline-flex;
       align-items:center;
@@ -483,7 +529,12 @@
       color:#e2e8f0;
       flex:0 0 auto;
     }
-    .v3-toolbar .v3-icon-btn svg{ width:18px; height:18px; display:block; pointer-events:none; }
+    .v3-toolbar .v3-icon-btn svg{
+      width:var(--v3-cad-icon);
+      height:var(--v3-cad-icon);
+      display:block;
+      pointer-events:none;
+    }
     .v3-toolbar .v3-icon-btn:hover{ background:#1e293b; border-color:#334155; }
     .v3-toolbar .v3-icon-btn:focus-visible{ outline:2px solid #93c5fd; outline-offset:2px; }
     .v3-toolbar .v3-icon-btn.is-on{ background:#1d4ed8; border-color:#2563eb; }
@@ -496,12 +547,13 @@
       align-items:center;
       gap:2px;
     }
-    .v3-toolbar.is-vertical .v3-cad-toolbar{
+    .v3-toolbar.is-vertical .v3-cad-toolbar,
+    .v3-toolbar.is-floating .v3-cad-toolbar{
       flex-direction:column;
       width:100%;
+      min-height:0;
     }
-    .v3-toolbar.is-horizontal .v3-cad-toolbar,
-    .v3-toolbar.is-floating .v3-cad-toolbar{
+    .v3-toolbar.is-horizontal .v3-cad-toolbar{
       flex-direction:row;
       height:100%;
     }
@@ -510,40 +562,99 @@
       flex:1 1 auto;
       min-width:0;
       min-height:0;
-      align-items:center;
-      gap:2px;
+      align-items:stretch;
+      gap:6px;
       overflow:hidden;
     }
-    .v3-toolbar.is-vertical .v3-cad-body{
+    .v3-toolbar.is-vertical .v3-cad-body,
+    .v3-toolbar.is-floating .v3-cad-body{
       flex-direction:column;
       width:100%;
+      overflow-y:auto;
+      overflow-x:hidden;
     }
-    .v3-toolbar.is-horizontal .v3-cad-body,
-    .v3-toolbar.is-floating .v3-cad-body{
+    .v3-toolbar.is-horizontal .v3-cad-body{
       flex-direction:row;
       height:100%;
+      align-items:stretch;
     }
     .v3-cad-item{ flex:0 0 auto; }
     .v3-toolbar .v3-icon-btn[hidden],
     .v3-cad-item[hidden]{
       display:none !important;
     }
-    .v3-cad-sep{
-      width:1px;
-      height:22px;
-      margin:0 3px;
-      background:#334155;
-      opacity:0.85;
+    .v3-cad-group{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      min-width:0;
     }
-    .v3-toolbar.is-vertical .v3-cad-sep{
-      width:22px;
-      height:1px;
-      margin:3px 0;
+    .v3-toolbar.is-horizontal .v3-cad-group{
+      flex-direction:column;
+      padding-right:8px;
+      margin-right:2px;
+      border-right:1px solid #1f2937;
+    }
+    .v3-toolbar.is-horizontal .v3-cad-group:last-of-type{
+      border-right:0;
+      padding-right:0;
+    }
+    .v3-cad-group-head{
+      display:flex;
+      align-items:center;
+      gap:4px;
+      height:16px;
+      padding:0 2px;
+      border:0;
+      border-radius:4px;
+      background:transparent;
+      color:#94a3b8;
+      font-size:10px;
+      font-weight:700;
+      letter-spacing:0.02em;
+      text-align:left;
+      cursor:pointer;
+    }
+    .v3-cad-group-head:hover{ background:#1e293b; color:#e2e8f0; }
+    .v3-cad-group-chevron{
+      width:10px;
+      font-size:9px;
+      line-height:1;
+      transform:rotate(0deg);
+    }
+    .v3-cad-group.is-collapsed .v3-cad-group-chevron{ transform:rotate(-90deg); }
+    .v3-cad-group-name{
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      min-width:0;
+    }
+    .v3-cad-group-dot{
+      width:6px;
+      height:6px;
+      border-radius:50%;
+      background:#60a5fa;
+      display:none;
+      margin-left:auto;
+      flex:0 0 auto;
+    }
+    .v3-cad-group.has-active .v3-cad-group-dot{ display:block; }
+    .v3-cad-group.is-collapsed .v3-cad-group-items{ display:none !important; }
+    .v3-cad-group-items{
+      display:grid;
+      grid-template-columns:repeat(2, var(--v3-cad-btn));
+      gap:4px;
+      justify-content:center;
+    }
+    .v3-toolbar.is-horizontal .v3-cad-group-items{
+      display:flex;
+      flex-direction:row;
+      gap:4px;
     }
     .v3-cad-btn{
       position:relative;
-      width:32px;
-      height:32px;
+      width:var(--v3-cad-btn);
+      height:var(--v3-cad-btn);
     }
     .v3-cad-btn[data-tip]::after{
       content:attr(data-tip);
@@ -563,7 +674,8 @@
       transform:translateY(2px);
       transition:opacity 80ms ease;
     }
-    .v3-toolbar.is-vertical .v3-cad-btn[data-tip]::after{
+    .v3-toolbar.is-vertical .v3-cad-btn[data-tip]::after,
+    .v3-toolbar.is-floating .v3-cad-btn[data-tip]::after{
       left:calc(100% + 8px);
       top:50%;
       transform:translateY(-50%);
@@ -572,8 +684,7 @@
       left:auto;
       right:calc(100% + 8px);
     }
-    .v3-toolbar.is-horizontal .v3-cad-btn[data-tip]::after,
-    .v3-toolbar.is-floating .v3-cad-btn[data-tip]::after{
+    .v3-toolbar.is-horizontal .v3-cad-btn[data-tip]::after{
       left:50%;
       top:calc(100% + 8px);
       transform:translateX(-50%);
@@ -601,8 +712,7 @@
       flex-direction:column;
       gap:2px;
     }
-    .v3-toolbar.is-horizontal .v3-cad-overflow-menu,
-    .v3-toolbar.is-floating .v3-cad-overflow-menu{
+    .v3-toolbar.is-horizontal .v3-cad-overflow-menu{
       top:calc(100% + 6px);
       left:auto;
       right:0;
@@ -732,6 +842,22 @@
       border:1px solid #334155;
       background:#1e293b;
       color:#e2e8f0;
+    }
+    .v3-about-dl{
+      margin:0;
+      display:grid;
+      grid-template-columns:auto 1fr;
+      gap:6px 12px;
+      font-size:12px;
+    }
+    .v3-about-dl dt{
+      color:#94a3b8;
+      font-weight:600;
+    }
+    .v3-about-dl dd{
+      margin:0;
+      color:#e2e8f0;
+      font-weight:700;
     }
     .v3-cmd-pop-note{
       margin:8px 0 0;
@@ -1870,7 +1996,6 @@
   <header id="v3-north" class="v3-north">
     <div class="v3-north-brand">
       <span class="v3-north-name">Cube Rack Studio</span>
-      <span class="v3-north-dev">Ver3.0 開発中</span>
       <span id="v3-north-project" class="v3-north-project" title="プロジェクト名">未保存のデザイン</span>
     </div>
 
@@ -1931,6 +2056,9 @@
           <button type="button" id="v3-north-layout-reset">UI配置を初期化</button>
         </div>
       </div>
+      <button type="button" id="v3-north-ver" class="v3-north-ver" title="バージョン情報" aria-label="バージョン情報" aria-haspopup="dialog" aria-expanded="false">
+        <span id="v3-north-ver-product" class="v3-north-ver-product">v3.0.0</span><span id="v3-north-ver-phase" class="v3-north-ver-phase">CUI-3B.1</span>
+      </button>
     </div>
   </header>
 
@@ -1943,7 +2071,7 @@
         <div class="v3-tb-grip" title="ドラッグして移動・ドッキング" aria-label="ツールバーを移動">
           <svg width="12" height="16" viewBox="0 0 12 16" aria-hidden="true"><circle cx="4" cy="3" r="1.3" fill="currentColor"/><circle cx="8" cy="3" r="1.3" fill="currentColor"/><circle cx="4" cy="8" r="1.3" fill="currentColor"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/><circle cx="4" cy="13" r="1.3" fill="currentColor"/><circle cx="8" cy="13" r="1.3" fill="currentColor"/></svg>
         </div>
-        <span class="v3-tb-title">ツール</span>
+        <span class="v3-tb-title">CAD</span>
         <div id="v3-cad-toolbar" class="v3-cad-toolbar">
           <div id="v3-cad-body" class="v3-cad-body" role="toolbar" aria-label="CADツール"></div>
           <div class="v3-cad-overflow-wrap">
@@ -2548,6 +2676,7 @@
   <script src="main.js"></script>
   <!-- CUI-1 シェルは main.js の左バー生成後に載せる -->
   <script src="js/ui/v3-shell.js"></script>
+  <script src="js/ui/v3-app-info.js"></script>
   <script src="js/ui/v3-north.js"></script>
   <script src="js/ui/v3-layout-store.js"></script>
   <script src="js/ui/v3-workspace-ui.js"></script>

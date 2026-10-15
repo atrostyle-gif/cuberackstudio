@@ -9,6 +9,14 @@
   const VERSION = 1;
   const EDGES = { north: 1, south: 1, west: 1, east: 1 };
 
+  const GROUP_IDS = ["select", "add", "edit", "board", "place", "view"];
+
+  function defaultGroups() {
+    const out = {};
+    GROUP_IDS.forEach((id) => { out[id] = true; });
+    return out;
+  }
+
   function defaultState() {
     return {
       v: VERSION,
@@ -16,6 +24,7 @@
         tools: { mode: "dock", edge: "west", x: 72, y: 96 },
       },
       popups: {},
+      groups: defaultGroups(),
     };
   }
 
@@ -51,6 +60,15 @@
     return out;
   }
 
+  function sanitizeGroups(raw) {
+    const out = defaultGroups();
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out;
+    GROUP_IDS.forEach((id) => {
+      if (typeof raw[id] === "boolean") out[id] = raw[id];
+    });
+    return out;
+  }
+
   function sanitize(raw) {
     const def = defaultState();
     if (!raw || typeof raw !== "object" || raw.v !== VERSION) return def;
@@ -59,6 +77,7 @@
       v: VERSION,
       toolbars: { tools },
       popups: sanitizePopups(raw.popups),
+      groups: sanitizeGroups(raw.groups),
     };
   }
 
@@ -95,7 +114,9 @@
   window.v3LayoutStore = {
     KEY,
     VERSION,
+    GROUP_IDS,
     defaultState,
+    defaultGroups,
     load,
     save,
     reset,

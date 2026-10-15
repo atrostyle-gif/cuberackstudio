@@ -287,10 +287,84 @@
     }
   }
 
+  function fillVersionChrome() {
+    const info = window.v3AppInfo;
+    if (!info) return;
+    const prod = $("v3-north-ver-product");
+    const phase = $("v3-north-ver-phase");
+    if (prod) prod.textContent = info.productLabel();
+    if (phase) phase.textContent = info.phase;
+    const btn = $("v3-north-ver");
+    if (btn) {
+      const label = info.shortLabel();
+      btn.title = label + "（バージョン情報）";
+      btn.setAttribute("aria-label", "バージョン情報 " + label);
+    }
+    const legacy = document.querySelector("#panel .app-version");
+    if (legacy) legacy.textContent = info.shortLabel();
+  }
+
+  function syncVersionBtn() {
+    const btn = $("v3-north-ver");
+    if (!btn) return;
+    const open = window.v3WorkspaceUi && window.v3WorkspaceUi.getOpenPopupId() === "about";
+    btn.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+
+  function openAboutPopup() {
+    const info = window.v3AppInfo;
+    const ui = window.v3WorkspaceUi;
+    if (!info || !ui || typeof ui.openPopup !== "function") return;
+    if (ui.getOpenPopupId && ui.getOpenPopupId() === "about") {
+      ui.closePopup("cancel");
+      syncVersionBtn();
+      return;
+    }
+    ui.openPopup("about", {
+      title: "バージョン情報",
+      hideApply: true,
+      render(body) {
+        const dl = document.createElement("dl");
+        dl.className = "v3-about-dl";
+        function row(key, value) {
+          const dt = document.createElement("dt");
+          dt.textContent = key;
+          const dd = document.createElement("dd");
+          dd.textContent = value;
+          dl.appendChild(dt);
+          dl.appendChild(dd);
+        }
+        row("アプリ名", info.name);
+        row("製品バージョン", info.product);
+        row("実装フェーズ", info.phase);
+        row("チャネル", info.isDev() ? "開発版" : "製品");
+        body.appendChild(dl);
+      },
+    });
+    syncVersionBtn();
+  }
+
+  function bindVersion() {
+    fillVersionChrome();
+    const btn = $("v3-north-ver");
+    if (btn) {
+      btn.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        openAboutPopup();
+      });
+    }
+    const pop = $("v3-cmd-pop");
+    if (pop && typeof MutationObserver === "function") {
+      const mo = new MutationObserver(syncVersionBtn);
+      mo.observe(pop, { attributes: true, attributeFilter: ["class"] });
+    }
+  }
+
   bindFileAndHistory();
   bindMenus();
   bindTotal();
   bindProjectObserver();
   bindHistoryObserver();
   bindStaffObserver();
+  bindVersion();
 })();
