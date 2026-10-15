@@ -14,9 +14,11 @@ scene.add(rackGroup);
 
 scene.background = new THREE.Color(0xf0f0f0);
 
+const viewWidth = Math.max(1, viewEl.clientWidth);
+const viewHeight = Math.max(1, viewEl.clientHeight || window.innerHeight);
 const camera = new THREE.PerspectiveCamera(
   45,
-  viewEl.clientWidth / window.innerHeight,
+  viewWidth / viewHeight,
   1,
   40000
 );
@@ -24,7 +26,7 @@ camera.position.set(1800, 1200, 1800);
 camera.lookAt(0, 0, 0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(viewEl.clientWidth, window.innerHeight);
+renderer.setSize(viewWidth, viewHeight);
 viewEl.appendChild(renderer.domElement);
 
 const controls = new THREE.OrbitControls(camera, renderer.domElement);

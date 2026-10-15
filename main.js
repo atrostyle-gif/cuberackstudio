@@ -5289,7 +5289,8 @@ bar.appendChild(btnRot);
 bar.appendChild(btnRotNeg);
 bar.appendChild(btnDel);
 
-  document.body.appendChild(bar);
+  const westHost = document.getElementById("v3-west-tools") || document.body;
+  westHost.appendChild(bar);
 
   syncMoveBtn();
 })();
@@ -6087,7 +6088,7 @@ function panCamera(deltaX, deltaY) {
   const height = 2 * targetDistance * Math.tan((camera.fov * Math.PI) / 360);
 
   const panX = (deltaX / window.viewEl.clientWidth) * height * panSpeed;
-  const panY = (deltaY / window.innerHeight) * height * panSpeed;
+  const panY = (deltaY / Math.max(1, window.viewEl.clientHeight)) * height * panSpeed;
 
   const pan = new THREE.Vector3();
   const xAxis = new THREE.Vector3(1, 0, 0);
@@ -6229,8 +6230,10 @@ animate();
 
 
 window.addEventListener("resize", () => {
-  const width = window.viewEl.clientWidth;
-  const height = window.innerHeight;
+  const el = window.viewEl;
+  if (!el) return;
+  const width = Math.max(1, el.clientWidth);
+  const height = Math.max(1, el.clientHeight);
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
   renderer.setSize(width, height);

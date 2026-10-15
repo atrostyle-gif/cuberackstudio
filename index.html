@@ -53,6 +53,8 @@
       --sp-6:24px;
 
       --panel-w:380px;
+      --v3-north-h:48px;
+      --v3-west-w:48px;
       --control-h:44px;
       --control-h-sm:36px;
 
@@ -85,6 +87,7 @@
       margin:0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif;
       display:flex;
+      flex-direction:column;
       height:100vh;
       overflow:hidden;
       background:var(--bg);
@@ -93,24 +96,167 @@
       -moz-osx-font-smoothing:grayscale;
     }
 
-    #view{
+    /* CUI-1 shell: NORTH / WEST / CENTER. #panel is a collapsible legacy drawer. */
+    .v3-north{
+      flex:0 0 var(--v3-north-h);
+      height:var(--v3-north-h);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:0 12px;
+      background:#0f172a;
+      color:#e2e8f0;
+      border-bottom:1px solid #1e293b;
+      z-index:40;
+    }
+    .v3-north-brand{
+      display:flex;
+      align-items:baseline;
+      gap:10px;
+      min-width:0;
+    }
+    .v3-north-name{
+      font-size:14px;
+      font-weight:700;
+      letter-spacing:-0.01em;
+      white-space:nowrap;
+    }
+    .v3-north-dev{
+      font-size:11px;
+      font-weight:600;
+      color:#93c5fd;
+      white-space:nowrap;
+    }
+    .v3-north-actions{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin-left:auto;
+    }
+    .v3-north .v3-north-btn{
+      height:32px;
+      padding:0 10px;
+      font-size:12px;
+      font-weight:600;
+      border-radius:8px;
+      border:1px solid #334155;
+      background:#1e293b;
+      color:#e2e8f0;
+    }
+    .v3-north .v3-north-btn:hover{
+      background:#334155;
+    }
+    .v3-north .v3-north-btn[aria-expanded="true"]{
+      background:#1d4ed8;
+      border-color:#2563eb;
+      color:#fff;
+    }
+
+    .v3-shell-row{
       flex:1;
+      display:flex;
+      min-height:0;
+      min-width:0;
+    }
+
+    .v3-west{
+      flex:0 0 var(--v3-west-w);
+      width:var(--v3-west-w);
+      background:#111827;
+      border-right:1px solid #1f2937;
+      z-index:20;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      overflow:visible;
+    }
+    .v3-west-tools{
+      width:100%;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      padding:6px 0;
+      gap:6px;
+    }
+    /* Existing floating toolbar mounts into WEST (CUI-1). Do not duplicate it. */
+    #v3-west .cr-leftbar{
+      position:static !important;
+      left:auto !important;
+      top:auto !important;
+      transform:none !important;
+      z-index:auto;
+      width:100%;
+      padding:4px 4px;
+      gap:6px;
+      border-radius:0;
+      background:transparent;
+      border:none;
+      box-shadow:none;
+      backdrop-filter:none;
+      -webkit-backdrop-filter:none;
+    }
+    #v3-west .cr-toolbtn{
+      width:40px;
+      height:40px;
+      border-radius:10px;
+    }
+    #v3-west .cr-toolbtn svg,
+    #v3-west .cr-toolbtn .cr-ico{
+      width:22px;
+      height:22px;
+    }
+    #v3-west .cr-toolbtn .tip{
+      left:46px;
+    }
+
+    .v3-center{
+      flex:1;
+      min-width:0;
+      min-height:0;
+      position:relative;
+    }
+
+    #view{
+      width:100%;
+      height:100%;
       position:relative;
       background:#111827;
+      overflow:hidden;
+      min-width:0;
+      min-height:0;
+    }
+    #view canvas{
+      display:block;
     }
 
     #panel{
-      width:var(--panel-w);
-      padding:var(--sp-5);
+      width:0;
+      min-width:0;
+      padding:0;
+      border:0;
+      opacity:0;
+      pointer-events:none;
+      overflow:hidden;
+      flex:0 0 0;
       background:var(--panel-bg);
-      border-left:1px solid var(--border);
-      box-shadow:var(--shadow-panel);
+      box-shadow:none;
       display:flex;
       flex-direction:column;
       gap:var(--sp-2);
-      overflow-y:auto;
       scrollbar-width:thin;
       scrollbar-color:var(--border) transparent;
+    }
+    body.v3-legacy-panel-open #panel{
+      width:var(--panel-w);
+      min-width:var(--panel-w);
+      flex:0 0 var(--panel-w);
+      padding:var(--sp-5);
+      border-left:1px solid var(--border);
+      box-shadow:var(--shadow-panel);
+      overflow-y:auto;
+      opacity:1;
+      pointer-events:auto;
     }
     #panel::-webkit-scrollbar{ width:6px; }
     #panel::-webkit-scrollbar-track{ background:transparent; }
@@ -999,13 +1145,16 @@
     /* View cube (kept) */
     #view-cube-wrapper{
       position:fixed;
-      top:80px;
-      right:calc(var(--panel-w) + 20px);
+      top:calc(var(--v3-north-h) + 12px);
+      right:20px;
       width:96px;
       height:96px;
       z-index:30;
       pointer-events:auto;
       perspective:320px;
+    }
+    body.v3-legacy-panel-open #view-cube-wrapper{
+      right:calc(var(--panel-w) + 20px);
     }
     #view-cube{
       position:relative;
@@ -1144,7 +1293,26 @@
   </style>
 </head>
 
-<body>
+<body class="v3-shell">
+  <!-- CUI-1: 上部コンパクトバー（保存/Undo等の移設は CUI-2） -->
+  <header id="v3-north" class="v3-north">
+    <div class="v3-north-brand">
+      <span class="v3-north-name">Cube Rack Studio</span>
+      <span class="v3-north-dev">Ver3.0 開発中</span>
+    </div>
+    <div class="v3-north-actions">
+      <button type="button" id="v3-legacy-panel-toggle" class="v3-north-btn" aria-expanded="false" aria-controls="panel">操作パネル</button>
+      <button type="button" id="v3-staff-entry-btn" class="v3-north-btn" title="既存STAFFメニューを開く">STAFF</button>
+    </div>
+  </header>
+
+  <div class="v3-shell-row">
+    <!-- CUI-1: 左アイコン列の土台。操作アイコンの本移植は CUI-3 -->
+    <aside id="v3-west" class="v3-west" aria-label="ツールバー">
+      <div id="v3-west-tools" class="v3-west-tools"></div>
+    </aside>
+
+    <div id="v3-center" class="v3-center">
   <!-- 3D 描画エリア -->
   <div id="view">
 
@@ -1226,9 +1394,10 @@
     </div>
 
   </div><!-- /view -->
+    </div><!-- /v3-center -->
 
-  <!-- 右のコントロールパネル -->
-  <div id="panel">
+  <!-- 右のコントロールパネル（CUI-1: 折りたたみ。削除しない。ID維持） -->
+  <div id="panel" class="v3-legacy-panel" aria-hidden="true">
 
     <section class="card">
       <div class="card-header">
@@ -1561,6 +1730,7 @@
     </section>
 
   </div><!-- /panel -->
+  </div><!-- /v3-shell-row -->
 
   <!-- STAFFモード -->
   <div id="admin-menu-overlay" class="admin-menu-overlay hidden" aria-hidden="true">
@@ -1707,5 +1877,7 @@
   <script src="staff-config.js"></script>
   <script src="js/ui/staff-collab-mode.js"></script>
   <script src="main.js"></script>
+  <!-- CUI-1 シェルは main.js の左バー生成後に載せる -->
+  <script src="js/ui/v3-shell.js"></script>
 </body>
 </html>
