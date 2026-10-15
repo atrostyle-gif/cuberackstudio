@@ -102,19 +102,20 @@
       height:var(--v3-north-h);
       display:flex;
       align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      padding:0 12px;
+      gap:8px;
+      padding:0 8px 0 12px;
       background:#0f172a;
       color:#e2e8f0;
       border-bottom:1px solid #1e293b;
       z-index:40;
+      min-width:0;
     }
     .v3-north-brand{
       display:flex;
       align-items:baseline;
-      gap:10px;
+      gap:8px;
       min-width:0;
+      flex:0 1 auto;
     }
     .v3-north-name{
       font-size:14px;
@@ -128,11 +129,135 @@
       color:#93c5fd;
       white-space:nowrap;
     }
-    .v3-north-actions{
+    .v3-north-project{
+      font-size:12px;
+      font-weight:600;
+      color:#cbd5e1;
+      max-width:22ch;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      min-width:0;
+    }
+    .v3-north-group{
       display:flex;
       align-items:center;
-      gap:8px;
-      margin-left:auto;
+      gap:4px;
+      flex:0 0 auto;
+    }
+    .v3-north-sep{
+      width:1px;
+      height:22px;
+      background:#334155;
+      margin:0 4px;
+      flex:0 0 auto;
+    }
+    .v3-north-spacer{
+      flex:1 1 auto;
+      min-width:8px;
+    }
+    .v3-north .v3-icon-btn{
+      width:36px;
+      height:36px;
+      padding:0;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:8px;
+      border:1px solid transparent;
+      background:transparent;
+      color:#e2e8f0;
+      flex:0 0 auto;
+    }
+    .v3-north .v3-icon-btn svg{
+      width:18px;
+      height:18px;
+      display:block;
+      pointer-events:none;
+    }
+    .v3-north .v3-icon-btn:hover{
+      background:#1e293b;
+      border-color:#334155;
+    }
+    .v3-north .v3-icon-btn:focus-visible{
+      outline:2px solid #93c5fd;
+      outline-offset:2px;
+    }
+    .v3-north .v3-icon-btn[aria-expanded="true"],
+    .v3-north .v3-icon-btn.is-on{
+      background:#1d4ed8;
+      border-color:#2563eb;
+      color:#fff;
+    }
+    .v3-north .v3-icon-btn.is-staff{
+      color:#86efac;
+    }
+    .v3-north .v3-icon-btn:disabled,
+    .v3-north .v3-icon-btn[aria-disabled="true"]{
+      opacity:.35;
+      cursor:not-allowed;
+    }
+    .v3-north .v3-icon-btn[aria-busy="true"]{
+      opacity:.55;
+      pointer-events:none;
+    }
+    .v3-north-total{
+      height:32px;
+      padding:0 10px;
+      border:1px solid #334155;
+      border-radius:8px;
+      background:#1e293b;
+      color:#fde68a;
+      font-size:12px;
+      font-weight:700;
+      font-variant-numeric:tabular-nums;
+      white-space:nowrap;
+      flex:0 0 auto;
+      max-width:28ch;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .v3-north-total:hover{
+      background:#334155;
+    }
+    .v3-north-total:focus-visible{
+      outline:2px solid #93c5fd;
+      outline-offset:2px;
+    }
+    .v3-north-menu-wrap{
+      position:relative;
+      flex:0 0 auto;
+    }
+    .v3-north-menu{
+      position:absolute;
+      top:calc(100% + 6px);
+      right:0;
+      min-width:188px;
+      padding:6px;
+      background:#0f172a;
+      border:1px solid #334155;
+      border-radius:10px;
+      box-shadow:0 12px 28px rgba(0,0,0,0.35);
+      z-index:50;
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+    }
+    .v3-north-menu.hidden{ display:none; }
+    .v3-north-menu button{
+      height:32px;
+      justify-content:flex-start;
+      padding:0 10px;
+      border:none;
+      background:transparent;
+      color:#e2e8f0;
+      font-size:12px;
+      font-weight:600;
+      border-radius:6px;
+      width:100%;
+    }
+    .v3-north-menu button:hover{
+      background:#1e293b;
     }
     .v3-north .v3-north-btn{
       height:32px;
@@ -151,6 +276,17 @@
       background:#1d4ed8;
       border-color:#2563eb;
       color:#fff;
+    }
+    @media (max-width: 1100px){
+      .v3-north-project{ max-width:16ch; }
+    }
+    @media (max-width: 900px){
+      .v3-north-name{ display:none; }
+      .v3-hide-narrow{ display:none !important; }
+      .v3-north-project{ max-width:12ch; }
+    }
+    @media (max-width: 720px){
+      .v3-north-total{ max-width:14ch; }
     }
 
     .v3-shell-row{
@@ -1294,15 +1430,70 @@
 </head>
 
 <body class="v3-shell">
-  <!-- CUI-1: 上部コンパクトバー（保存/Undo等の移設は CUI-2） -->
+  <!-- CUI-2: 上部コンパクト操作バー（既存IDは #panel 内に維持） -->
   <header id="v3-north" class="v3-north">
     <div class="v3-north-brand">
       <span class="v3-north-name">Cube Rack Studio</span>
       <span class="v3-north-dev">Ver3.0 開発中</span>
+      <span id="v3-north-project" class="v3-north-project" title="プロジェクト名">未保存のデザイン</span>
     </div>
-    <div class="v3-north-actions">
-      <button type="button" id="v3-legacy-panel-toggle" class="v3-north-btn" aria-expanded="false" aria-controls="panel">操作パネル</button>
-      <button type="button" id="v3-staff-entry-btn" class="v3-north-btn" title="既存STAFFメニューを開く">STAFF</button>
+
+    <div class="v3-north-group" role="toolbar" aria-label="ファイルと編集">
+      <button type="button" id="v3-north-open" class="v3-icon-btn" title="ファイルを開く" aria-label="ファイルを開く">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7h6l2 2h10v10H3z" stroke-linejoin="round"/><path d="M3 7V5h6l2 2"/></svg>
+      </button>
+      <button type="button" id="v3-north-save" class="v3-icon-btn" title="保存" aria-label="保存">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 4h11l3 3v13H5z" stroke-linejoin="round"/><path d="M8 4v6h8V4M8 20v-7h8v7"/></svg>
+      </button>
+      <button type="button" id="v3-north-save-as" class="v3-icon-btn v3-hide-narrow" title="名前を付けて保存" aria-label="名前を付けて保存">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 4h11l3 3v13H5z" stroke-linejoin="round"/><path d="M12 11v6M9 14h6"/></svg>
+      </button>
+      <span class="v3-north-sep" aria-hidden="true"></span>
+      <button type="button" id="v3-north-undo" class="v3-icon-btn" title="元に戻す (Ctrl+Z)" aria-label="元に戻す">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 8H5V4"/><path d="M5 8a9 9 0 1 1-1.5 7"/></svg>
+      </button>
+      <button type="button" id="v3-north-redo" class="v3-icon-btn" title="やり直す (Ctrl+Y)" aria-label="やり直す">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 8h4V4"/><path d="M19 8a9 9 0 1 0 1.5 7"/></svg>
+      </button>
+    </div>
+
+    <div class="v3-north-spacer"></div>
+
+    <button type="button" id="v3-north-total" class="v3-north-total" title="見積合計（クリックで旧パネルの明細を表示）">合計：0 円</button>
+
+    <div class="v3-north-group" role="toolbar" aria-label="表示とアカウント">
+      <div class="v3-north-menu-wrap v3-hide-narrow">
+        <button type="button" id="v3-north-view" class="v3-icon-btn" title="表示設定" aria-label="表示設定" aria-haspopup="true" aria-expanded="false" aria-controls="v3-north-view-menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+        <div id="v3-north-view-menu" class="v3-north-menu hidden" role="menu">
+          <button type="button" data-click="#grid-toggle-btn">グリッド</button>
+          <button type="button" data-click="#color-chart-toggle-btn">カラーチャート</button>
+          <button type="button" data-click="#background-photo-toggle-btn">背景写真</button>
+          <button type="button" data-click="#help-toggle-btn">操作ヘルプ</button>
+        </div>
+      </div>
+      <button type="button" id="v3-staff-entry-btn" class="v3-icon-btn" title="STAFFログイン" aria-label="STAFFログイン">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="3.2"/><path d="M5 19c1.5-3.2 4-5 7-5s5.5 1.8 7 5"/></svg>
+      </button>
+      <button type="button" id="v3-legacy-panel-toggle" class="v3-icon-btn" title="旧操作パネルを開く" aria-label="旧操作パネルを開く" aria-expanded="false" aria-controls="panel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg>
+      </button>
+      <div class="v3-north-menu-wrap">
+        <button type="button" id="v3-north-more" class="v3-icon-btn" title="その他" aria-label="その他" aria-haspopup="true" aria-expanded="false" aria-controls="v3-north-more-menu">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="6" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18" cy="12" r="1.7"/></svg>
+        </button>
+        <div id="v3-north-more-menu" class="v3-north-menu hidden" role="menu">
+          <button type="button" data-click="#save-as-design-btn">名前を付けて保存</button>
+          <button type="button" data-click="#reset-btn">すべてリセット</button>
+          <button type="button" data-click="#grid-toggle-btn">グリッド</button>
+          <button type="button" data-click="#color-chart-toggle-btn">カラーチャート</button>
+          <button type="button" data-click="#help-toggle-btn">操作ヘルプ</button>
+          <button type="button" data-click="#help-page-btn">説明書</button>
+          <button type="button" data-click="#btn-open-drawing">図面を開く</button>
+          <button type="button" data-click="#btn-open-fit">CUBERACK FIT</button>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -1879,5 +2070,6 @@
   <script src="main.js"></script>
   <!-- CUI-1 シェルは main.js の左バー生成後に載せる -->
   <script src="js/ui/v3-shell.js"></script>
+  <script src="js/ui/v3-north.js"></script>
 </body>
 </html>

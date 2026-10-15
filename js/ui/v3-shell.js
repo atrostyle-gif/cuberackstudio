@@ -42,8 +42,11 @@
       panel.setAttribute("aria-hidden", next ? "false" : "true");
     }
     if (toggle) {
+      const label = next ? "旧操作パネルを閉じる" : "旧操作パネルを開く";
       toggle.setAttribute("aria-expanded", next ? "true" : "false");
-      toggle.textContent = next ? "パネルを閉じる" : "操作パネル";
+      toggle.setAttribute("title", label);
+      toggle.setAttribute("aria-label", label);
+      toggle.classList.toggle("is-on", next);
     }
 
     requestAnimationFrame(() => {
