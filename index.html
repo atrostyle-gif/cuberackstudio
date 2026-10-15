@@ -307,6 +307,13 @@
       align-items:center;
       overflow:visible;
     }
+    #v3-west.v3-dock-empty{
+      flex:0 0 0;
+      width:0;
+      min-width:0;
+      border:0;
+      overflow:hidden;
+    }
     .v3-west-tools{
       width:100%;
       display:flex;
@@ -344,6 +351,262 @@
     }
     #v3-west .cr-toolbtn .tip{
       left:46px;
+    }
+
+    /* CUI-3A: dock slots + floating toolbars / command popups */
+    #v3-dock-north,
+    #v3-dock-south{
+      flex:0 0 0;
+      height:0;
+      min-height:0;
+      background:#111827;
+      overflow:hidden;
+      z-index:21;
+    }
+    #v3-dock-north:not(.v3-dock-empty){
+      flex:0 0 48px;
+      height:48px;
+      overflow:visible;
+      border-bottom:1px solid #1f2937;
+    }
+    #v3-dock-south:not(.v3-dock-empty){
+      flex:0 0 48px;
+      height:48px;
+      overflow:visible;
+      border-top:1px solid #1f2937;
+    }
+    #v3-dock-east{
+      flex:0 0 0;
+      width:0;
+      min-width:0;
+      background:#111827;
+      overflow:hidden;
+      z-index:20;
+    }
+    #v3-dock-east:not(.v3-dock-empty){
+      flex:0 0 48px;
+      width:48px;
+      overflow:visible;
+      border-left:1px solid #1f2937;
+    }
+    #v3-float-layer{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:46;
+    }
+    #v3-float-layer > *{ pointer-events:auto; }
+
+    .v3-toolbar{
+      display:flex;
+      align-items:center;
+      gap:4px;
+      background:#111827;
+      color:#e2e8f0;
+      box-sizing:border-box;
+    }
+    .v3-toolbar.is-vertical{
+      flex-direction:column;
+      width:48px;
+      height:100%;
+      padding:6px 4px;
+    }
+    .v3-toolbar.is-horizontal{
+      flex-direction:row;
+      height:48px;
+      width:100%;
+      padding:4px 8px;
+    }
+    .v3-toolbar.is-floating{
+      position:fixed;
+      width:auto;
+      height:48px;
+      flex-direction:row;
+      border:1px solid #334155;
+      border-radius:10px;
+      box-shadow:0 12px 28px rgba(0,0,0,0.35);
+      z-index:47;
+    }
+    .v3-toolbar.is-dragging{
+      opacity:0.92;
+      z-index:80;
+    }
+    .v3-tb-grip{
+      flex:0 0 auto;
+      width:18px;
+      height:32px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      cursor:grab;
+      touch-action:none;
+      color:#94a3b8;
+      border-radius:6px;
+    }
+    .v3-toolbar.is-vertical .v3-tb-grip{
+      width:100%;
+      height:18px;
+    }
+    .v3-tb-grip:active{ cursor:grabbing; }
+    .v3-tb-grip:hover{ background:#1e293b; color:#e2e8f0; }
+    .v3-tb-title{
+      font-size:11px;
+      font-weight:700;
+      color:#93c5fd;
+      white-space:nowrap;
+      user-select:none;
+    }
+    .v3-toolbar.is-vertical .v3-tb-title{ display:none; }
+    .v3-toolbar .v3-icon-btn{
+      width:36px;
+      height:36px;
+      padding:0;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:8px;
+      border:1px solid transparent;
+      background:transparent;
+      color:#e2e8f0;
+      flex:0 0 auto;
+    }
+    .v3-toolbar .v3-icon-btn svg{ width:18px; height:18px; display:block; pointer-events:none; }
+    .v3-toolbar .v3-icon-btn:hover{ background:#1e293b; border-color:#334155; }
+    .v3-toolbar .v3-icon-btn:focus-visible{ outline:2px solid #93c5fd; outline-offset:2px; }
+    .v3-toolbar .v3-icon-btn.is-on{ background:#1d4ed8; border-color:#2563eb; }
+    .v3-toolbar .cr-leftbar{
+      position:static !important;
+      left:auto !important;
+      top:auto !important;
+      transform:none !important;
+      background:transparent;
+      border:none;
+      box-shadow:none;
+      padding:0;
+      gap:6px;
+    }
+    .v3-toolbar.is-horizontal .v3-west-tools,
+    .v3-toolbar.is-floating .v3-west-tools{
+      flex-direction:row;
+      width:auto;
+      padding:0;
+    }
+    .v3-toolbar.is-horizontal .cr-leftbar,
+    .v3-toolbar.is-floating .cr-leftbar{
+      flex-direction:row;
+      width:auto;
+    }
+    .v3-toolbar .cr-toolbtn{ width:40px; height:40px; border-radius:10px; }
+    .v3-toolbar.is-horizontal .cr-toolbtn .tip,
+    .v3-toolbar.is-floating .cr-toolbtn .tip{
+      left:50%;
+      top:46px;
+      transform:translateX(-50%);
+    }
+
+    .v3-dock-previews{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:70;
+    }
+    .v3-dock-previews[hidden]{ display:none !important; }
+    .v3-dock-ghost{
+      position:absolute;
+      background:rgba(59,130,246,0.18);
+      border:2px dashed rgba(147,197,253,0.9);
+      opacity:0;
+      transition:opacity 80ms ease;
+    }
+    .v3-dock-ghost.is-active{ opacity:1; }
+
+    .v3-cmd-pop{
+      position:fixed;
+      min-width:260px;
+      max-width:360px;
+      background:#0f172a;
+      color:#e2e8f0;
+      border:1px solid #334155;
+      border-radius:12px;
+      box-shadow:0 16px 40px rgba(0,0,0,0.4);
+      z-index:60;
+      display:flex;
+      flex-direction:column;
+    }
+    .v3-cmd-pop.hidden{ display:none !important; }
+    .v3-cmd-pop-titlebar{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      height:36px;
+      padding:0 8px 0 12px;
+      cursor:grab;
+      touch-action:none;
+      border-bottom:1px solid #1e293b;
+      user-select:none;
+    }
+    .v3-cmd-pop-titlebar:active{ cursor:grabbing; }
+    .v3-cmd-pop-title{
+      font-size:12px;
+      font-weight:700;
+      flex:1;
+    }
+    .v3-cmd-pop-x{
+      width:28px;
+      height:28px;
+      padding:0;
+      border:none;
+      border-radius:6px;
+      background:transparent;
+      color:#e2e8f0;
+    }
+    .v3-cmd-pop-x:hover{ background:#1e293b; }
+    .v3-cmd-pop-body{ padding:12px; font-size:12px; }
+    .v3-cmd-pop-body label{ display:block; font-weight:700; margin-bottom:6px; }
+    .v3-cmd-pop-body input{
+      width:100%;
+      height:32px;
+      padding:0 8px;
+      border-radius:6px;
+      border:1px solid #334155;
+      background:#1e293b;
+      color:#e2e8f0;
+    }
+    .v3-cmd-pop-note{
+      margin:8px 0 0;
+      color:#94a3b8;
+      font-size:11px;
+      line-height:1.4;
+    }
+    .v3-cmd-pop-actions{
+      display:flex;
+      justify-content:flex-end;
+      gap:8px;
+      padding:8px 12px 12px;
+    }
+    .v3-cmd-pop-actions button{
+      height:32px;
+      padding:0 12px;
+      border-radius:8px;
+      border:1px solid #334155;
+      background:#1e293b;
+      color:#e2e8f0;
+      font-size:12px;
+      font-weight:600;
+    }
+    .v3-cmd-pop-actions .is-primary{
+      background:#1d4ed8;
+      border-color:#2563eb;
+      color:#fff;
+    }
+
+    body.v3-ui-dragging{
+      user-select:none !important;
+      cursor:grabbing;
+    }
+    body.v3-ui-dragging #view,
+    body.v3-ui-dragging #view canvas{
+      pointer-events:none !important;
     }
 
     .v3-center{
@@ -1492,15 +1755,27 @@
           <button type="button" data-click="#help-page-btn">説明書</button>
           <button type="button" data-click="#btn-open-drawing">図面を開く</button>
           <button type="button" data-click="#btn-open-fit">CUBERACK FIT</button>
+          <button type="button" id="v3-north-layout-reset">UI配置を初期化</button>
         </div>
       </div>
     </div>
   </header>
 
+  <div id="v3-dock-north" class="v3-dock-slot v3-dock-empty" data-edge="north" aria-label="上ドック"></div>
+
   <div class="v3-shell-row">
-    <!-- CUI-1: 左アイコン列の土台。操作アイコンの本移植は CUI-3 -->
-    <aside id="v3-west" class="v3-west" aria-label="ツールバー">
-      <div id="v3-west-tools" class="v3-west-tools"></div>
+    <!-- CUI-3A: ドッキングスロット。既存コマンドの本移植はしない -->
+    <aside id="v3-west" class="v3-west v3-dock-slot" data-edge="west" aria-label="左ドック">
+      <div id="v3-tb-tools" class="v3-toolbar is-vertical" data-toolbar-id="tools">
+        <div class="v3-tb-grip" title="ドラッグして移動・ドッキング" aria-label="ツールバーを移動">
+          <svg width="12" height="16" viewBox="0 0 12 16" aria-hidden="true"><circle cx="4" cy="3" r="1.3" fill="currentColor"/><circle cx="8" cy="3" r="1.3" fill="currentColor"/><circle cx="4" cy="8" r="1.3" fill="currentColor"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/><circle cx="4" cy="13" r="1.3" fill="currentColor"/><circle cx="8" cy="13" r="1.3" fill="currentColor"/></svg>
+        </div>
+        <span class="v3-tb-title">ツール</span>
+        <div id="v3-west-tools" class="v3-west-tools"></div>
+        <button type="button" id="v3-demo-cmd-btn" class="v3-icon-btn" title="試作コマンド" aria-label="試作コマンド" aria-haspopup="dialog">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M8 9h8M8 13h5"/></svg>
+        </button>
+      </div>
     </aside>
 
     <div id="v3-center" class="v3-center">
@@ -1586,6 +1861,8 @@
 
   </div><!-- /view -->
     </div><!-- /v3-center -->
+
+    <aside id="v3-dock-east" class="v3-dock-slot v3-dock-empty" data-edge="east" aria-label="右ドック"></aside>
 
   <!-- 右のコントロールパネル（CUI-1: 折りたたみ。削除しない。ID維持） -->
   <div id="panel" class="v3-legacy-panel" aria-hidden="true">
@@ -1923,6 +2200,28 @@
   </div><!-- /panel -->
   </div><!-- /v3-shell-row -->
 
+  <div id="v3-dock-south" class="v3-dock-slot v3-dock-empty" data-edge="south" aria-label="下ドック"></div>
+
+  <div id="v3-float-layer">
+    <div id="v3-cmd-pop" class="v3-cmd-pop hidden" role="dialog" aria-modal="false" aria-labelledby="v3-cmd-pop-title">
+      <div class="v3-cmd-pop-titlebar" id="v3-cmd-pop-titlebar">
+        <span class="v3-cmd-pop-title" id="v3-cmd-pop-title">コマンド</span>
+        <button type="button" class="v3-cmd-pop-x" id="v3-cmd-pop-x" title="閉じる" aria-label="閉じる">×</button>
+      </div>
+      <div id="v3-cmd-pop-body" class="v3-cmd-pop-body"></div>
+      <div class="v3-cmd-pop-actions">
+        <button type="button" id="v3-cmd-pop-cancel">キャンセル</button>
+        <button type="button" id="v3-cmd-pop-apply" class="is-primary">適用</button>
+      </div>
+    </div>
+  </div>
+  <div id="v3-dock-previews" class="v3-dock-previews" hidden>
+    <div class="v3-dock-ghost" data-edge="north"></div>
+    <div class="v3-dock-ghost" data-edge="south"></div>
+    <div class="v3-dock-ghost" data-edge="west"></div>
+    <div class="v3-dock-ghost" data-edge="east"></div>
+  </div>
+
   <!-- STAFFモード -->
   <div id="admin-menu-overlay" class="admin-menu-overlay hidden" aria-hidden="true">
     <div class="admin-menu-dialog" role="dialog" aria-labelledby="admin-menu-title">
@@ -2071,5 +2370,7 @@
   <!-- CUI-1 シェルは main.js の左バー生成後に載せる -->
   <script src="js/ui/v3-shell.js"></script>
   <script src="js/ui/v3-north.js"></script>
+  <script src="js/ui/v3-layout-store.js"></script>
+  <script src="js/ui/v3-workspace-ui.js"></script>
 </body>
 </html>
