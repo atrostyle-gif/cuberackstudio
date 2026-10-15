@@ -1,7 +1,7 @@
 // =========================================================
-// CUI-3A: ドッキングツールバー + 自由配置ポップアップ
+// CUI-3A/3B: ドッキングツールバー + 自由配置ポップアップ
 // - Pointer Events / pointer capture
-// - 既存 Joint/Beam コマンドは移植しない（試作のみ）
+// - CUI-3B の CAD アイコンは v3-cad-toolbar.js が担当
 // - 3D キャンバスへドラッグを渡さない
 // =========================================================
 
@@ -10,7 +10,6 @@
   const DOCK_BAND = 40;
   const MARGIN = 8;
   const TOOLBAR_ID = "tools";
-  const DEMO_POPUP_ID = "demo";
 
   let state = window.v3LayoutStore ? window.v3LayoutStore.load() : null;
   let drag = null;
@@ -112,6 +111,11 @@
     }
     markSlots();
     resizeView();
+    requestAnimationFrame(function () {
+      if (window.v3CadToolbar && typeof window.v3CadToolbar.onLayout === "function") {
+        window.v3CadToolbar.onLayout();
+      }
+    });
   }
 
   function workspaceRect() {
@@ -337,13 +341,17 @@
     openPopupId = null;
     popupApply = null;
     popupCancel = null;
-    const btn = $("v3-demo-cmd-btn");
-    if (btn) {
-      btn.classList.remove("is-on");
-      btn.setAttribute("aria-expanded", "false");
-      if (reason !== "apply") btn.focus();
+    const applyBtn = $("v3-cmd-pop-apply");
+    const cancelBtn = $("v3-cmd-pop-cancel");
+    if (applyBtn) {
+      applyBtn.hidden = false;
+      applyBtn.textContent = "適用";
     }
+    if (cancelBtn) cancelBtn.textContent = "キャンセル";
     persist();
+    if (window.v3CadToolbar && typeof window.v3CadToolbar.syncActive === "function") {
+      window.v3CadToolbar.syncActive();
+    }
     return id;
   }
 
@@ -359,43 +367,25 @@
     const body = $("v3-cmd-pop-body");
     body.innerHTML = "";
     if (typeof opts.render === "function") opts.render(body);
+    const applyBtn = $("v3-cmd-pop-apply");
+    const cancelBtn = $("v3-cmd-pop-cancel");
+    if (applyBtn) {
+      applyBtn.hidden = !!opts.hideApply;
+      applyBtn.textContent = opts.applyLabel || "適用";
+    }
+    if (cancelBtn) {
+      cancelBtn.textContent = opts.hideApply
+        ? (opts.cancelLabel || "閉じる")
+        : (opts.cancelLabel || "キャンセル");
+    }
     el.classList.remove("hidden");
     setPopupPos(id);
-    const btn = $("v3-demo-cmd-btn");
-    if (btn) {
-      btn.classList.add("is-on");
-      btn.setAttribute("aria-expanded", "true");
-    }
     const first = body.querySelector("input, select, textarea, button");
     if (first) first.focus();
     persist();
-  }
-
-  function openDemoPopup() {
-    if (openPopupId === DEMO_POPUP_ID) {
-      closePopup("cancel");
-      return;
+    if (window.v3CadToolbar && typeof window.v3CadToolbar.syncActive === "function") {
+      window.v3CadToolbar.syncActive();
     }
-    openPopup(DEMO_POPUP_ID, {
-      title: "試作コマンド",
-      render(body) {
-        const lab = document.createElement("label");
-        lab.setAttribute("for", "v3-demo-input");
-        lab.textContent = "試作値";
-        const input = document.createElement("input");
-        input.id = "v3-demo-input";
-        input.type = "number";
-        input.value = "100";
-        const note = document.createElement("p");
-        note.className = "v3-cmd-pop-note";
-        note.textContent = "CUI-3A の動作確認用です。適用しても Joint / Beam などの既存データは変更しません。";
-        body.appendChild(lab);
-        body.appendChild(input);
-        body.appendChild(note);
-      },
-      onApply() {},
-      onCancel() {},
-    });
   }
 
   function bindPopup() {
@@ -463,13 +453,6 @@
   }
 
   function bindChrome() {
-    const demoBtn = $("v3-demo-cmd-btn");
-    if (demoBtn) {
-      demoBtn.addEventListener("click", function (ev) {
-        ev.preventDefault();
-        openDemoPopup();
-      });
-    }
     const resetBtn = $("v3-north-layout-reset");
     if (resetBtn) {
       resetBtn.addEventListener("click", function (ev) {
@@ -490,6 +473,9 @@
     window.addEventListener("resize", function () {
       layoutGhosts();
       if (state.toolbars.tools.mode === "float") applyToolbar();
+      else if (window.v3CadToolbar && typeof window.v3CadToolbar.onLayout === "function") {
+        window.v3CadToolbar.onLayout();
+      }
       clampPopup();
       persist();
     });
@@ -512,8 +498,9 @@
     dockToolbar,
     floatToolbar,
     resetLayout,
-    openDemoPopup,
+    openPopup,
     closePopup,
     clampPopup,
+    getOpenPopupId() { return openPopupId; },
   };
 })();

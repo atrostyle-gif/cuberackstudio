@@ -322,6 +322,18 @@
       padding:6px 0;
       gap:6px;
     }
+    /* CUI-3B: 旧左バーは ID / listener 維持のため残し、表示は CAD アイコンへ移す */
+    #v3-west-tools{
+      position:absolute !important;
+      width:0 !important;
+      height:0 !important;
+      margin:0 !important;
+      padding:0 !important;
+      overflow:hidden !important;
+      clip:rect(0, 0, 0, 0);
+      pointer-events:none;
+      opacity:0;
+    }
     /* Existing floating toolbar mounts into WEST (CUI-1). Do not duplicate it. */
     #v3-west .cr-leftbar{
       position:static !important;
@@ -420,6 +432,7 @@
     .v3-toolbar.is-floating{
       position:fixed;
       width:auto;
+      max-width:min(920px, calc(100vw - 24px));
       height:48px;
       flex-direction:row;
       border:1px solid #334155;
@@ -474,6 +487,154 @@
     .v3-toolbar .v3-icon-btn:hover{ background:#1e293b; border-color:#334155; }
     .v3-toolbar .v3-icon-btn:focus-visible{ outline:2px solid #93c5fd; outline-offset:2px; }
     .v3-toolbar .v3-icon-btn.is-on{ background:#1d4ed8; border-color:#2563eb; }
+
+    .v3-cad-toolbar{
+      display:flex;
+      flex:1 1 auto;
+      min-width:0;
+      min-height:0;
+      align-items:center;
+      gap:2px;
+    }
+    .v3-toolbar.is-vertical .v3-cad-toolbar{
+      flex-direction:column;
+      width:100%;
+    }
+    .v3-toolbar.is-horizontal .v3-cad-toolbar,
+    .v3-toolbar.is-floating .v3-cad-toolbar{
+      flex-direction:row;
+      height:100%;
+    }
+    .v3-cad-body{
+      display:flex;
+      flex:1 1 auto;
+      min-width:0;
+      min-height:0;
+      align-items:center;
+      gap:2px;
+      overflow:hidden;
+    }
+    .v3-toolbar.is-vertical .v3-cad-body{
+      flex-direction:column;
+      width:100%;
+    }
+    .v3-toolbar.is-horizontal .v3-cad-body,
+    .v3-toolbar.is-floating .v3-cad-body{
+      flex-direction:row;
+      height:100%;
+    }
+    .v3-cad-item{ flex:0 0 auto; }
+    .v3-toolbar .v3-icon-btn[hidden],
+    .v3-cad-item[hidden]{
+      display:none !important;
+    }
+    .v3-cad-sep{
+      width:1px;
+      height:22px;
+      margin:0 3px;
+      background:#334155;
+      opacity:0.85;
+    }
+    .v3-toolbar.is-vertical .v3-cad-sep{
+      width:22px;
+      height:1px;
+      margin:3px 0;
+    }
+    .v3-cad-btn{
+      position:relative;
+      width:32px;
+      height:32px;
+    }
+    .v3-cad-btn[data-tip]::after{
+      content:attr(data-tip);
+      position:absolute;
+      z-index:90;
+      padding:5px 8px;
+      border-radius:6px;
+      background:rgba(15,23,42,0.96);
+      border:1px solid #334155;
+      color:#e2e8f0;
+      font-size:11px;
+      font-weight:600;
+      line-height:1.2;
+      white-space:nowrap;
+      opacity:0;
+      pointer-events:none;
+      transform:translateY(2px);
+      transition:opacity 80ms ease;
+    }
+    .v3-toolbar.is-vertical .v3-cad-btn[data-tip]::after{
+      left:calc(100% + 8px);
+      top:50%;
+      transform:translateY(-50%);
+    }
+    #v3-dock-east .v3-cad-btn[data-tip]::after{
+      left:auto;
+      right:calc(100% + 8px);
+    }
+    .v3-toolbar.is-horizontal .v3-cad-btn[data-tip]::after,
+    .v3-toolbar.is-floating .v3-cad-btn[data-tip]::after{
+      left:50%;
+      top:calc(100% + 8px);
+      transform:translateX(-50%);
+    }
+    .v3-cad-btn:hover::after,
+    .v3-cad-btn:focus-visible::after{
+      opacity:1;
+    }
+    .v3-cad-overflow-wrap{
+      position:relative;
+      flex:0 0 auto;
+    }
+    .v3-cad-overflow-menu{
+      position:absolute;
+      top:0;
+      left:calc(100% + 6px);
+      min-width:188px;
+      padding:6px;
+      background:#0f172a;
+      border:1px solid #334155;
+      border-radius:10px;
+      box-shadow:0 12px 28px rgba(0,0,0,0.35);
+      z-index:91;
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+    }
+    .v3-toolbar.is-horizontal .v3-cad-overflow-menu,
+    .v3-toolbar.is-floating .v3-cad-overflow-menu{
+      top:calc(100% + 6px);
+      left:auto;
+      right:0;
+    }
+    #v3-dock-east .v3-cad-overflow-menu{
+      left:auto;
+      right:calc(100% + 6px);
+    }
+    .v3-cad-overflow-menu.hidden{ display:none; }
+    .v3-cad-overflow-menu button{
+      height:32px;
+      display:flex;
+      align-items:center;
+      justify-content:flex-start;
+      gap:8px;
+      padding:0 10px;
+      border:0;
+      border-radius:8px;
+      background:transparent;
+      color:#e2e8f0;
+      font-size:12px;
+      text-align:left;
+    }
+    .v3-cad-overflow-menu button:hover{ background:#1e293b; }
+    .v3-cad-overflow-menu button.is-on{ background:#1d4ed8; }
+    .v3-cad-overflow-menu button svg{
+      width:16px;
+      height:16px;
+      flex:0 0 auto;
+    }
+    #v3-cmd-pop-apply[hidden]{ display:none !important; }
+
     .v3-toolbar .cr-leftbar{
       position:static !important;
       left:auto !important;
@@ -578,6 +739,18 @@
       font-size:11px;
       line-height:1.4;
     }
+    .v3-cmd-pop-body button{
+      height:32px;
+      margin-top:10px;
+      padding:0 12px;
+      border-radius:8px;
+      border:1px solid #334155;
+      background:#1e293b;
+      color:#e2e8f0;
+      font-size:12px;
+      font-weight:600;
+    }
+    .v3-cmd-pop-body button:hover{ background:#334155; }
     .v3-cmd-pop-actions{
       display:flex;
       justify-content:flex-end;
@@ -1764,17 +1937,23 @@
   <div id="v3-dock-north" class="v3-dock-slot v3-dock-empty" data-edge="north" aria-label="上ドック"></div>
 
   <div class="v3-shell-row">
-    <!-- CUI-3A: ドッキングスロット。既存コマンドの本移植はしない -->
+    <!-- CUI-3B: CAD アイコンツールバー（ドッキング基盤は CUI-3A） -->
     <aside id="v3-west" class="v3-west v3-dock-slot" data-edge="west" aria-label="左ドック">
       <div id="v3-tb-tools" class="v3-toolbar is-vertical" data-toolbar-id="tools">
         <div class="v3-tb-grip" title="ドラッグして移動・ドッキング" aria-label="ツールバーを移動">
           <svg width="12" height="16" viewBox="0 0 12 16" aria-hidden="true"><circle cx="4" cy="3" r="1.3" fill="currentColor"/><circle cx="8" cy="3" r="1.3" fill="currentColor"/><circle cx="4" cy="8" r="1.3" fill="currentColor"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/><circle cx="4" cy="13" r="1.3" fill="currentColor"/><circle cx="8" cy="13" r="1.3" fill="currentColor"/></svg>
         </div>
         <span class="v3-tb-title">ツール</span>
+        <div id="v3-cad-toolbar" class="v3-cad-toolbar">
+          <div id="v3-cad-body" class="v3-cad-body" role="toolbar" aria-label="CADツール"></div>
+          <div class="v3-cad-overflow-wrap">
+            <button type="button" id="v3-cad-overflow-btn" class="v3-icon-btn v3-cad-btn" title="その他のツール" aria-label="その他のツール" aria-haspopup="true" aria-expanded="false" aria-controls="v3-cad-overflow-menu" hidden>
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="6" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18" cy="12" r="1.7"/></svg>
+            </button>
+            <div id="v3-cad-overflow-menu" class="v3-cad-overflow-menu hidden" role="menu"></div>
+          </div>
+        </div>
         <div id="v3-west-tools" class="v3-west-tools"></div>
-        <button type="button" id="v3-demo-cmd-btn" class="v3-icon-btn" title="試作コマンド" aria-label="試作コマンド" aria-haspopup="dialog">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M8 9h8M8 13h5"/></svg>
-        </button>
       </div>
     </aside>
 
@@ -2372,5 +2551,6 @@
   <script src="js/ui/v3-north.js"></script>
   <script src="js/ui/v3-layout-store.js"></script>
   <script src="js/ui/v3-workspace-ui.js"></script>
+  <script src="js/ui/v3-cad-toolbar.js"></script>
 </body>
 </html>
