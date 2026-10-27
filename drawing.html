@@ -3,113 +3,499 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>CubeRackStudio Drawing</title>
-
+  <title>Cube Rack Studio 図面</title>
+  <style id="v3-draw-print-page">@page{ size:A4 landscape; margin:0; }</style>
   <style>
-    html, body { height:100%; margin:0; }
+    :root{
+      --bg:#0f172a;
+      --panel:#111827;
+      --line:#1e293b;
+      --text:#e2e8f0;
+      --muted:#94a3b8;
+      --accent:#2563eb;
+    }
+    html, body{ height:100%; margin:0; overflow:hidden; }
     body{
       display:flex;
-      flex-direction:column;
       height:100vh;
       overflow:hidden;
-      background:#f3f4f6;
-      font-family:system-ui, -apple-system, "Segoe UI", sans-serif;
+      background:var(--bg);
+      color:var(--text);
+      font-family:system-ui, -apple-system, "Segoe UI", "Hiragino Sans", sans-serif;
     }
-
-    header{
-      flex:0 0 auto;
+    .v3-draw-side{
+      flex:0 0 248px;
+      width:248px;
       display:flex;
-      gap:8px;
-      align-items:center;
-      padding:10px 12px;
-      border-bottom:1px solid #e5e7eb;
-      background:#fff;
+      flex-direction:column;
+      gap:6px;
+      padding:10px;
+      background:var(--panel);
+      border-right:1px solid var(--line);
+      overflow:auto;
     }
-    .spacer{ flex:1; }
-
-    .tab-btn{
-      border:1px solid #d1d5db;
-      background:#fff;
-      padding:6px 10px;
-      border-radius:10px;
-      cursor:pointer;
+    .v3-draw-side h1{ margin:0; font-size:14px; font-weight:700; }
+    .v3-draw-side h2{
+      margin:8px 0 4px;
+      font-size:11px;
+      font-weight:700;
+      letter-spacing:.04em;
+      color:var(--muted);
+    }
+    .v3-field{ display:flex; flex-direction:column; gap:3px; margin-bottom:6px; }
+    .v3-field label{ font-size:11px; color:var(--muted); font-weight:600; }
+    .v3-field input, .v3-field select{
+      height:32px;
+      border:1px solid #334155;
+      border-radius:8px;
+      background:#0f172a;
+      color:var(--text);
+      padding:0 8px;
       font-size:13px;
     }
-    .tab-btn.active{
-      background:#111827;
+    .v3-row{ display:flex; gap:8px; }
+    .v3-row .v3-field{ flex:1; }
+    .v3-switch{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      font-size:12px;
+      font-weight:600;
+      margin:6px 0;
+    }
+    .v3-switch input{ accent-color:var(--accent); }
+    .hint{ font-size:11px; color:var(--muted); line-height:1.45; }
+    #status{ font-size:11px; color:#86efac; }
+    .btn-print{
+      margin-top:auto;
+      height:40px;
+      border:none;
+      border-radius:8px;
+      background:var(--accent);
       color:#fff;
-      border-color:#111827;
+      font-size:14px;
+      font-weight:700;
+      cursor:pointer;
     }
-
+    .btn-print:hover{ filter:brightness(1.08); }
+    .v3-draw-main{
+      flex:1;
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      background:#020617;
+    }
+    .v3-draw-top{
+      flex:0 0 auto;
+      display:flex;
+      flex-wrap:wrap;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-bottom:1px solid var(--line);
+    }
+    .tab-btn, .page-btn{
+      border:1px solid #334155;
+      background:#1e293b;
+      color:var(--text);
+      padding:6px 10px;
+      border-radius:8px;
+      cursor:pointer;
+      font-size:12px;
+      font-weight:600;
+    }
+    .tab-btn.active, .page-btn:disabled{ opacity:.45; cursor:default; }
+    #page-label{ font-size:12px; font-weight:700; color:#cbd5e1; min-width:72px; text-align:center; }
     #sheet{
-      flex:1 1 auto;
+      flex:1;
+      min-width:0;
       min-height:0;
-      padding:0;
-      display:block;
-      background:#f3f4f6;
+      overflow:hidden;
+      padding:16px;
+      background:#1e293b;
+      display:flex;
+      align-items:center;
+      justify-content:center;
     }
-
-    /* キャンバスはA4横相当の比率で中央寄せ（表示用） */
+    #draw-fit{
+      overflow:hidden;
+      flex:0 0 auto;
+    }
+    #draw-stage{
+      position:relative;
+      transform-origin:top left;
+    }
+    #draw-iso-overlay{
+      position:absolute;
+      left:0;
+      top:0;
+      display:none;
+      z-index:3;
+      overflow:hidden;
+      border-radius:2px;
+      pointer-events:none;
+    }
+    #draw-iso-preview{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      object-fit:contain;
+      background:#f4f4f5;
+      display:none;
+      pointer-events:none;
+    }
+    #draw-iso-hit{
+      position:absolute;
+      inset:0;
+      pointer-events:auto;
+      cursor:grab;
+      touch-action:none;
+      user-select:none;
+    }
+    #draw-legend-stamp{
+      position:absolute;
+      z-index:6;
+      pointer-events:auto;
+      cursor:move;
+      touch-action:none;
+      user-select:none;
+      background:rgba(255,255,255,.92);
+      border:1px solid #cbd5e1;
+      border-radius:4px;
+      padding:4px 6px 5px;
+      box-shadow:0 4px 12px rgba(15,23,42,.12);
+      color:#111827;
+      font:10px/1.3 "Segoe UI","Hiragino Sans",sans-serif;
+    }
+    #draw-legend-stamp .draw-stamp-title{
+      font-weight:700;
+      font-size:9px;
+      color:#334155;
+      margin-bottom:3px;
+    }
+    #draw-legend-stamp .draw-stamp-row{
+      display:flex;
+      align-items:center;
+      gap:6px;
+      margin-top:2px;
+    }
+    #draw-legend-stamp .draw-stamp-swatch{
+      width:10px;
+      height:10px;
+      border:1px solid #111827;
+      flex:0 0 10px;
+    }
+    #draw-iso-warn{
+      position:absolute;
+      left:10px;
+      bottom:10px;
+      pointer-events:none;
+      background:rgba(15,23,42,.78);
+      color:#fde68a;
+      font-size:11px;
+      font-weight:700;
+      padding:4px 8px;
+      border-radius:6px;
+    }
+    #draw-iso-gl{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      pointer-events:none;
+      display:block;
+    }
+    #draw-ortho-overlay{
+      position:absolute;
+      inset:0;
+      display:none;
+      z-index:3;
+      pointer-events:none;
+    }
+    .draw-ortho-slot{
+      position:absolute;
+      pointer-events:none;
+      overflow:hidden;
+    }
+    .draw-ortho-gl{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      pointer-events:none;
+      display:block;
+    }
+    .draw-ortho-hit{
+      position:absolute;
+      left:0;
+      right:0;
+      top:34px;
+      bottom:0;
+      pointer-events:auto;
+      cursor:grab;
+      touch-action:none;
+      user-select:none;
+      z-index:1;
+    }
+    .draw-ortho-nav{
+      position:absolute;
+      left:8px;
+      top:6px;
+      display:flex;
+      gap:4px;
+      pointer-events:auto;
+      z-index:2;
+    }
+    .draw-ortho-btn{
+      border:1px solid #cbd5e1;
+      background:rgba(255,255,255,.92);
+      color:#0f172a;
+      padding:2px 6px;
+      border-radius:6px;
+      cursor:pointer;
+      font-size:10px;
+      font-weight:700;
+    }
+    .draw-ortho-btn.is-on{
+      background:#2563eb;
+      border-color:#2563eb;
+      color:#fff;
+    }
+    .draw-legend-row{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-size:11px;
+      margin:3px 0;
+      color:var(--muted);
+    }
+    .draw-legend-swatch{
+      width:14px;
+      height:14px;
+      border-radius:3px;
+      border:1px solid #334155;
+      flex:0 0 14px;
+    }
+    .iso-view-nav{
+      display:none;
+      flex-wrap:wrap;
+      gap:6px;
+      align-items:center;
+    }
+    .iso-view-btn{
+      border:1px solid #334155;
+      background:#1e293b;
+      color:var(--text);
+      padding:6px 8px;
+      border-radius:8px;
+      cursor:pointer;
+      font-size:11px;
+      font-weight:700;
+    }
+    .iso-view-btn.is-on{
+      background:#2563eb;
+      border-color:#2563eb;
+      color:#fff;
+    }
+    .draw-page{
+      display:none;
+      background:#fff;
+      box-shadow:0 12px 40px rgba(0,0,0,.35);
+    }
+    .draw-page.is-current{ display:block; }
     #cv{
       width:1123px;
       height:794px;
       margin:0 auto;
       background:#fff;
-      display:block;
+      display:none;
+      box-shadow:0 12px 40px rgba(0,0,0,.35);
     }
-
-    /* スケールUI */
-    .scale-box{
+    body.is-legacy #cv{ display:block; }
+    body.is-legacy #draw-stage{ display:none; }
+    .scale-box, .multi-scale, .iso-control{
       display:flex;
       gap:8px;
       align-items:center;
-      font-size:13px;
+      font-size:12px;
     }
-    .scale-box select{
-      padding:6px 8px;
-      border:1px solid #d1d5db;
-      border-radius:8px;
-      background:#fff;
+    .scale-box select, .multi-scale select{
+      height:28px;
+      border-radius:6px;
+      background:#0f172a;
+      color:var(--text);
+      border:1px solid #334155;
     }
-
-    .multi-scale{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      font-size:13px;
+    .spacer{ flex:1; }
+    .dim-hint{ font-size:11px; color:var(--muted); }
+    #draw-page-list{ display:flex; flex-direction:column; margin:2px 0 4px; }
+    .draw-page-toolbar{ display:flex; align-items:center; gap:6px; margin:0 0 4px; }
+    .draw-page-toolbar button{
+      height:22px; padding:0 8px; border:1px solid #334155; border-radius:4px; background:#1e293b; color:#cbd5e1; font-size:10px; cursor:pointer;
     }
-    .multi-scale .label{
-      display:flex;
+    #draw-page-count{ margin-left:auto; font-size:10px; color:#94a3b8; font-weight:400; }
+    .draw-page-row{
+      display:grid;
+      grid-template-columns:18px 1fr;
       gap:6px;
       align-items:center;
+      padding:5px 6px;
+      border:none;
+      border-radius:4px;
+      background:transparent;
+      font-size:12px;
+      cursor:pointer;
     }
-
+    .draw-page-row:hover{ background:#1e293b; }
+    .draw-page-row.is-current{ background:#172554; }
+    .draw-page-print{ margin:0; accent-color:var(--accent); cursor:pointer; }
+    .draw-page-label{ font-weight:600; color:#e2e8f0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    #draw-page-settings{
+      margin:4px 0 6px; padding:6px; border:1px solid #1e293b; border-radius:6px; background:#0b1220;
+    }
+    #draw-page-settings[hidden]{ display:none !important; }
+    .draw-edit-actions{ display:flex; gap:6px; margin-top:6px; }
+    .draw-edit-actions button{
+      flex:1; height:26px; border:1px solid #334155; border-radius:4px; background:#1e293b; color:#e2e8f0; font-size:10px; cursor:pointer;
+    }
+    .draw-dim-inspector{
+      margin-top:8px; padding:8px; border:1px solid #334155; border-radius:8px; background:#0b1220;
+    }
+    .draw-dim-inspector.hidden{ display:none; }
+    .draw-dim-inspector-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; font-size:12px; font-weight:700; }
+    .draw-dim-inspector-head button{ border:none; background:transparent; color:#94a3b8; cursor:pointer; font-size:16px; }
+    .draw-dim-row{ display:flex; flex-direction:column; gap:3px; margin-bottom:6px; font-size:11px; }
+    .draw-dim-row label{ color:var(--muted); font-weight:600; }
+    .draw-dim-row select, .draw-dim-row input{
+      height:28px; border-radius:6px; border:1px solid #334155; background:#0f172a; color:var(--text); padding:0 6px; font-size:12px;
+    }
+    .draw-dim-readonly{ color:#e2e8f0; font-weight:700; }
+    .draw-dim-reset{
+      width:100%; height:30px; margin-top:4px; border:1px solid #334155; border-radius:6px; background:#1e293b; color:#e2e8f0; font-size:11px; cursor:pointer;
+    }
     @media print{
-      @page{ size:A4 landscape; margin:0; }
-      header{ display:none; }
-      #sheet{ padding:0; }
-      #cv{ width:100%; height:auto; border:none; }
-      .dim-hint{ display:none; }
+      html, body{ height:auto; overflow:visible; background:#fff; color:#111; }
+      body{ display:block; }
+      .v3-draw-side, .v3-draw-top, .dim-hint{ display:none !important; }
+      #sheet{
+        padding:0;
+        overflow:visible;
+        background:#fff;
+        display:block;
+        align-items:stretch;
+        justify-content:flex-start;
+      }
+      #draw-fit{ width:auto !important; height:auto !important; overflow:visible; }
+      #draw-stage{ transform:none !important; }
+      .draw-page{
+        display:none !important;
+        box-shadow:none;
+      }
+      .draw-page.is-print{
+        display:block !important;
+        page-break-after:always;
+        break-after:page;
+      }
+      .draw-page.is-print.is-print-last{ page-break-after:auto; break-after:auto; }
+      #draw-iso-overlay, .iso-view-nav, #draw-ortho-overlay{ display:none !important; }
+      #cv{ width:100%; height:auto; box-shadow:none; display:block; }
+      body:not(.is-legacy) #cv{ display:none !important; }
     }
   </style>
 </head>
-
 <body>
-  <header>
-    <strong>Drawing</strong>
-    <span id="status">idle</span>
+  <aside id="v3-draw-side" class="v3-draw-side">
+    <h1>統合図面</h1>
+    <div id="status">idle</div>
 
-    <div style="width:12px;"></div>
-
-    <div id="view-tabs" style="display:flex; gap:6px; align-items:center;">
-      <button class="tab-btn" data-view="top"  type="button">Top</button>
-      <button class="tab-btn" data-view="front" type="button">Front</button>
-      <button class="tab-btn" data-view="side" type="button">Side</button>
-      <button class="tab-btn" data-view="iso"  type="button">Iso</button>
-      <button class="tab-btn" data-view="multi" type="button">Multi</button>
+    <h2>用紙</h2>
+    <div class="v3-row">
+      <div class="v3-field">
+        <label for="draw-paper">サイズ</label>
+        <select id="draw-paper">
+          <option value="A4" selected>A4</option>
+          <option value="A3">A3</option>
+        </select>
+      </div>
+      <div class="v3-field">
+        <label for="draw-orient">方向</label>
+        <select id="draw-orient">
+          <option value="landscape" selected>横</option>
+          <option value="portrait">縦</option>
+        </select>
+      </div>
     </div>
 
-    <!-- Single view scale -->
+    <h2>図面情報</h2>
+    <div class="v3-field">
+      <label for="draw-title">図面タイトル</label>
+      <input id="draw-title" type="text" placeholder="図面タイトル" />
+    </div>
+    <div class="v3-row">
+      <div class="v3-field">
+        <label for="draw-no">図面番号（共通）</label>
+        <input id="draw-no" type="text" placeholder="D-20261023" />
+      </div>
+      <div class="v3-field">
+        <label for="draw-rev">Rev.</label>
+        <input id="draw-rev" type="text" placeholder="—" />
+      </div>
+    </div>
+    <div class="v3-field">
+      <label for="draw-date">作成日</label>
+      <input id="draw-date" type="text" placeholder="2026-10-23" />
+    </div>
+
+    <h2>図面</h2>
+    <div class="draw-page-toolbar">
+      <button type="button" id="draw-print-all">全選択</button>
+      <button type="button" id="draw-print-none">全解除</button>
+      <span id="draw-page-count">印刷 8 / 8</span>
+    </div>
+    <div id="draw-page-list"></div>
+    <details id="draw-page-settings">
+      <summary style="cursor:pointer;font-size:11px;color:#94a3b8;">この図面の設定</summary>
+      <div class="v3-field" style="margin-top:6px;">
+        <label for="draw-edit-name">図面名</label>
+        <input id="draw-edit-name" type="text" />
+      </div>
+      <div class="v3-field"><label>図面番号</label><span id="draw-edit-no" class="draw-dim-readonly">—</span></div>
+      <div id="draw-edit-view-box">
+        <label class="v3-switch"><span>寸法線を表示</span><input id="draw-edit-dims" type="checkbox" checked></label>
+        <div class="draw-edit-actions">
+          <button type="button" id="draw-edit-reset-view">表示範囲を初期化</button>
+          <button type="button" id="draw-edit-reset-dim">寸法配置を初期化</button>
+        </div>
+      </div>
+    </details>
+    <div id="draw-dim-inspector" class="draw-dim-inspector hidden">
+      <div class="draw-dim-inspector-head"><span id="draw-dim-inspector-title">寸法</span>
+        <button type="button" id="draw-dim-inspector-close" aria-label="閉じる">×</button></div>
+      <div class="draw-dim-inspector-body">
+        <div class="draw-dim-row"><label>寸法値</label><span id="draw-dim-inspector-val" class="draw-dim-readonly">—</span></div>
+        <div class="draw-dim-row"><label for="draw-dim-side">文字位置</label><select id="draw-dim-side"></select></div>
+        <div class="draw-dim-row"><label for="draw-dim-font">文字サイズ</label><select id="draw-dim-font"></select></div>
+        <div class="draw-dim-row"><label for="draw-dim-gap">線と文字の間隔 (mm)</label><input id="draw-dim-gap" type="number" min="1" max="20" step="0.5" /></div>
+        <button type="button" id="draw-dim-reset" class="draw-dim-reset">配置を初期化</button>
+      </div>
+    </div>
+
+    <h2>表示</h2>
+    <label class="v3-switch"><span>寸法表示</span><input id="draw-dims" type="checkbox" checked></label>
+    <label class="v3-switch"><span>カラーチャート</span><input id="draw-colorchart" type="checkbox"></label>
+    <div id="draw-color-legend"></div>
+    <div class="v3-field">
+      <label for="draw-quality">3Dプレビュー品質</label>
+      <select id="draw-quality">
+        <option value="high" selected>標準</option>
+        <option value="low">軽量（低性能PC）</option>
+      </select>
+    </div>
+    <p id="draw-scale-hint" class="hint">3D：左ドラッグ回転／右ドラッグ移動／ホイール拡大。正投影：パン・ズーム・寸法ドラッグ。チェックした図面だけ印刷します。</p>
+
+    <h2>正投影の縮尺</h2>
     <div id="single-scale-box" class="scale-box">
       <span>Scale</span>
       <select id="scale-select">
@@ -123,82 +509,66 @@
         <option value="100">1:100</option>
       </select>
     </div>
-
-    <!-- Multi view scales -->
     <div id="multi-scale-box" class="multi-scale" style="display:none;">
       <span>Scale</span>
-
-      <div class="label">
-        <span>Top</span>
-        <select id="scale-multi-top">
-          <option value="auto">Auto</option>
-          <option value="2">1:2</option>
-          <option value="5">1:5</option>
-          <option value="10">1:10</option>
-          <option value="20">1:20</option>
-          <option value="30">1:30</option>
-          <option value="50">1:50</option>
-          <option value="100">1:100</option>
-        </select>
-      </div>
-
-      <div class="label">
-        <span>Front</span>
-        <select id="scale-multi-front">
-          <option value="auto">Auto</option>
-          <option value="2">1:2</option>
-          <option value="5">1:5</option>
-          <option value="10">1:10</option>
-          <option value="20">1:20</option>
-          <option value="30">1:30</option>
-          <option value="50">1:50</option>
-          <option value="100">1:100</option>
-        </select>
-      </div>
-
-      <div class="label">
-        <span>Side</span>
-        <select id="scale-multi-side">
-          <option value="auto">Auto</option>
-          <option value="2">1:2</option>
-          <option value="5">1:5</option>
-          <option value="10">1:10</option>
-          <option value="20">1:20</option>
-          <option value="30">1:30</option>
-          <option value="50">1:50</option>
-          <option value="100">1:100</option>
-        </select>
-      </div>
+      <div class="label">Top <select id="scale-multi-top"><option value="auto">Auto</option><option value="2">1:2</option><option value="5">1:5</option><option value="10">1:10</option><option value="20">1:20</option><option value="30">1:30</option><option value="50">1:50</option><option value="100">1:100</option></select></div>
+      <div class="label">Front <select id="scale-multi-front"><option value="auto">Auto</option><option value="2">1:2</option><option value="5">1:5</option><option value="10">1:10</option><option value="20">1:20</option><option value="30">1:30</option><option value="50">1:50</option><option value="100">1:100</option></select></div>
+      <div class="label">Side <select id="scale-multi-side"><option value="auto">Auto</option><option value="2">1:2</option><option value="5">1:5</option><option value="10">1:10</option><option value="20">1:20</option><option value="30">1:30</option><option value="50">1:50</option><option value="100">1:100</option></select></div>
     </div>
 
-<div id="iso-control" class="iso-control" style="display:none;">
-  <label>
-    視点の高さ
-    <input
-      type="range"
-      id="iso-pitch-slider"
-      min="10"
-      max="35"
-      step="1"
-      value="20"
-    />
-    <span id="iso-pitch-val">20°</span>
-  </label>
-</div>
-
-    <div class="spacer"></div>
-    <div class="dim-hint" style="font-size:11px; color:#6b7280; margin-right:12px;">
-      寸法線はドラッグで位置を調整できます
+    <div id="legacy-view-wrap">
+      <h2>従来の単図プレビュー</h2>
+      <label class="v3-switch"><span>単図モード（互換）</span><input id="draw-legacy" type="checkbox"></label>
     </div>
-    <button id="btn-print" type="button">印刷 / PDF</button>
-  </header>
 
-  <div id="sheet">
-    <canvas id="cv" width="1123" height="794"></canvas>
+    <button id="btn-print" class="btn-print" type="button">PDF / 印刷</button>
+  </aside>
+
+  <div class="v3-draw-main">
+    <div class="v3-draw-top">
+      <div id="page-nav">
+        <button type="button" class="page-btn" id="page-prev">前へ</button>
+        <span id="page-label">1 / 1</span>
+        <button type="button" class="page-btn" id="page-next">次へ</button>
+      </div>
+      <div id="iso-view-nav" class="iso-view-nav" aria-label="3D視点"></div>
+      <div id="view-tabs" style="display:none; gap:6px; align-items:center;">
+        <button class="tab-btn" data-view="top" type="button">Top</button>
+        <button class="tab-btn" data-view="front" type="button">Front</button>
+        <button class="tab-btn" data-view="side" type="button">Side</button>
+        <button class="tab-btn" data-view="iso" type="button">Iso</button>
+        <button class="tab-btn" data-view="multi" type="button">Multi</button>
+      </div>
+      <div id="iso-control" class="iso-control" style="display:none;">
+        <label>
+          視点の高さ
+          <input type="range" id="iso-pitch-slider" min="10" max="35" step="1" value="20" />
+          <span id="iso-pitch-val">20°</span>
+        </label>
+      </div>
+      <div class="spacer"></div>
+      <div class="dim-hint">プレビューは用紙全体フィット。印刷／PDFはページごとに分かれます。</div>
+    </div>
+    <div id="sheet">
+      <div id="draw-fit">
+        <div id="draw-stage"></div>
+      </div>
+      <canvas id="cv" width="1123" height="794"></canvas>
+    </div>
   </div>
 
-  <!-- 寸法計算ユーティリティ（3D表示・図面で共通使用） -->
-  <script src="./js/app/dimension-utils.js"></script>
-  <script src="./js/app/drawing.js"></script>
+  <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+  <script src="./js/app/dimension-utils.js?v=20261027-sku1"></script>
+  <script src="./js/app/drawing-view.js?v=20261023-dw21"></script>
+  <script src="./js/app/drawing-math.js?v=20261027-h1"></script>
+  <script src="./js/app/drawing-page-store.js?v=20261023-dw21"></script>
+  <script src="./js/app/drawing-dim-style.js?v=20261023-dw21"></script>
+  <script src="./js/app/drawing-sheet.js?v=20261023-dw21"></script>
+  <script src="./js/app/drawing-preview.js?v=20261023-dw21"></script>
+  <script src="./js/app/drawing-iso-nav.js?v=20261023-dw21"></script>
+  <script src="./js/app/drawing-ortho-nav.js?v=20261023-dw21"></script>
+  <script src="./js/app/drawing-dim-inspector.js?v=20261023-dw21"></script>
+  <script src="./js/app/drawing-pages-ui.js?v=20261023-dw21"></script>
+  <script src="./js/app/drawing.js?v=20261027-h1"></script>
 </body>
 </html>

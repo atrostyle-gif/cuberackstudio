@@ -33,6 +33,7 @@ const REAL_DIM = {
     200: 200.0,
     300: 309.2,
     400: 418.3,
+    500: 527.6,
     600: 636.7,
     800: 855.1,
   },
@@ -63,8 +64,8 @@ function getRealPoleLength(nominal) {
 
 // スタック定数（フォールバック専用：床→最下段ジョイント中心 / 床→TopCap上面）
 const REAL_STACK = {
-  floorToCenterWithLeg: 30.9,
-  floorToTopCapWithLeg: 33.15,
+  floorToCenterWithLeg: 22.0,
+  floorToTopCapWithLeg: 33.3,
 };
 
 // 現在の joints から、X/Y/Z の最小・最大（芯々）を出す
@@ -312,13 +313,8 @@ function computeFrameDimensions() {
     coreDepth = maxZ - minZ;
   }
   
-  // Y方向（高さ）はPOLE用の関数を使用（公式: Σ(L_i) + N × 18.1）
-  if (yPoleNominals.length > 0 && typeof window.calcPoleCenterToCenterHeightMm === "function") {
-    coreHeight = window.calcPoleCenterToCenterHeightMm(yPoleNominals);
-  } else {
-    // フォールバック：座標差を使用
-    coreHeight = maxY - minY;
-  }
+  // Y方向（高さ）の芯々は CAD ジョイント座標差（旧データは変換しない）
+  coreHeight = maxY - minY;
   
   if (window.__CR_DBG_DIM__) {
     console.log("[estimate] Beam/Pole selection:", {
@@ -371,7 +367,25 @@ function computeFrameDimensions() {
     outerDepth = coreDepth + JB + 2 * SC;
   }
   
-  // デバッグログ
+  // --- 外寸：高さ ---
+  // CAD ジョイント中心の高低差に製品端部（LEG 12.9 + 最下JB半分 9.1 + 上JB半分 9.1 + TC 2.2）を足す。
+  // 旧データの座標は変換せず、同じ端部定数で測る。
+  const hasLeg = legs.length > 0;
+  const spanY = (Number.isFinite(maxY) && Number.isFinite(minY)) ? (maxY - minY) : 0;
+  let outerHeight;
+  if (typeof window.calcFrameOuterHeightMm === "function" && spanY >= 0 && joints.length > 0) {
+    outerHeight = window.calcFrameOuterHeightMm(spanY, hasLeg, true);
+  } else if (yPoleNominals.length > 0 && typeof window.calcPoleOuterHeightMm === "function") {
+    outerHeight = window.calcPoleOuterHeightMm(yPoleNominals);
+    if (!hasLeg) outerHeight -= window.getLegHeightMm();
+  } else {
+    const bottomOffsetWithLeg = REAL_STACK.floorToCenterWithLeg;
+    const bottomOffsetNoLeg = REAL_STACK.floorToCenterWithLeg - window.getLegHeightMm();
+    const bottomOffset = hasLeg ? bottomOffsetWithLeg : bottomOffsetNoLeg;
+    const topOffset = REAL_STACK.floorToTopCapWithLeg - REAL_STACK.floorToCenterWithLeg;
+    outerHeight = coreHeight + bottomOffset + topOffset;
+  }
+
   if (window.__CR_DBG_DIM__) {
     console.log("[estimate] computeFrameDimensions result:", {
       coreWidth, coreDepth, coreHeight,
@@ -381,28 +395,6 @@ function computeFrameDimensions() {
       xBeamsCount: xBeams.length,
       zBeamsCount: zBeams.length
     });
-  }
-
-  // --- 外寸：高さ ---
-  // dimension-utils.js の calcPoleOuterHeightMm を使用
-  const hasLeg = legs.length > 0;
-  
-  let outerHeight;
-  if (yPoleNominals.length > 0 && typeof window.calcPoleOuterHeightMm === "function") {
-    // 外形高さ = Σ(L_i) + (N+1) × D + LEG + TC
-    outerHeight = window.calcPoleOuterHeightMm(yPoleNominals);
-    
-    // 脚がない場合はLEG分を引く（dimension-utils getLegHeightMm 参照）
-    if (!hasLeg) {
-      outerHeight -= window.getLegHeightMm();
-    }
-  } else {
-    // フォールバック：bottom は getter、top は旧 CENTER_TO_TOPCAP 相当（ジョイント中心→TopCap上面）
-    const bottomOffsetWithLeg = REAL_STACK.floorToCenterWithLeg;
-    const bottomOffsetNoLeg = REAL_STACK.floorToCenterWithLeg - window.getLegHeightMm();
-    const bottomOffset = hasLeg ? bottomOffsetWithLeg : bottomOffsetNoLeg;
-    const topOffset = REAL_STACK.floorToTopCapWithLeg - REAL_STACK.floorToCenterWithLeg;
-    outerHeight = coreHeight + bottomOffset + topOffset;
   }
 
   return {
@@ -531,20 +523,29 @@ poles.forEach((p) => {
   const dx = bPos.x - aPos.x;
   const dy = bPos.y - aPos.y;
   const dz = bPos.z - aPos.z;
-  const nominalLen = Math.round(Math.sqrt(dx * dx + dy * dy + dz * dz));
-
-const mat = window.normalizeMaterial(p.material);
-
-if (p.isCustom && p.customLength != null) {
-  const customLen = Math.round(p.customLength);
-  const k = `${customLen}|${mat}`;
-  if (!customPoleSummary[k]) customPoleSummary[k] = 0;
-  customPoleSummary[k]++;
-} else {
-  const k = `${nominalLen}|${mat}`;
-  if (!poleSummary[k]) poleSummary[k] = 0;
-  poleSummary[k]++;
-}
+  const cadDist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+  const mat = window.normalizeMaterial(p.material);
+  const resolved = (typeof window.resolvePoleSkuForEstimate === "function")
+    ? window.resolvePoleSkuForEstimate(p, cadDist)
+    : null;
+  const isCustomPole = resolved
+    ? !!resolved.custom
+    : !!(p.isCustom && p.customLength != null);
+  const skuMm = resolved
+    ? Number(resolved.skuMm)
+    : (isCustomPole ? Number(p.customLength) : (Number(p.lengthMm) > 0 ? Number(p.lengthMm) : cadDist));
+  const len = (typeof window.estimateBucketMm === "function")
+    ? window.estimateBucketMm(skuMm)
+    : Math.round(skuMm);
+  if (!(len > 0)) return;
+  const k = `${len}|${mat}`;
+  if (isCustomPole) {
+    if (!customPoleSummary[k]) customPoleSummary[k] = 0;
+    customPoleSummary[k]++;
+  } else {
+    if (!poleSummary[k]) poleSummary[k] = 0;
+    poleSummary[k]++;
+  }
 });
 
   // --- 脚本数 ---
@@ -1075,6 +1076,8 @@ pushItem("beamNut",  "BeamNut",       beamNutCount,  matBeamNut);
 
 // ===== 3D画面側の簡易テーブル描画（表示用に catalog から単価を引く）=====
 let totalDisplay = 0;
+let incomplete = false;
+const estimateLines = [];
 
 // [order-pricing] integrated: lengthMm fallback hardened — key 末尾の数値を安全に抽出
 function extractTrailingInt(str) {
@@ -1123,30 +1126,60 @@ items.forEach((item) => {
   }
   tdMat.textContent = matDisplay;
 
-  // オーダー品（beam_custom_/pole_custom_）は3D側ではルール未適用なので "-" のままにする
   const isCustom =
     String(item.key).startsWith("beam_custom_") ||
     String(item.key).startsWith("pole_custom_");
 
   let unitPrice = 0;
   let sub = 0;
+  let registered = true;
+  const priceMode = window.getEstimatePriceMode ? window.getEstimatePriceMode() : "retail";
 
-  // [order-pricing] integrated: オーダー（カスタム長さ）のみ calcOrderTotal の total を使用／key は type×material×L 形式をパース
-  if (isCustom && typeof window.calcOrderTotal === "function") {
+  if (typeof window.pricePartForEstimate === "function") {
+    const priced = window.pricePartForEstimate(item.key, item.material, item.qty, isCustom ? "retail" : priceMode);
+    if (priced && priced.registered) {
+      unitPrice = Number(priced.unitPrice);
+      sub = Number(priced.sub);
+      if (!Number.isFinite(unitPrice)) unitPrice = 0;
+      if (!Number.isFinite(sub)) sub = 0;
+    } else if (priced && priced.registered === false) {
+      registered = false;
+      unitPrice = null;
+      sub = null;
+      incomplete = true;
+    } else if (isCustom && typeof window.priceOrderLineFromKey === "function") {
+      try {
+        const result = window.priceOrderLineFromKey(item.key, item.material, Number(item.qty) || 0);
+        if (result) {
+          sub = result.total;
+          unitPrice = result.unitRef || 0;
+        }
+      } catch (e) {
+        console.warn("[estimate] calcOrderTotal failed:", e);
+      }
+    }
+  } else if (isCustom && typeof window.priceOrderLineFromKey === "function") {
+    const qty = Number(item.qty) || 0;
+    try {
+      const result = window.priceOrderLineFromKey(item.key, item.material, qty);
+      if (result) {
+        sub = result.total;
+        unitPrice = result.unitRef || Math.round(result.total / qty);
+      }
+    } catch (e) {
+      console.warn("[estimate] calcOrderTotal failed:", e);
+    }
+  } else if (isCustom && typeof window.calcOrderTotal === "function") {
     const keyStr = String(item.key);
     const type = keyStr.startsWith("beam_custom_") ? "BEAM" : "POLE";
     const parts = keyStr.split("_");
     let material = "IRON";
     let lengthMm = 0;
-    // 新形式: beam_custom_IRON_799 / pole_custom_BS_1000 → parts[2]=material, parts[3]=lengthMm
     if (parts.length >= 4 && parts[2] && parts[3] !== undefined) {
       material = window.normalizeMaterial?.(parts[2]) || parts[2] || "IRON";
       lengthMm = Number(parts[3]) || 0;
-      // [order-pricing] integrated: lengthMm fallback hardened
       if (!lengthMm) lengthMm = extractTrailingInt(keyStr);
     } else {
-      // 後方互換: 旧形式 beam_custom_799 — split に依存せず key 末尾の数値を拾う
-      // [order-pricing] integrated: lengthMm fallback hardened
       material = "IRON";
       lengthMm = extractTrailingInt(keyStr);
     }
@@ -1161,7 +1194,6 @@ items.forEach((item) => {
       }
     }
   } else {
-    // ★ 表示用：getPartInfo から単価を参照（材種対応）— 既製品（定尺）は従来通り
     const info =
       (typeof window.getPartInfo === "function")
         ? window.getPartInfo(item.key, item.material)
@@ -1171,12 +1203,26 @@ items.forEach((item) => {
   }
 
   const tdPrice = document.createElement("td");
-  tdPrice.textContent = unitPrice > 0 ? unitPrice.toLocaleString() : "-";
+  tdPrice.textContent = registered && Number.isFinite(Number(unitPrice))
+    ? Number(unitPrice).toLocaleString()
+    : "未登録";
 
   const tdSub = document.createElement("td");
-  tdSub.textContent = sub > 0 ? sub.toLocaleString() : "-";
+  tdSub.textContent = registered && Number.isFinite(Number(sub))
+    ? Number(sub).toLocaleString()
+    : "—";
 
-  if (sub > 0) totalDisplay += sub;
+  if (registered && Number.isFinite(Number(sub))) totalDisplay += Number(sub);
+
+  estimateLines.push({
+    key: item.key,
+    name: tdName.textContent,
+    qty: Number(item.qty) || 0,
+    material: matDisplay,
+    unitPrice: registered ? Number(unitPrice) : null,
+    sub: registered ? Number(sub) : null,
+    registered: registered,
+  });
 
   tr.appendChild(tdName);
   tr.appendChild(tdQty);
@@ -1228,7 +1274,9 @@ try {
 // 3D側合計（表示用）
 const totalEl = document.getElementById("total");
 if (totalEl) {
-  totalEl.textContent = `合計：${totalDisplay.toLocaleString()} 円（税込・参考価格）`;
+  totalEl.textContent = incomplete
+    ? "合計：算出不可"
+    : `合計：${totalDisplay.toLocaleString()} 円（税込・参考価格）`;
 }
 
 // ===== 見積もり画面へ渡すデータ（key+name+qty+material） =====
@@ -1256,7 +1304,12 @@ window.currentEstimateParts = (items || []).map((it) => {
 });
 
 // ★ 3D側で算出した参考合計（estimate.html へ渡す）
-window.currentEstimateTotal = totalDisplay;
+window.currentEstimateIncomplete = !!incomplete;
+window.currentEstimateTotal = incomplete ? null : totalDisplay;
+window.currentEstimateLines = estimateLines;
+try { window.v3NorthSyncTotal && window.v3NorthSyncTotal(); } catch (e) {}
+try { window.v3EstimatePanel && window.v3EstimatePanel.refresh && window.v3EstimatePanel.refresh(); } catch (e) {}
+try { window.syncEstimatePrintButton && window.syncEstimatePrintButton(); } catch (e) {}
   if (!window.hasEverRendered) {
     window.hasEverRendered = true;
     window.isDirty = false;
@@ -1291,7 +1344,9 @@ function buildEstimatePayload() {
   }
 
   const rawParts = window.currentEstimateParts || [];
-  const total = window.currentEstimateTotal ?? 0;
+  const total = window.currentEstimateIncomplete
+    ? null
+    : (Number.isFinite(Number(window.currentEstimateTotal)) ? Number(window.currentEstimateTotal) : 0);
 
   // estimate.html に渡す正規化データ
   const parts = rawParts.map((p) => ({
@@ -1305,53 +1360,114 @@ function buildEstimatePayload() {
 /**
  * 見積もり画面（estimate.html）へデータを送って開く
  */
+window.__ESTIMATE_PRICE_MODE__ = window.__ESTIMATE_PRICE_MODE__ || "retail";
+
+window.getEstimatePriceMode = function getEstimatePriceMode() {
+  if (typeof window.isCubeRackStaffMode === "function" && !window.isCubeRackStaffMode()) {
+    return "retail";
+  }
+  return window.__ESTIMATE_PRICE_MODE__ === "wholesale" ? "wholesale" : "retail";
+};
+
+window.resetEstimatePriceMode = function resetEstimatePriceMode() {
+  window.__ESTIMATE_PRICE_MODE__ = "retail";
+  window.currentEstimateIncomplete = false;
+};
+
+window.setEstimatePriceMode = function setEstimatePriceMode(mode) {
+  const next = mode === "wholesale" ? "wholesale" : "retail";
+  if (next === "wholesale") {
+    if (typeof window.isCubeRackStaffMode === "function" && !window.isCubeRackStaffMode()) {
+      return { ok: false, reason: "staff" };
+    }
+  }
+  window.__ESTIMATE_PRICE_MODE__ = next;
+  if (typeof window.calcAndRenderEstimate === "function") {
+    try { window.calcAndRenderEstimate(); } catch (_) {}
+  }
+  return { ok: true, mode: next };
+};
+
+window.hasIncompleteEstimatePrices = function hasIncompleteEstimatePrices() {
+  if (window.currentEstimateIncomplete === true) return true;
+  const lines = window.currentEstimateLines;
+  if (Array.isArray(lines) && lines.some(function (l) { return l && l.registered === false; })) {
+    return true;
+  }
+  if (window.getEstimatePriceMode && window.getEstimatePriceMode() === "wholesale"
+      && typeof window.listUnregisteredWholesale === "function") {
+    return window.listUnregisteredWholesale(window.currentEstimateParts || []).length > 0;
+  }
+  return false;
+};
+
+window.syncEstimatePrintButton = function syncEstimatePrintButton() {
+  const btn = document.getElementById("v3-cmd-pop-print");
+  if (!btn) return;
+  const blocked = window.hasIncompleteEstimatePrices && window.hasIncompleteEstimatePrices();
+  btn.disabled = !!blocked;
+  btn.setAttribute("aria-disabled", blocked ? "true" : "false");
+  btn.title = blocked ? "部材単価が登録されていません" : "見積書を確認して印刷します";
+};
+
+window.buildDraftEstimatePayload = function () {
+  const partsWithMaterial = (window.currentEstimateParts || []).map((p) => {
+    const key = p?.key || "";
+    let material;
+    if (key.startsWith("wallBracket_")) {
+      material = "AL";
+    } else if (key.startsWith("shelfBoard_") || key.startsWith("wallPanel_")) {
+      material = p?.material || "足場板";
+    } else {
+      material = window.normalizeMaterial(p?.material || "IRON");
+    }
+    return {
+      key: key,
+      name: p?.name || null,
+      qty: Number(p?.qty) || 0,
+      material: material,
+    };
+  });
+  const priceMode = window.getEstimatePriceMode ? window.getEstimatePriceMode() : "retail";
+  const incomplete = window.hasIncompleteEstimatePrices && window.hasIncompleteEstimatePrices();
+  const total = incomplete
+    ? null
+    : (Number.isFinite(Number(window.currentEstimateTotal)) ? Number(window.currentEstimateTotal) : 0);
+  return {
+    parts: partsWithMaterial,
+    total: total,
+    priceMode: priceMode,
+    lines: Array.isArray(window.currentEstimateLines) ? window.currentEstimateLines : [],
+    incomplete: !!incomplete,
+  };
+};
+
 window.sendToEstimate = function (e) {
-  // ★ ここが重要：他の click ハンドラを止める
   e?.preventDefault?.();
   e?.stopPropagation?.();
   e?.stopImmediatePropagation?.();
 
-// ===== 見積書へ渡す（localStorage: draftEstimate）=====
-// ★ material と name を必ず含める（estimate.html 側で材種別単価を引くため、nameは表示用）
-// 棚板/壁板/壁板金物の場合はnormalizeMaterialを通さない（材質名をそのまま使用）
-const partsWithMaterial = (window.currentEstimateParts || []).map((p) => {
-  const key = p?.key || "";
-  let material;
-  if (key.startsWith("wallBracket_")) {
-    // 壁板金物は常に"AL"
-    material = "AL";
-  } else if (key.startsWith("shelfBoard_") || key.startsWith("wallPanel_")) {
-    // 棚板/壁板はそのまま使用（normalizeMaterialを通さない）
-    material = p?.material || "足場板";
-  } else {
-    // その他の部材はnormalizeMaterialを通す
-    material = window.normalizeMaterial(p?.material || "IRON");
+  if (typeof window.calcAndRenderEstimate === "function") {
+    try { window.calcAndRenderEstimate(); } catch (_) {}
   }
-  
-  return {
-    key: key,
-    name: p?.name || null,
-    qty: Number(p?.qty) || 0,
-    material: material,
-  };
-});
+  if (window.hasIncompleteEstimatePrices && window.hasIncompleteEstimatePrices()) {
+    try { window.syncEstimatePrintButton && window.syncEstimatePrintButton(); } catch (_) {}
+    return false;
+  }
 
-const payload = {
-  parts: partsWithMaterial,
-  total: Number(window.currentEstimateTotal) || 0,
-};
+  const payload = window.buildDraftEstimatePayload();
+  if (payload && payload.incomplete) return false;
+  localStorage.setItem("draftEstimate", JSON.stringify(payload));
 
-localStorage.setItem("draftEstimate", JSON.stringify(payload));
-
-  const win = window.open("estimate.html", "_blank"); // featuresは付けない
-if (win) {
-  try { win.opener = null; } catch (_) {}
-} else {
-  alert(
-    "見積画面を別タブで開けませんでした（ポップアップがブロックされています）。\n" +
-    "このサイトのポップアップを許可してください。"
-  );
-}
+  const win = window.open("estimate.html", "_blank");
+  if (win) {
+    try { win.opener = null; } catch (_) {}
+  } else {
+    alert(
+      "見積画面を別タブで開けませんでした（ポップアップがブロックされています）。\n" +
+      "このサイトのポップアップを許可してください。"
+    );
+  }
   return false;
 };
 
@@ -1370,6 +1486,99 @@ window.REAL_RADIUS = REAL_RADIUS;
 window.REAL_STACK = REAL_STACK;
 
 window.addEventListener("cuberack:prices-loaded", () => {
+  hidePriceRefreshError();
+  if (typeof window.calcAndRenderEstimate === "function") {
+    try { window.calcAndRenderEstimate(); } catch (_) {}
+  }
+});
+
+let priceRefreshBusy = false;
+let priceRefreshAt = 0;
+
+function hidePriceRefreshError() {
+  const el = document.getElementById("v3-price-refresh-error");
+  if (el) el.classList.add("hidden");
+}
+
+function showPriceRefreshError() {
+  let el = document.getElementById("v3-price-refresh-error");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "v3-price-refresh-error";
+    el.className = "v3-price-refresh-error";
+    el.setAttribute("role", "alert");
+    el.innerHTML = '<span>最新の価格を取得できませんでした。</span><button type="button" id="v3-price-refresh-retry">再試行</button>';
+    const north = document.getElementById("v3-north");
+    if (north && north.parentNode) north.parentNode.insertBefore(el, north.nextSibling);
+    else document.body.appendChild(el);
+    const retry = el.querySelector("#v3-price-refresh-retry");
+    if (retry) {
+      retry.addEventListener("click", function () {
+        window.refreshEstimatePrices({ reason: "retry" });
+      });
+    }
+  }
+  el.classList.remove("hidden");
+}
+
+window.refreshEstimatePrices = async function refreshEstimatePrices(options) {
+  if (priceRefreshBusy) return priceRefreshBusy;
+  const now = Date.now();
+  if (now - priceRefreshAt < 800) return { ok: true, skipped: true };
+  const loader = window.refreshPriceCatalog || window.loadPriceCatalog;
+  if (typeof loader !== "function") return { ok: false, reason: "noloader" };
+  priceRefreshAt = now;
+  const task = (async function () {
+    try {
+      const result = await loader.call(window, {
+        force: true,
+        skipCache: true,
+        allowStale: false,
+      });
+      if (result && result.ok === false) {
+        showPriceRefreshError();
+        return result;
+      }
+      hidePriceRefreshError();
+      window.__PRICE_REFRESH_ARMED__ = false;
+      if (typeof window.calcAndRenderEstimate === "function") {
+        try { window.calcAndRenderEstimate(); } catch (_) {}
+      }
+      return result || { ok: true };
+    } catch (e) {
+      showPriceRefreshError();
+      return { ok: false, error: e };
+    } finally {
+      priceRefreshBusy = false;
+    }
+  })();
+  priceRefreshBusy = task;
+  return task;
+};
+
+window.addEventListener("cuberack:prices-error", function () {
+  showPriceRefreshError();
+});
+
+window.addEventListener("pageshow", function (ev) {
+  if (ev && ev.persisted) window.refreshEstimatePrices({ reason: "pageshow" });
+});
+
+document.addEventListener("visibilitychange", function () {
+  if (document.visibilityState !== "visible") return;
+  if (!window.__PRICE_REFRESH_ARMED__) return;
+  window.refreshEstimatePrices({ reason: "visible" });
+});
+
+window.addEventListener("message", function (ev) {
+  if (ev.origin !== window.location.origin) return;
+  const type = ev.data && ev.data.type;
+  if (type !== "cuberack:prices-saved" && type !== "cuberack:price-admin-closed") return;
+  window.refreshEstimatePrices({ reason: type });
+});
+
+window.addEventListener("cuberack:staff-mode-disabled", () => {
+  window.resetEstimatePriceMode();
   if (typeof window.calcAndRenderEstimate === "function") {
     try { window.calcAndRenderEstimate(); } catch (_) {}
   }

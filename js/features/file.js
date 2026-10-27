@@ -66,14 +66,21 @@ function makeDesignJsonText() {
 //   - 旧 Flat JSON 形式を維持（Phase 2 でラップ形式 { name, projectId, snapshot } に移行予定）。
 //   - 既存の a / b / jointIndex / customLength / material は従来どおり保存する。
 function createSnapshotLocal() {
+  try { window.v3WorkLayers?.syncRackIds?.(); } catch (e) {}
+
   // joint は id が付いていれば一緒に保存（Phase 1 以降はほぼ必ず付く）
   const joint_serialized = joints.map((j) => {
     if (!j || typeof j !== "object") return j;
     const out = { x: j.x, y: j.y, z: j.z };
     if (typeof j.id === "string" && j.id.length > 0) out.id = j.id;
+    if (typeof j.rackId === "string" && j.rackId.length > 0) out.rackId = j.rackId;
     if (j.material !== undefined) out.material = j.material;
     return out;
   });
+
+  const workLayerFields = (typeof window.v3WorkLayers?.snapshotFields === "function")
+    ? window.v3WorkLayers.snapshotFields()
+    : {};
 
   return JSON.stringify({
     joints: joint_serialized,
@@ -87,13 +94,15 @@ function createSnapshotLocal() {
         customLength: b.customLength ?? null,
         material: window.normalizeMaterial?.(b.material) || "IRON",
       };
+      const beamLen = Number(b.lengthMm);
+      if (Number.isFinite(beamLen) && beamLen > 0) out.lengthMm = beamLen;
       if (typeof b.id === "string" && b.id.length > 0) out.id = b.id;
       if (typeof b.aId === "string" && b.aId.length > 0) out.aId = b.aId;
       if (typeof b.bId === "string" && b.bId.length > 0) out.bId = b.bId;
       return out;
     }),
 
-    // ★ ポール：同じくオーダー情報を保存
+    // ★ ポール：SKU lengthMm を保存（CAD 距離と分離。座標は変換しない）
     poles: poles.map((p) => {
       const out = {
         a: p.a,
@@ -102,6 +111,8 @@ function createSnapshotLocal() {
         customLength: p.customLength ?? null,
         material: window.normalizeMaterial?.(p.material) || "IRON",
       };
+      const poleLen = Number(p.lengthMm);
+      if (Number.isFinite(poleLen) && poleLen > 0) out.lengthMm = poleLen;
       if (typeof p.id === "string" && p.id.length > 0) out.id = p.id;
       if (typeof p.aId === "string" && p.aId.length > 0) out.aId = p.aId;
       if (typeof p.bId === "string" && p.bId.length > 0) out.bId = p.bId;
@@ -125,6 +136,8 @@ function createSnapshotLocal() {
       thicknessMm: s.thicknessMm,
       material: s.material || "足場板",
       cellKey: s.cellKey || "", // 隣接判定用
+      // Phase 5: optional stable shelf identity.  Old designs remain valid without it.
+      ...(typeof s.id === "string" && s.id ? { id: s.id } : {}),
     })),
     panels: (window.panels || []).map(p => ({
       j4: p.j4,
@@ -132,6 +145,29 @@ function createSnapshotLocal() {
       material: p.material || "足場板",
       side: p.side || "back",
     })),
+
+    workLayers: workLayerFields.workLayers || [],
+    activeLayerId: workLayerFields.activeLayerId || null,
+    rackAssignments: workLayerFields.rackAssignments || {},
+
+    measures: (window.v3Measure && typeof window.v3Measure.snapshotFields === "function"
+      ? window.v3Measure.snapshotFields().measures
+      : []) || [],
+    measureUi: (window.v3Measure && typeof window.v3Measure.snapshotFields === "function"
+      ? window.v3Measure.snapshotFields().measureUi
+      : { globalVisible: true, rackVisible: {} }),
+
+    // Reference-analysis settings only.  CAD geometry, pricing, and material data are untouched.
+    structuralAnalysis: (window.v3StructuralAnalysis && typeof window.v3StructuralAnalysis.snapshot === "function")
+      ? window.v3StructuralAnalysis.snapshot()
+      : undefined,
+
+    drawingDocument: window.v3DrawingDocumentCache || undefined,
+
+    heightModel: window.__cubeRackHeightModel
+      || (typeof window.inferHeightModelFromGeometry === "function"
+        ? window.inferHeightModelFromGeometry(joints, poles)
+        : undefined),
   });
 }
 
@@ -155,6 +191,25 @@ function downloadJsonAsFile(filename, text) {
   URL.revokeObjectURL(url);
 }
 
+function confirmDiscardUnsaved(action) {
+  if (!window.isDirty) return true;
+  return window.confirm(
+    "未保存の変更があります。" + action + "すると現在のデザインは失われます。よろしいですか？"
+  );
+}
+
+function clearDesignFileState() {
+  currentFileHandle = null;
+  window.currentFileName = "未保存のデザイン";
+  window.isDirty = false;
+  updateTabTitle();
+}
+
+function newDesign() {
+  const btn = document.getElementById("reset-btn");
+  if (btn) btn.click();
+}
+
 // 上書き保存
 async function saveDesignOverwrite() {
   const jsonText = makeDesignJsonText();
@@ -162,13 +217,12 @@ async function saveDesignOverwrite() {
   if (!window.showSaveFilePicker || !window.showOpenFilePicker) {
     downloadJsonAsFile("mfes-design.json", jsonText);
     alert("このブラウザでは上書き保存は使えないので、ファイルをダウンロードしました。");
-    return;
+    return "ok";
   }
 
   try {
     if (!currentFileHandle) {
-      await saveDesignAs();
-      return;
+      return await saveDesignAs();
     }
 
     const writable = await currentFileHandle.createWritable();
@@ -179,10 +233,12 @@ async function saveDesignOverwrite() {
     window.currentFileName = currentFileHandle.name;
     addToRecentFiles(window.currentFileName);
     updateTabTitle();
+    return "ok";
 
     } catch (e) {
     console.error("上書き保存に失敗しました:", e);
     alert("上書き保存に失敗しました。権限やディスク状態を確認してください。");
+    return "fail";
   }
 }
 
@@ -193,7 +249,7 @@ async function saveDesignAs() {
   if (!window.showSaveFilePicker) {
     downloadJsonAsFile("mfes-design.json", jsonText);
     alert("このブラウザでは『名前を付けて保存』ダイアログが使えないため、ファイルをダウンロードしました。");
-    return;
+    return "ok";
   }
 
   try {
@@ -225,18 +281,21 @@ async function saveDesignAs() {
     window.isDirty = false;
     addToRecentFiles(window.currentFileName);
     updateTabTitle();
+    return "ok";
 
     } catch (e) {
     if (e.name === "AbortError") {
-      return;
+      return "abort";
     }
     console.error("名前を付けて保存に失敗しました:", e);
     alert("名前を付けて保存に失敗しました。");
+    return "fail";
   }
 }
 
 // ファイルピッカーから開く
 async function openDesignFromFilePicker() {
+  if (!confirmDiscardUnsaved("開く")) return;
   if (!window.showOpenFilePicker) {
     alert("このブラウザではファイルを開けません。Chrome など Chromium 系ブラウザをお試しください。");
     return;
@@ -324,8 +383,23 @@ joints.length = 0;
     material: window.normalizeMaterial?.(j.material) || "IRON",
   };
   if (typeof j.id === "string" && j.id.length > 0) next.id = j.id;
+  if (typeof j.rackId === "string" && j.rackId.length > 0) next.rackId = j.rackId;
   joints.push(next);
 });
+
+  function jointIndexById(id) {
+    if (typeof id !== "string" || !id) return -1;
+    for (let i = 0; i < joints.length; i++) {
+      if (joints[i] && joints[i].id === id) return i;
+    }
+    return -1;
+  }
+
+  function resolveEndIndex(row, indexKey, idKey) {
+    if (Number.isFinite(row[indexKey])) return row[indexKey];
+    const idx = jointIndexById(row[idKey]);
+    return idx >= 0 ? idx : row[indexKey];
+  }
 
   // ---- beams ----
   beams.length = 0;
@@ -342,6 +416,8 @@ joints.length = 0;
       mesh: null,   // メッシュだけ描き直すので null に
       label: null,  // ラベルも描き直すので null に
     };
+    copy.a = resolveEndIndex(copy, "a", "aId");
+    copy.b = resolveEndIndex(copy, "b", "bId");
     beams.push(copy);
   });
 
@@ -358,6 +434,8 @@ joints.length = 0;
       mesh: null,
       label: null,
     };
+    copy.a = resolveEndIndex(copy, "a", "aId");
+    copy.b = resolveEndIndex(copy, "b", "bId");
     poles.push(copy);
   });
 
@@ -365,16 +443,27 @@ joints.length = 0;
 legs.length = 0;
 if (data.legs) {
   data.legs.forEach((l) => {
-    const jointIndex = l.jointIndex;
+    let jointIndex = Number.isFinite(l.jointIndex) ? l.jointIndex : null;
+    if (jointIndex == null) {
+      const idx = jointIndexById(l.jointId);
+      if (idx >= 0) jointIndex = idx;
+    }
+    if (jointIndex == null || !joints[jointIndex]) {
+      console.warn("[applySnapshotFromString] skipped leg without resolvable joint", {
+        jointIndex: l.jointIndex, jointId: l.jointId || null,
+      });
+      return;
+    }
 
     // legs の材種が無い旧データは、対応するジョイント材種を採用（無ければIRON）
-    const jm = joints?.[jointIndex]?.material;
+    const jm = joints[jointIndex]?.material;
     const material = window.normalizeMaterial?.(l.material ?? jm) || "IRON";
 
     // V3 Phase 1: id / jointId を保持
     const next = { jointIndex, material, mesh: null };
     if (typeof l.id === "string" && l.id.length > 0) next.id = l.id;
     if (typeof l.jointId === "string" && l.jointId.length > 0) next.jointId = l.jointId;
+    if (Number.isFinite(l.height)) next.height = l.height;
     legs.push(next);
   });
 }
@@ -390,6 +479,7 @@ window.manualLegJointSet = new Set(Array.isArray(data.manualLegs) ? data.manualL
     material: s.material || "足場板",
     mesh: null,
     cellKey: s.cellKey || "", // 隣接判定用
+    ...(typeof s.id === "string" && s.id ? { id: s.id } : {}),
   });
 });
 
@@ -414,12 +504,48 @@ window.manualLegJointSet = new Set(Array.isArray(data.manualLegs) ? data.manualL
     }
   }
 
+  window.__cubeRackHeightModel = data.heightModel
+    || (typeof window.inferHeightModelFromGeometry === "function"
+      ? window.inferHeightModelFromGeometry(joints, poles)
+      : "legacy");
+
+  if (typeof window.v3WorkLayers?.loadFromSnapshot === "function") {
+    try {
+      window.v3WorkLayers.loadFromSnapshot(data);
+      window.v3WorkLayers.syncRackIds();
+    } catch (e) {
+      console.warn("[applySnapshotFromString] work layer restore failed", e);
+    }
+  }
+
+  if (window.v3Measure && typeof window.v3Measure.loadFromSnapshot === "function") {
+    try {
+      window.v3Measure.loadFromSnapshot(data);
+    } catch (e) {
+      console.warn("[applySnapshotFromString] measure restore failed", e);
+    }
+  }
+
+  // Phase 5: settings restoration is intentionally separate from the CAD arrays.
+  if (window.v3StructuralAnalysis && typeof window.v3StructuralAnalysis.loadFromSnapshot === "function") {
+    try {
+      window.v3StructuralAnalysis.loadFromSnapshot(data);
+    } catch (e) {
+      console.warn("[applySnapshotFromString] structural-analysis restore failed", e);
+    }
+  }
+
+  if (data.drawingDocument && typeof data.drawingDocument === "object") {
+    window.v3DrawingDocumentCache = data.drawingDocument;
+  }
+
   if (typeof rebuildSceneFromData === "function") rebuildSceneFromData();
   
   // 見積も更新
   if (typeof window.requestEstimateRender === "function") {
     window.requestEstimateRender("after applySnapshot");
   }
+  try { window.v3BsStock?.refreshUi?.(); } catch (e) {}
 }
 
 // シーン再構築（Undo/Redo / スナップショット適用用）
@@ -437,6 +563,9 @@ function rebuildSceneFromData() {
   }
   if (typeof disposeLegMesh === "function") {
     legs.forEach((l) => disposeLegMesh(l));
+  }
+  if (window.v3InstancePool && typeof window.v3InstancePool.clear === "function") {
+    window.v3InstancePool.clear();
   }
 
   // 板のメッシュも削除
@@ -479,7 +608,9 @@ function rebuildSceneFromData() {
   // ジョイントを再生成
   joints.forEach((j) => {
     if (!window.jointGeometry || !window.jointMaterialNormal) return;
-    const mesh = new THREE.Mesh(window.jointGeometry, window.jointMaterialNormal.clone());
+    const mesh = (window.v3InstancePool && window.v3InstancePool.enabled && typeof window.v3InstancePool.createJoint === "function")
+      ? window.v3InstancePool.createJoint(j, window.normalizeMaterial ? window.normalizeMaterial(j.material) : j.material)
+      : new THREE.Mesh(window.jointGeometry, window.jointMaterialNormal.clone());
     mesh.position.set(j.x, j.y, j.z);
 
     // ★材種色（ベース色）
@@ -487,10 +618,11 @@ function rebuildSceneFromData() {
       window.applyMaterialColorToMesh(mesh, window.normalizeMaterial(j.material));
     }
 
-    if (window.rackGroup) {
+    if (window.rackGroup && !(mesh.userData && mesh.userData.v3Instanced)) {
       window.rackGroup.add(mesh);
     }
     jointMeshes.push(mesh);
+    if (window.v3InstancePool) window.v3InstancePool.note();
   });
 
   // ビームを再生成（距離追従が正本）
@@ -560,6 +692,14 @@ function rebuildSceneFromData() {
     }
   }
 
+  try {
+    if (typeof window.syncDesignLengthFromJoints === "function") {
+      window.syncDesignLengthFromJoints();
+    }
+  } catch (e) {
+    console.warn("[rebuildSceneFromData] syncDesignLengthFromJoints failed", e);
+  }
+
   // ★D1：状態に合わせて最終表示を再適用（ColorChart優先／OFFで材質色へ復帰）
   if (typeof window.reapplyConnectorVisuals === "function") {
     window.reapplyConnectorVisuals("after rebuildSceneFromData");
@@ -585,6 +725,9 @@ function rebuildSceneFromData() {
   } catch (e) {
     console.warn("[rebuildSceneFromData] syncConnectorMeshesFromData failed", e);
   }
+  try { window.v3LayerPanel?.applyVisibility?.(); } catch (e) {}
+  try { window.v3Measure?.refresh?.(); } catch (e) {}
+  try { window.v3StructuralAnalysis?.schedule?.("scene rebuild"); } catch (e) {}
 }
 
 // ボタンイベント設定
@@ -628,6 +771,9 @@ window.downloadJsonAsFile = downloadJsonAsFile;
 window.saveDesignOverwrite = saveDesignOverwrite;
 window.saveDesignAs = saveDesignAs;
 window.openDesignFromFilePicker = openDesignFromFilePicker;
+window.newDesign = newDesign;
+window.clearDesignFileState = clearDesignFileState;
+window.confirmDiscardUnsaved = confirmDiscardUnsaved;
 if (typeof createSnapshot === "function") window.createSnapshot = createSnapshot;
 if (typeof applySnapshotFromString === "function") window.applySnapshotFromString = applySnapshotFromString;
 window.rebuildSceneFromData = rebuildSceneFromData;

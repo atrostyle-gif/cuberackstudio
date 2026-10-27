@@ -11,15 +11,35 @@
   // = 2*2.0 + 2*18.35 = 4.0 + 36.7 = 40.7 mm
   const OUTER_OFFSET = 2 * SIDE_CAP_THICKNESS + 2 * JOINT_BALL_DIAMETER; // 40.7 mm
 
-  // 固定物理寸法（垂直方向・確定値）
-  const V_JB_JC = 18.0;   // 高さ方向ジョイント厚（JOINTBALL）
-  const V_LEG = 12.9;      // LEG（脚）厚み
-  const V_TC = 2.2;        // TC（トップキャップ）厚み
+  // 固定物理寸法（垂直方向・製品実測 2026-10-27）
+  // 正本: HEIGHT_DIMENSION_REPORT.md
+  const HEIGHT_MODEL_VERSION = "v31-h1";
+  const V_JB_BODY = 18.2;  // JB（Body＋Cap）実測全高
+  const V_JB_FIT = 0.2;    // JB底部への Pole 嵌合
+  const V_JB_JC = 18.0;    // 組付け有効高さ = 18.2 − 0.2
+  const V_JB_HALF = 9.1;   // 18.2 / 2。ジョイント中心〜外形端
+  const V_LEG = 12.9;      // LEG＋LegBoss 組付け追加高さ（実測。31.1 − 18.2）
+  const V_TC = 2.2;        // TopCap 追加高さ（20.4 − 18.2）
+  const V_FLOOR_TO_JB_CENTER = V_LEG + V_JB_HALF; // 22.0
+  const V_LEG_JB_STACK = V_LEG + V_JB_BODY;       // 31.1
+  const POLE_PITCH_EPS_MM = 0.05;
+  // 実測確定した中心間ピッチのみ。他の名目長は変換しない。
+  const POLE_CENTER_PITCH_TABLE = {
+    100: 108.8,
+    600: 654.7,
+  };
 
-  // 垂直定数 getter（estimate.js / drawing.js から参照用）
+  // 垂直定数 getter（estimate.js / drawing.js / 測定から参照）
+  window.HEIGHT_MODEL_VERSION = HEIGHT_MODEL_VERSION;
+  window.getHeightModelVersion = () => HEIGHT_MODEL_VERSION;
   window.getLegHeightMm = () => V_LEG;
   window.getTopCapHeightMm = () => V_TC;
   window.getVerticalJointThicknessMm = () => V_JB_JC;
+  window.getVerticalJbHeightMm = () => V_JB_BODY;
+  window.getVerticalJbHalfMm = () => V_JB_HALF;
+  window.getVerticalJbFitMm = () => V_JB_FIT;
+  window.getFloorToBottomJbCenterMm = () => V_FLOOR_TO_JB_CENTER;
+  window.getLegJbStackMm = () => V_LEG_JB_STACK;
 
   // Beam 名目長さ → 実効長（ジョイント間に効く長さ）テーブル
   const BEAM_EFFECTIVE_LENGTH_TABLE = {
@@ -28,6 +48,7 @@
     200: 200.0,
     300: 309.2,
     400: 418.3,
+    500: 527.6,
     600: 636.7,
     800: 855.1,
   };
@@ -307,58 +328,163 @@
   };
 
   /**
-   * 外形高さ（床面〜最上面：LEGとTCを含む）
-   * 公式: H_outer = Σ(L_i) + (N+1) × D + LEG + TC
-   * 構成: LEG + D + POLE + D + TC (N=1の場合)
-   * @param {number[]} poleNominalsMm - POLEの名目長さ（mm）の配列
-   * @returns {number} 外形高さ（mm）
+   * POLE 名目（SKU）→ CAD 中心間ピッチ。
+   * 100→108.8、600→654.7。他は未確定のため名目をそのまま使う。
+   */
+  window.getPoleCenterPitchMm = function getPoleCenterPitchMm(nominalMm) {
+    const nominal = Number(nominalMm);
+    if (!Number.isFinite(nominal) || nominal <= 0) return 0;
+    if (Object.prototype.hasOwnProperty.call(POLE_CENTER_PITCH_TABLE, String(nominal))) {
+      return POLE_CENTER_PITCH_TABLE[nominal];
+    }
+    if (POLE_CENTER_PITCH_TABLE[nominal]) return POLE_CENTER_PITCH_TABLE[nominal];
+    return nominal;
+  };
+
+  window.getPoleCadMmFromSku = function getPoleCadMmFromSku(skuMm) {
+    return window.getPoleCenterPitchMm(skuMm);
+  };
+
+  /** CAD 中心間 → SKU。108.8→100、654.7→600。旧データの 100/600 はそのまま。 */
+  window.getPoleSkuFromCadMm = function getPoleSkuFromCadMm(cadMm) {
+    const d = Number(cadMm);
+    if (!Number.isFinite(d) || d <= 0) return 0;
+    const keys = Object.keys(POLE_CENTER_PITCH_TABLE);
+    for (let i = 0; i < keys.length; i++) {
+      const sku = Number(keys[i]);
+      if (Math.abs(d - POLE_CENTER_PITCH_TABLE[sku]) <= POLE_PITCH_EPS_MM) return sku;
+    }
+    return d;
+  };
+
+  const POLE_SKU_PRESETS = [50, 100, 200, 300, 400, 500, 600, 800];
+
+  function poleSkuPresets() {
+    const list = window.POLE_LENGTH_OPTIONS;
+    return (Array.isArray(list) && list.length) ? list : POLE_SKU_PRESETS;
+  }
+
+  function isPoleSkuPreset(len) {
+    const n = Number(len);
+    if (!Number.isFinite(n) || n <= 0) return false;
+    const presets = poleSkuPresets();
+    if (typeof window.isPresetLengthMm === "function") return window.isPresetLengthMm(n, presets);
+    for (let i = 0; i < presets.length; i++) {
+      if (Math.abs(Number(presets[i]) - n) <= 1e-6) return true;
+    }
+    return false;
+  }
+
+  /**
+   * 見積・BOM 用の Pole SKU。CAD 座標は使わず製品番号を返す。
+   * Custom は規格へ丸めない。
+   */
+  window.resolvePoleSkuForEstimate = function resolvePoleSkuForEstimate(pole, cadMm) {
+    const p = pole && typeof pole === "object" ? pole : {};
+    if (p.isCustom && p.customLength != null && Number(p.customLength) > 0) {
+      return { skuMm: Number(p.customLength), custom: true };
+    }
+    const stored = Number(p.lengthMm);
+    if (stored > 0 && isPoleSkuPreset(stored)) {
+      return { skuMm: stored, custom: false };
+    }
+    const cad = Number(cadMm);
+    let mapped = stored;
+    if (typeof window.getPoleSkuFromCadMm === "function" && Number.isFinite(cad) && cad > 0) {
+      mapped = window.getPoleSkuFromCadMm(cad);
+    } else if (!(mapped > 0) && Number.isFinite(cad) && cad > 0) {
+      mapped = cad;
+    }
+    if (mapped > 0 && isPoleSkuPreset(mapped)) {
+      return { skuMm: mapped, custom: false };
+    }
+    const customLen = Number(p.customLength);
+    const skuMm = (Number.isFinite(customLen) && customLen > 0)
+      ? customLen
+      : (mapped > 0 ? mapped : cad);
+    return { skuMm: skuMm, custom: true };
+  };
+
+  /**
+   * 外形高さ（床〜TopCap）。
+   * H = LEG 12.9 + 最下JB 18.2 + Σ(中心間ピッチ) + TopCap 2.2
+   * 最下 JB から嵌合 0.2 を引かない。
    */
   window.calcPoleOuterHeightMm = function calcPoleOuterHeightMm(poleNominalsMm) {
-    const D = V_JB_JC; // 18.1 mm
-    const effs = (Array.isArray(poleNominalsMm) ? poleNominalsMm : []).map(nominal => {
-      return window.getPoleEffectiveLengthMm(nominal);
-    }).filter(len => len > 0);
-    
-    const N = effs.length;
+    const pitches = (Array.isArray(poleNominalsMm) ? poleNominalsMm : [])
+      .map(function (nominal) { return window.getPoleCenterPitchMm(nominal); })
+      .filter(function (len) { return len > 0; });
+    const N = pitches.length;
     if (N === 0) return 0;
-
-    const sum = effs.reduce((s, v) => s + v, 0);
-    // 外形高さ = Σ(L_i) + (N+1) × D + LEG + TC
-    // N=1の場合: LEG + 2D + pole + TC = 12.8 + 36.2 + 200 + 2.25 = 251.25
-    const outerHeight = sum + (N + 1) * D + V_LEG + V_TC;
-
+    const sum = pitches.reduce(function (s, v) { return s + v; }, 0);
+    const outerHeight = V_LEG + V_JB_BODY + sum + V_TC;
     if (window.__CR_DBG_DIM__) {
-      console.log(`[dim-utils] calcPoleOuterHeightMm: N=${N}, sum=${sum.toFixed(2)}, D=${D}, LEG=${V_LEG}, TC=${V_TC}, result=${outerHeight.toFixed(2)}`);
+      console.log("[dim-utils] calcPoleOuterHeightMm: N=" + N + ", sum=" + sum + ", result=" + outerHeight);
     }
-
     return outerHeight;
   };
 
   /**
-   * 芯々高さ（最下端ジョイント中心〜最上端ジョイント中心）
-   * 公式: H_c2c = Σ(L_i) + (N-1) × D（ポール間の継ぎ目は N-1 個）
-   * N=1の場合: pole + 0×D = 200
-   * @param {number[]} poleNominalsMm - POLEの名目長さ（mm）の配列
-   * @returns {number} 芯々高さ（mm）
+   * 芯々高さ = Σ(中心間ピッチ)
    */
   window.calcPoleCenterToCenterHeightMm = function calcPoleCenterToCenterHeightMm(poleNominalsMm) {
-    const D = V_JB_JC; // 18.1 mm
-    const effs = (Array.isArray(poleNominalsMm) ? poleNominalsMm : []).map(nominal => {
-      return window.getPoleEffectiveLengthMm(nominal);
-    }).filter(len => len > 0);
-    
-    const N = effs.length;
-    if (N === 0) return 0;
+    const pitches = (Array.isArray(poleNominalsMm) ? poleNominalsMm : [])
+      .map(function (nominal) { return window.getPoleCenterPitchMm(nominal); })
+      .filter(function (len) { return len > 0; });
+    if (!pitches.length) return 0;
+    return pitches.reduce(function (s, v) { return s + v; }, 0);
+  };
 
-    const sum = effs.reduce((s, v) => s + v, 0);
-    // 芯々高さ = Σ(L_i) + (N-1) × D
-    const centerToCenter = sum + Math.max(0, N - 1) * D;
+  /**
+   * CAD ジョイント中心の高低差から外々高さを求める。
+   * 新旧データとも同じ端部定数を使う（座標は変換しない）。
+   */
+  window.calcFrameOuterHeightMm = function calcFrameOuterHeightMm(spanY, hasLeg, hasTopCap) {
+    const span = Number(spanY);
+    if (!Number.isFinite(span) || span < 0) return 0;
+    let h = span + V_JB_HALF;
+    if (hasTopCap !== false) h += V_TC;
+    if (hasLeg !== false) h += V_FLOOR_TO_JB_CENTER;
+    else h += V_JB_HALF;
+    return h;
+  };
 
-    if (window.__CR_DBG_DIM__) {
-      console.log(`[dim-utils] calcPoleCenterToCenterHeightMm: N=${N}, sum=${sum.toFixed(2)}, D=${D}, result=${centerToCenter.toFixed(2)}`);
+  window.getFloorYFromBottomJointMm = function getFloorYFromBottomJointMm(jointY) {
+    return (Number(jointY) || 0) - V_FLOOR_TO_JB_CENTER;
+  };
+
+  window.getTopOuterYFromJointMm = function getTopOuterYFromJointMm(jointY, hasTopCap) {
+    return (Number(jointY) || 0) + V_JB_HALF + (hasTopCap ? V_TC : 0);
+  };
+
+  window.inferHeightModelFromGeometry = function inferHeightModelFromGeometry(jointList, poleList) {
+    const js = jointList || window.joints || [];
+    const ps = poleList || window.poles || [];
+    let sawNew = false;
+    let sawLegacy = false;
+    const skuKeys = Object.keys(POLE_CENTER_PITCH_TABLE);
+    for (let i = 0; i < ps.length; i++) {
+      const p = ps[i];
+      if (!p) continue;
+      const a = js[p.a];
+      const b = js[p.b];
+      if (!a || !b) continue;
+      const d = Math.hypot(
+        (Number(b.x) || 0) - (Number(a.x) || 0),
+        (Number(b.y) || 0) - (Number(a.y) || 0),
+        (Number(b.z) || 0) - (Number(a.z) || 0)
+      );
+      for (let k = 0; k < skuKeys.length; k++) {
+        const sku = Number(skuKeys[k]);
+        const pitch = POLE_CENTER_PITCH_TABLE[sku];
+        if (Math.abs(d - pitch) <= POLE_PITCH_EPS_MM) sawNew = true;
+        else if (Math.abs(d - sku) <= POLE_PITCH_EPS_MM) sawLegacy = true;
+      }
     }
-
-    return centerToCenter;
+    if (sawNew && sawLegacy) return "mixed";
+    if (sawNew) return HEIGHT_MODEL_VERSION;
+    if (sawLegacy) return "legacy";
+    return window.__cubeRackHeightModel || "legacy";
   };
 
   /**

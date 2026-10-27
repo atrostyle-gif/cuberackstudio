@@ -46,7 +46,18 @@ function saveHistory(reason = "") {
       const panelsMatch = currentPanels === newPanels && 
         JSON.stringify(currentData.panels || []) === JSON.stringify(newData.panels || []);
       
-      if (shelvesMatch && panelsMatch && 
+      const layersMatch =
+          JSON.stringify(currentData.workLayers || []) === JSON.stringify(newData.workLayers || []) &&
+          (currentData.activeLayerId || null) === (newData.activeLayerId || null) &&
+          JSON.stringify(currentData.rackAssignments || {}) === JSON.stringify(newData.rackAssignments || {});
+      const measuresMatch =
+          JSON.stringify(currentData.measures || []) === JSON.stringify(newData.measures || []) &&
+          JSON.stringify(currentData.measureUi || {}) === JSON.stringify(newData.measureUi || {});
+
+      const legsMatch = JSON.stringify(currentData.legs || []) === JSON.stringify(newData.legs || []);
+      const manualLegsMatch = JSON.stringify(currentData.manualLegs || []) === JSON.stringify(newData.manualLegs || []);
+
+      if (shelvesMatch && panelsMatch && layersMatch && measuresMatch && legsMatch && manualLegsMatch &&
           JSON.stringify(currentData.joints || []) === JSON.stringify(newData.joints || []) &&
           JSON.stringify(currentData.beams || []) === JSON.stringify(newData.beams || []) &&
           JSON.stringify(currentData.poles || []) === JSON.stringify(newData.poles || [])) {

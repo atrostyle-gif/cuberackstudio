@@ -63,6 +63,7 @@ window.PARTS_CATALOG = {
   beam_400: { label: "Beam_400", unitPrice: 680, unitWeightG: 425.1 },
   pole_400: { label: "Pole_400", unitPrice: 680, unitWeightG: 425.1 },
 
+  beam_500: { label: "Beam_500", unitPrice: 850, unitWeightG: 537.4 },
   pole_500: { label: "Pole_500", unitPrice: 750, unitWeightG: 537.4 },
 
   beam_600: { label: "Beam_600", unitPrice: 800, unitWeightG: 642.9 },
@@ -187,6 +188,7 @@ window.PART_PRICE_BY_MATERIAL = {
   beam_200: { IRON: 500, BS: 920,  SUS: 830 },
   beam_300: { IRON: 580, BS: 1200, SUS: 1020 },
   beam_400: { IRON: 680, BS: 1380, SUS: 1200 },
+  beam_500: { IRON: 850, BS: 1790, SUS: 1385 },
   beam_600: { IRON: 800, BS: 2200, SUS: 1570 },
   beam_800: { IRON: 930, BS: 2570, SUS: 2020 },
 
@@ -200,6 +202,12 @@ window.PART_PRICE_BY_MATERIAL = {
   pole_600: { IRON: 800, BS: 2020, SUS: 1570 },
   pole_800: { IRON: 930, BS: 2380, SUS: 1830 },
 };
+
+// 卸価格マスター（未登録は空。通常価格から算出しない）
+window.PARTS_WHOLESALE = window.PARTS_WHOLESALE || {};
+window.PART_WHOLESALE_BY_MATERIAL = window.PART_WHOLESALE_BY_MATERIAL || {};
+window.SCAFFOLD_BOARD_WHOLESALE_TABLE = window.SCAFFOLD_BOARD_WHOLESALE_TABLE || {};
+window.SCAFFOLD_PANEL_WHOLESALE_TABLE = window.SCAFFOLD_PANEL_WHOLESALE_TABLE || {};
 
 // =========================================================
 // Material（材種）: IRON / BS / SUS
@@ -346,7 +354,7 @@ window.getPartInfo = function getPartInfo(partKey, material) {
       const shapeLabel = shape === "STD" ? "標準" : shape === "CONVEX" ? "凸型" : "凹型";
       return {
         label: `棚受け金物（${shapeLabel}） ${width}幅用`,
-        unitPrice: baseInfo.unitPrice || 0,
+        unitPrice: resolveUnitPrice(baseKey, mat),
         unitWeightG: baseInfo.unitWeightG || 0,
       };
     }
@@ -361,7 +369,7 @@ window.getPartInfo = function getPartInfo(partKey, material) {
     if (baseInfo) {
       return {
         label: baseInfo.label || `棚受け金物（標準） ${width}幅用`,
-        unitPrice: baseInfo.unitPrice || 0,
+        unitPrice: resolveUnitPrice(baseKey, mat),
         unitWeightG: baseInfo.unitWeightG || 0,
       };
     }
@@ -448,6 +456,215 @@ window.getPartInfo = function getPartInfo(partKey, material) {
 
   // 4) 不明キー
   return { label: key, unitPrice: 0, unitWeightG: 0 };
+};
+
+function readRegisteredYen(map, key) {
+  if (!map || typeof map !== "object") {
+    return { registered: false, value: null };
+  }
+  if (!Object.prototype.hasOwnProperty.call(map, key)) {
+    return { registered: false, value: null };
+  }
+  const n = Number(map[key]);
+  if (!Number.isFinite(n)) return { registered: false, value: null };
+  return { registered: true, value: n };
+}
+
+function wholesaleSizeKey(a, b) {
+  return a <= b ? `${a}×${b}` : `${b}×${a}`;
+}
+
+function isOrderPartKeyForWholesale(key) {
+  if (typeof window.parseOrderPartKey === "function" && window.parseOrderPartKey(key)) {
+    return true;
+  }
+  return /^(beam|pole)_custom_/i.test(String(key || ""));
+}
+
+function usesMaterialPriceMap(key) {
+  const retail = window.PART_PRICE_BY_MATERIAL || {};
+  const wholesale = window.PART_WHOLESALE_BY_MATERIAL || {};
+  return (retail[key] && typeof retail[key] === "object")
+    || (wholesale[key] && typeof wholesale[key] === "object");
+}
+
+/**
+ * 規格品の卸価格を参照する。未登録と 0 円を区別し、通常価格へはフォールバックしない。
+ * オーダー Beam/Pole は対象外。
+ * @returns {{ registered: boolean, value: number|null, source: string|null, order: boolean }}
+ */
+window.getWholesalePrice = function getWholesalePrice(partKey, material) {
+  const key = String(partKey || "");
+  const mat = (typeof window.normalizeMaterial === "function")
+    ? window.normalizeMaterial(material)
+    : String(material || "IRON").toUpperCase();
+
+  if (isOrderPartKeyForWholesale(key)) {
+    return { registered: false, value: null, source: null, order: true };
+  }
+
+  const shelfBoardMatch = /^shelfBoard_(\d+)x(\d+)$/.exec(key);
+  if (shelfBoardMatch) {
+    const sizeKey = wholesaleSizeKey(Number(shelfBoardMatch[1]), Number(shelfBoardMatch[2]));
+    const found = readRegisteredYen(window.SCAFFOLD_BOARD_WHOLESALE_TABLE, sizeKey);
+    return {
+      registered: found.registered,
+      value: found.value,
+      source: found.registered ? "scaffoldBoardWholesalePrices" : null,
+      order: false,
+    };
+  }
+
+  const wallPanelMatch = /^wallPanel_(\d+)x(\d+)$/.exec(key);
+  if (wallPanelMatch) {
+    const sizeKey = wholesaleSizeKey(Number(wallPanelMatch[1]), Number(wallPanelMatch[2]));
+    const found = readRegisteredYen(window.SCAFFOLD_PANEL_WHOLESALE_TABLE, sizeKey);
+    return {
+      registered: found.registered,
+      value: found.value,
+      source: found.registered ? "scaffoldPanelWholesalePrices" : null,
+      order: false,
+    };
+  }
+
+  function wholesaleFromMaterialOrParts(partKey) {
+    if (usesMaterialPriceMap(partKey)) {
+      const byMat = window.PART_WHOLESALE_BY_MATERIAL && window.PART_WHOLESALE_BY_MATERIAL[partKey];
+      const found = readRegisteredYen(byMat, mat);
+      return {
+        registered: found.registered,
+        value: found.value,
+        source: found.registered ? "partWholesaleByMaterial" : null,
+        order: false,
+      };
+    }
+    const found = readRegisteredYen(window.PARTS_WHOLESALE, partKey);
+    return {
+      registered: found.registered,
+      value: found.value,
+      source: found.registered ? "partsWholesale" : null,
+      order: false,
+    };
+  }
+
+  const shelfBracketMatch = /^shelfBracket_(\d+)(?:_(STD|CONVEX|CONCAVE))?$/.exec(key);
+  if (shelfBracketMatch) {
+    return wholesaleFromMaterialOrParts(`shelfBracket_${shelfBracketMatch[1]}`);
+  }
+
+  const wallBracketMatch = /^wallBracket_(\d+)$/.exec(key);
+  if (wallBracketMatch) {
+    return wholesaleFromMaterialOrParts(key);
+  }
+
+  if (usesMaterialPriceMap(key)) {
+    const byMat = window.PART_WHOLESALE_BY_MATERIAL && window.PART_WHOLESALE_BY_MATERIAL[key];
+    const found = readRegisteredYen(byMat, mat);
+    return {
+      registered: found.registered,
+      value: found.value,
+      source: found.registered ? "partWholesaleByMaterial" : null,
+      order: false,
+    };
+  }
+
+  const found = readRegisteredYen(window.PARTS_WHOLESALE, key);
+  return {
+    registered: found.registered,
+    value: found.value,
+    source: found.registered ? "partsWholesale" : null,
+    order: false,
+  };
+};
+
+window.formatWholesaleMissingLabel = function formatWholesaleMissingLabel(partKey, material) {
+  const key = String(partKey || "");
+  const info = (typeof window.getPartInfo === "function")
+    ? window.getPartInfo(key, material)
+    : null;
+  const name = (info && info.label && String(info.label).trim()) || key;
+  const mat = material == null || material === "" ? "IRON" : String(material);
+  return name + "（" + mat + "）";
+};
+
+/**
+ * 通常価格マスターにキーがあるか。0円登録は true、未登録キーは false。
+ * オーダー品は別経路。棚板・壁板の動的キーは従来どおり登録扱いにする。
+ */
+window.isRetailStockKeyRegistered = function isRetailStockKeyRegistered(partKey) {
+  const k = String(partKey || "");
+  if (!k) return false;
+  if (isOrderPartKeyForWholesale(k)) return true;
+  const cat = window.PARTS_CATALOG || {};
+  if (Object.prototype.hasOwnProperty.call(cat, k)) return true;
+  const byMat = window.PART_PRICE_BY_MATERIAL || {};
+  if (byMat[k] && typeof byMat[k] === "object") return true;
+  if (/^shelfBoard_\d+x\d+$/.test(k) || /^wallPanel_\d+x\d+$/.test(k)) return true;
+  return false;
+};
+
+/**
+ * 見積1行の単価・小計。オーダー品は常に calcOrderTotal。卸は未登録を通常価格で代用しない。
+ */
+window.pricePartForEstimate = function pricePartForEstimate(partKey, material, qty, priceMode) {
+  const key = String(partKey || "");
+  const n = Math.max(0, Math.round(Number(qty) || 0));
+  const mode = priceMode === "wholesale" ? "wholesale" : "retail";
+
+  if (isOrderPartKeyForWholesale(key)) {
+    const priced = (typeof window.priceOrderLineFromKey === "function")
+      ? window.priceOrderLineFromKey(key, material, Math.max(1, n))
+      : null;
+    if (!priced) {
+      return { kind: "order", registered: true, unitPrice: 0, sub: 0, order: true };
+    }
+    return {
+      kind: "order",
+      registered: true,
+      order: true,
+      unitPrice: Number(priced.unitRef) || 0,
+      sub: n > 0 ? Number(priced.total) || 0 : 0,
+      setupFee: priced.setupFee,
+      mode: priced.mode,
+    };
+  }
+
+  if (mode === "wholesale") {
+    const ws = window.getWholesalePrice(key, material);
+    if (!ws.registered) {
+      return { kind: "stock", registered: false, order: false, unitPrice: null, sub: null };
+    }
+    const unit = Number(ws.value);
+    return { kind: "stock", registered: true, order: false, unitPrice: unit, sub: unit * n };
+  }
+
+  if (typeof window.isRetailStockKeyRegistered === "function" && !window.isRetailStockKeyRegistered(key)) {
+    return { kind: "stock", registered: false, order: false, unitPrice: null, sub: null };
+  }
+
+  const info = (typeof window.getPartInfo === "function")
+    ? window.getPartInfo(key, material)
+    : null;
+  const unit = info ? (Number(info.unitPrice) || 0) : 0;
+  return { kind: "stock", registered: true, order: false, unitPrice: unit, sub: unit * n };
+};
+
+window.listUnregisteredWholesale = function listUnregisteredWholesale(parts) {
+  const missing = [];
+  (parts || []).forEach(function (p) {
+    const key = p && p.key;
+    if (!key) return;
+    if ((Number(p.qty) || 0) <= 0) return;
+    if (isOrderPartKeyForWholesale(key)) return;
+    const ws = window.getWholesalePrice(key, p.material);
+    if (ws.order || ws.registered) return;
+    missing.push({
+      key: key,
+      material: p.material,
+      label: window.formatWholesaleMissingLabel(key, p.material),
+    });
+  });
+  return missing;
 };
 
 // ===== Order rule（オーダー価格ルール）=====

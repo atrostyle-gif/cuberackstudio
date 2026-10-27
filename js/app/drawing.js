@@ -51,8 +51,88 @@
   // key: "viewKey_direction" (例: "top_width", "front_height")
   // value: { offsetX: number, offsetY: number } または null（デフォルト）
   const dimLineOffsets = {};
+  let dimHoverKey = null;
+  let dimActiveKey = null;
 
   let isoPitchDeg = 20; // ★初期値
+
+  function persistDimOffsets(payload) {
+    if (!payload) return;
+    payload._dimOffsets = Object.assign({}, dimLineOffsets);
+  }
+
+  function restoreDimOffsets(payload) {
+    if (!payload || !payload._dimOffsets) return;
+    Object.keys(payload._dimOffsets).forEach(function (key) {
+      dimLineOffsets[key] = payload._dimOffsets[key];
+    });
+  }
+
+  function cssColorForPart(kind, item, payload) {
+    const chart = !!(payload && (payload.colorChartOn || (payload.preview && payload.preview.colorChartOn)));
+    if (chart && (kind === "beam" || kind === "pole")) {
+      const map = payload.preview && payload.preview.lengthColors;
+      if (item && (item.isCustom || item.isOrder)) return (map && map.order) || "#7c3aed";
+      const len = item && (item.colorLengthMm || item.lengthMm);
+      if (map && len != null) {
+        const keys = Object.keys(map);
+        for (let i = 0; i < keys.length; i++) {
+          if (keys[i] === "order") continue;
+          if (Math.abs(Number(keys[i]) - Number(len)) <= 1e-3) return map[keys[i]];
+        }
+        return map.order || "#7c3aed";
+      }
+    }
+    const mats = payload && payload.preview && payload.preview.materials;
+    const code = (item && item.material) || (kind === "joint" ? "IRON" : "IRON");
+    const hex = mats && mats[code];
+    if (typeof hex === "number") return "#" + hex.toString(16).padStart(6, "0");
+    if (typeof hex === "string" && hex.charAt(0) === "#") return hex;
+    if (kind === "joint") return "#6b7280";
+    if (kind === "leg") return "#57534e";
+    return "#4b5563";
+  }
+
+  function depthW(x, y, z, mode) {
+    if (mode === "back") return -z;
+    if (mode === "left") return -x;
+    if (mode === "right" || mode === "side") return x;
+    if (mode === "top") return y;
+    if (mode === "bottom") return -y;
+    if (mode === "front") return z;
+    return (x + y + z) / 3;
+  }
+
+  function drawCapsule(ctx2, x1, y1, x2, y2, r, fill) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.hypot(dx, dy);
+    ctx2.save();
+    ctx2.fillStyle = fill || "#4b5563";
+    ctx2.strokeStyle = "#111827";
+    ctx2.lineWidth = Math.max(0.7, Math.min(1.4, r * 0.22));
+    if (len < 0.4) {
+      ctx2.beginPath();
+      ctx2.arc(x1, y1, r, 0, Math.PI * 2);
+      ctx2.fill();
+      ctx2.stroke();
+      ctx2.restore();
+      return;
+    }
+    const nx = -dy / len;
+    const ny = dx / len;
+    const ang = Math.atan2(ny, nx);
+    ctx2.beginPath();
+    ctx2.moveTo(x1 + nx * r, y1 + ny * r);
+    ctx2.lineTo(x2 + nx * r, y2 + ny * r);
+    ctx2.arc(x2, y2, r, ang, ang + Math.PI);
+    ctx2.lineTo(x1 - nx * r, y1 - ny * r);
+    ctx2.arc(x1, y1, r, ang + Math.PI, ang + Math.PI * 2);
+    ctx2.closePath();
+    ctx2.fill();
+    ctx2.stroke();
+    ctx2.restore();
+  }
 
   // =========================================================
   // Canvas resize (CSS size -> real pixel size, DPR対応)
@@ -89,7 +169,13 @@
     if (statusEl) statusEl.textContent = s;
   }
 
-  btnPrint?.addEventListener("click", () => window.print());
+  btnPrint?.addEventListener("click", () => {
+    if (window.v3DrawingSheet && typeof window.v3DrawingSheet.printAll === "function" && window.v3DrawingSheet.shouldRenderSheet()) {
+      window.v3DrawingSheet.printAll();
+      return;
+    }
+    window.print();
+  });
 
   // Multi時にUIを切り替える
   function updateScaleUI() {
@@ -195,10 +281,17 @@ if (isoPitchSlider) {
   // =========================================================
   function projectJoint(j, mode) {
     if (!j) return null;
+    if (window.v3DrawingView && typeof window.v3DrawingView.projectUv === "function"
+        && mode && mode !== "iso") {
+      return window.v3DrawingView.projectUv(j.x, j.y, j.z, mode === "side" ? "right" : mode);
+    }
 
     if (mode === "top") return { u: j.x, v: j.z };
+    if (mode === "bottom") return { u: j.x, v: -j.z };
     if (mode === "front") return { u: j.x, v: -j.y };
-    if (mode === "side") return { u: j.z, v: -j.y };
+    if (mode === "back") return { u: -j.x, v: -j.y };
+    if (mode === "side" || mode === "right") return { u: j.z, v: -j.y };
+    if (mode === "left") return { u: -j.z, v: -j.y };
 
 if (mode === "iso") {
   // CAD向け：純粋な軸測投影（パースなし）
@@ -276,11 +369,12 @@ if (mode === "iso") {
   // =========================================================
   // Dimension line
   // =========================================================
-  function drawDimLine(ctx2, x1, y1, x2, y2, label) {
+  function drawDimLine(ctx2, x1, y1, x2, y2, label, opt) {
     ctx2.save();
-    ctx2.strokeStyle = "#111827";
-    ctx2.fillStyle = "#111827";
-    ctx2.lineWidth = 1;
+    const hi = !!(opt && (opt.hover || opt.active));
+    ctx2.strokeStyle = hi ? "#2563eb" : "#111827";
+    ctx2.fillStyle = hi ? "#2563eb" : "#111827";
+    ctx2.lineWidth = hi ? 2 : 1;
 
     ctx2.beginPath();
     ctx2.moveTo(x1, y1);
@@ -318,21 +412,88 @@ if (mode === "iso") {
     const dy = y2 - y1;
 
     const isHorizontal = Math.abs(dx) >= Math.abs(dy);
-    const pad = 10;
-
-    ctx2.font = "12px system-ui";
+    const style = opt && opt.style;
+    const pxPerMm = opt && opt.pxPerMmPaper ? opt.pxPerMmPaper : (96 / 25.4);
+    const fontMm = style && style.fontSizeMm ? style.fontSizeMm : 3.5;
+    const gapMm = style && style.gapMm != null ? style.gapMm : 4;
+    const gapPx = window.v3DrawingDimStyle
+      ? window.v3DrawingDimStyle.gapPx(gapMm, pxPerMm)
+      : Math.max(2, gapMm * pxPerMm);
+    const fontPx = window.v3DrawingDimStyle
+      ? window.v3DrawingDimStyle.fontPxFromMm(fontMm, pxPerMm)
+      : Math.max(8, fontMm * pxPerMm);
+    const side = window.v3DrawingDimStyle
+      ? window.v3DrawingDimStyle.resolveTextSide(style || {}, isHorizontal)
+      : (isHorizontal ? "below" : "right");
+    ctx2.font = fontPx + "px system-ui";
+    const pos = dimLabelPos(x1, y1, x2, y2, style, pxPerMm);
+    const box = dimLabelBox(x1, y1, x2, y2, label, ctx2, style, pxPerMm);
 
     if (isHorizontal) {
       ctx2.textAlign = "center";
-      ctx2.textBaseline = "top";
-      ctx2.fillText(label, mx, my + pad);
+      ctx2.textBaseline = side === "above" ? "bottom" : "top";
+      ctx2.fillText(label, pos.x, pos.y);
     } else {
-      ctx2.textAlign = "left";
-      ctx2.textBaseline = "middle";
-      ctx2.fillText(label, mx + pad, my);
+      ctx2.translate(pos.x, pos.y);
+      ctx2.rotate(-Math.PI / 2);
+      ctx2.textAlign = "center";
+      ctx2.textBaseline = side === "left" ? "top" : "bottom";
+      ctx2.fillText(label, 0, 0);
     }
 
     ctx2.restore();
+    return box;
+  }
+
+  function dimLabelPos(x1, y1, x2, y2, style, pxPerMm) {
+    const mx = (x1 + x2) / 2;
+    const my = (y1 + y2) / 2;
+    const horiz = Math.abs(x2 - x1) >= Math.abs(y2 - y1);
+    const ppm = pxPerMm > 0 ? pxPerMm : PX_PER_MM_PAPER;
+    const gapMm = style && style.gapMm != null ? style.gapMm : 4;
+    const gapPx = window.v3DrawingDimStyle ? window.v3DrawingDimStyle.gapPx(gapMm, ppm) : gapMm * ppm;
+    const side = window.v3DrawingDimStyle
+      ? window.v3DrawingDimStyle.resolveTextSide(style || {}, horiz)
+      : (horiz ? "below" : "right");
+    const alongPx = ((style && style.labelOffsetAlongMm) || 0) * ppm;
+    const crossPx = ((style && style.labelOffsetCrossMm) || 0) * ppm;
+    if (horiz) {
+      const ty = side === "above" ? my - gapPx : my + gapPx;
+      return { x: mx + alongPx, y: ty + crossPx, horiz: true, side: side };
+    }
+    const tx = side === "left" ? mx - gapPx : mx + gapPx;
+    return { x: tx + crossPx, y: my + alongPx, horiz: false, side: side };
+  }
+
+  function dimLabelBox(x1, y1, x2, y2, label, ctx2, style, pxPerMm) {
+    const pos = dimLabelPos(x1, y1, x2, y2, style, pxPerMm);
+    const ppm = pxPerMm > 0 ? pxPerMm : PX_PER_MM_PAPER;
+    const fontMm = style && style.fontSizeMm ? style.fontSizeMm : 3.5;
+    const fontPx = window.v3DrawingDimStyle
+      ? window.v3DrawingDimStyle.fontPxFromMm(fontMm, ppm)
+      : Math.max(8, fontMm * ppm);
+    let tw = String(label || "").length * fontPx * 0.55;
+    if (ctx2 && ctx2.measureText) {
+      const prev = ctx2.font;
+      try {
+        ctx2.font = fontPx + "px system-ui";
+        tw = ctx2.measureText(label).width;
+        ctx2.font = prev;
+      } catch (e) {}
+    }
+    const th = fontPx;
+    const pad = Math.max(4, fontPx * 0.35);
+    if (pos.horiz) {
+      return { x: pos.x - tw / 2 - pad, y: pos.y - (pos.side === "above" ? th + pad : 0), w: tw + pad * 2, h: th + pad };
+    }
+    return { x: pos.x - (pos.side === "left" ? th + pad : 0), y: pos.y - tw / 2 - pad, w: th + pad + 4, h: tw + pad * 2 };
+  }
+
+  function distToRect(px, py, r) {
+    if (!r) return Infinity;
+    const cx = Math.max(r.x, Math.min(px, r.x + r.w));
+    const cy = Math.max(r.y, Math.min(py, r.y + r.h));
+    return Math.hypot(px - cx, py - cy);
   }
 
   // =========================================================
@@ -455,6 +616,7 @@ if (mode === "iso") {
   // Drawing core
   // =========================================================
   function drawView(payload, mode, rect, title, viewKeyForScale) {
+    const ctx = (payload && payload._sheetCtx) || cv.getContext("2d");
     const joints = payload.joints || [];
     const beams = payload.beams || [];
     const polesPayload = payload.poles || [];
@@ -462,18 +624,36 @@ if (mode === "iso") {
     if (!joints.length) return;
     if (rect.w <= 0 || rect.h <= 0) return;
 
+    const slotCamEarly = (payload._orthoSlots && viewKeyForScale && payload._orthoSlots[viewKeyForScale]) || null;
+    if (slotCamEarly && slotCamEarly.mode && slotCamEarly.mode !== mode) slotCamEarly.mode = mode;
+
+    const MODE_TITLE = {
+      front: "正面図 FRONT",
+      back: "背面図 BACK",
+      left: "左側面図 LEFT",
+      right: "右側面図 SIDE",
+      side: "側面図 SIDE",
+      top: "上面図 TOP",
+      bottom: "下面図 BOTTOM",
+    };
+    if (slotCamEarly && MODE_TITLE[mode]) title = MODE_TITLE[mode];
+
     const pts = projectPoints(payload, mode);
     const { minU, maxU, minV, maxV } = getBoundsUV(pts);
 
     const sizeU = (maxU - minU) || 1;
     const sizeV = (maxV - minV) || 1;
 
-    const innerMargin = 24;
+    const innerMargin = typeof payload._viewPad === "number" ? payload._viewPad : 52;
     const usableW = rect.w - innerMargin * 2;
     const usableH = rect.h - innerMargin * 2;
 
     const denom = resolveDenomForView(viewKeyForScale, sizeU, sizeV, usableW, usableH);
     const pxPerMmReal = PX_PER_MM_PAPER / denom;
+    const slotCam = slotCamEarly;
+    const camZoom = slotCam && slotCam.zoom > 0 ? slotCam.zoom : 1;
+    const camPanU = slotCam && Number.isFinite(slotCam.panU) ? slotCam.panU : 0;
+    const camPanV = slotCam && Number.isFinite(slotCam.panV) ? slotCam.panV : 0;
 
     const cu = (minU + maxU) / 2;
     const cvv = (minV + maxV) / 2;
@@ -482,7 +662,10 @@ if (mode === "iso") {
     const cy = rect.y + rect.h / 2;
 
     function toCanvasUV(u, v) {
-      return { x: cx + (u - cu) * pxPerMmReal, y: cy + (v - cvv) * pxPerMmReal };
+      return {
+        x: cx + (u - cu - camPanU) * pxPerMmReal * camZoom,
+        y: cy + (v - cvv - camPanV) * pxPerMmReal * camZoom,
+      };
     }
 
     function toCanvas3D(x, y, z) {
@@ -494,8 +677,9 @@ if (mode === "iso") {
     // ---- ISO: 奥側を薄くする簡易デプス表現 ----
     // スケールに応じて線の太さを調整（実寸: BEAM/POLE φ13mm）
     const BEAM_POLE_DIAMETER_MM = 13; // φ13mm
-    const scaledLineWidthBeam = BEAM_POLE_DIAMETER_MM * pxPerMmReal;
-    const scaledLineWidthPole = BEAM_POLE_DIAMETER_MM * pxPerMmReal;
+    const lineMul = typeof payload._lineScale === "number" ? payload._lineScale : 1;
+    const scaledLineWidthBeam = Math.max(0.55, Math.min(2.4, BEAM_POLE_DIAMETER_MM * pxPerMmReal * lineMul));
+    const scaledLineWidthPole = Math.max(0.55, Math.min(2.4, BEAM_POLE_DIAMETER_MM * pxPerMmReal * lineMul));
     
     function strokeIsoByDepth(Au, Av, Bu, Bv, kind /* "beam"|"pole" */) {
       if (mode !== "iso") {
@@ -522,195 +706,125 @@ if (mode === "iso") {
 
     // タイトル / 縮尺
     ctx.fillStyle = "#111827";
-    ctx.font = "18px system-ui";
-    ctx.fillText(title, rect.x + 10, rect.y + 24);
+    ctx.font = lineMul < 1 ? "12px system-ui" : "18px system-ui";
+    ctx.fillText(title, rect.x + 10, rect.y + (lineMul < 1 ? 16 : 24));
 
-    ctx.font = "12px system-ui";
+    ctx.font = lineMul < 1 ? "10px system-ui" : "12px system-ui";
     const isAuto = String(scaleByView[viewKeyForScale] ?? "auto") === "auto";
-    ctx.fillText(isAuto ? `SCALE Auto (1:${denom})` : `SCALE 1:${denom}`, rect.x + 10, rect.y + 42);
+    ctx.fillText(isAuto ? `SCALE Auto (1:${denom})` : `SCALE 1:${denom}`, rect.x + 10, rect.y + (lineMul < 1 ? 30 : 42));
+
+    ctx.save();
+    ctx.beginPath();
+    const titleBand = lineMul < 1 ? 36 : 48;
+    ctx.rect(rect.x + 1, rect.y + titleBand, rect.w - 2, rect.h - titleBand - 1);
+    ctx.clip();
 
     const EPS = 0.001;
+    const skipMembers = !!payload._skipOrthoMembers;
+    const BEAM_R_MM = 6.5;
+    const JOINT_R_MM = 10;
+    const ppmZoom = pxPerMmReal * camZoom;
+    const beamR = Math.max(2.4, BEAM_R_MM * ppmZoom);
+    const jointR = Math.max(3.2, JOINT_R_MM * ppmZoom);
 
-    // ---- Beam描画（viewごとに“見せたい向き”だけに絞る）----
-    function beamAxisByPos(ja, jb) {
-      const dx = Math.abs(ja.x - jb.x);
-      const dy = Math.abs(ja.y - jb.y);
-      const dz = Math.abs(ja.z - jb.z);
-      if (dx >= dy && dx >= dz) return "x";
-      if (dz >= dx && dz >= dy) return "z";
-      return "y";
-    }
-
-    function shouldDrawBeamInMode(axis, mode2) {
-      if (mode2 === "top") return (axis === "x" || axis === "z");
-      if (mode2 === "front") return (axis === "x");
-      if (mode2 === "side") return (axis === "z");
-      if (mode2 === "iso") return (axis === "x" || axis === "z");
-      return true;
-    }
-
-    beams.forEach((b) => {
-      if (!b) return;
-
-      const ia = (typeof b.a === "number") ? b.a : null;
-      const ib = (typeof b.b === "number") ? b.b : null;
-      if (ia === null || ib === null) return;
-
-      const ja = joints[ia];
-      const jb = joints[ib];
-      if (!ja || !jb) return;
-
-      const axis = (typeof b.axis === "string" && b.axis) ? b.axis : beamAxisByPos(ja, jb);
-      if (!shouldDrawBeamInMode(axis, mode)) return;
-
-      const A = projectJoint(ja, mode);
-      const B = projectJoint(jb, mode);
-      if (!A || !B) return;
-
-      if (Math.abs(A.u - B.u) < EPS && Math.abs(A.v - B.v) < EPS) return;
-
-      strokeIsoByDepth(A.u, A.v, B.u, B.v, "beam");
-
-      const p1 = toCanvasUV(A.u, A.v);
-      const p2 = toCanvasUV(B.u, B.v);
-
-      ctx.beginPath();
-      ctx.moveTo(p1.x, p1.y);
-      ctx.lineTo(p2.x, p2.y);
-      ctx.stroke();
-    });
-
-    // ---- Pole描画（payload.poles を優先）----
-    if (Array.isArray(polesPayload) && polesPayload.length) {
-      polesPayload.forEach((p) => {
-        if (!p) return;
-
-        const ia = (typeof p.a === "number") ? p.a : null;
-        const ib = (typeof p.b === "number") ? p.b : null;
-        if (ia === null || ib === null) return;
-
-        const ja = joints[ia];
-        const jb = joints[ib];
+    if (!skipMembers) {
+      const solids = [];
+      function pushSeg(kind, item, ax, ay, az, bx, by, bz, r) {
+        solids.push({
+          kind: kind,
+          item: item,
+          depth: (depthW(ax, ay, az, mode) + depthW(bx, by, bz, mode)) * 0.5,
+          a: toCanvas3D(ax, ay, az),
+          b: toCanvas3D(bx, by, bz),
+          r: r,
+        });
+      }
+      beams.forEach(function (b) {
+        if (!b) return;
+        const ja = joints[b.a];
+        const jb = joints[b.b];
         if (!ja || !jb) return;
-
-        const A = projectJoint(ja, mode);
-        const B = projectJoint(jb, mode);
-        if (!A || !B) return;
-
-        if (Math.abs(A.u - B.u) < EPS && Math.abs(A.v - B.v) < EPS) return;
-
-        strokeIsoByDepth(A.u, A.v, B.u, B.v, "pole");
-
-        const p1 = toCanvasUV(A.u, A.v);
-        const p2 = toCanvasUV(B.u, B.v);
-
-        ctx.beginPath();
-        ctx.moveTo(p1.x, p1.y);
-        ctx.lineTo(p2.x, p2.y);
-        ctx.stroke();
+        pushSeg("beam", b, ja.x, ja.y, ja.z, jb.x, jb.y, jb.z, beamR);
       });
-    } else if (mode === "iso") {
-      // 古いデータ対策：ISOだけ推定poleを補助で描く
-      const inferred = buildVerticalSegments3D(payload);
-      inferred.forEach((seg) => {
-        const A = projectJoint(seg.a, mode);
-        const B = projectJoint(seg.b, mode);
-        if (!A || !B) return;
-
-        strokeIsoByDepth(A.u, A.v, B.u, B.v, "pole");
-
-        const p1 = toCanvasUV(A.u, A.v);
-        const p2 = toCanvasUV(B.u, B.v);
-
-        ctx.beginPath();
-        ctx.moveTo(p1.x, p1.y);
-        ctx.lineTo(p2.x, p2.y);
-        ctx.stroke();
+      const polesToDraw = (Array.isArray(polesPayload) && polesPayload.length)
+        ? polesPayload
+        : (mode === "iso" ? buildVerticalSegments3D(payload).map(function (seg) {
+          return { aPos: seg.a, bPos: seg.b };
+        }) : []);
+      polesToDraw.forEach(function (p) {
+        if (!p) return;
+        const ja = p.aPos || joints[p.a];
+        const jb = p.bPos || joints[p.b];
+        if (!ja || !jb) return;
+        pushSeg("pole", p, ja.x, ja.y, ja.z, jb.x, jb.y, jb.z, beamR);
+      });
+      const legSegs = buildLegSegments3D(payload);
+      const LEG_TOP_W_MM = 10;
+      const LEG_BOT_W_MM = 25;
+      const topHalfPx = Math.max(1.6, (LEG_TOP_W_MM * ppmZoom) / 2);
+      const botHalfPx = Math.max(2.4, (LEG_BOT_W_MM * ppmZoom) / 2);
+      const jointMat = { material: "IRON" };
+      joints.forEach(function (j) {
+        if (!j) return;
+        solids.push({
+          kind: "joint",
+          item: jointMat,
+          depth: depthW(j.x, j.y, j.z, mode) + 0.4,
+          a: toCanvas3D(j.x, j.y, j.z),
+          b: null,
+          r: jointR,
+        });
+      });
+      if (legSegs.length) {
+        const legFill = cssColorForPart("leg", payload.legs && payload.legs[0], payload);
+        ctx.save();
+        ctx.fillStyle = legFill;
+        ctx.strokeStyle = "#111827";
+        ctx.lineWidth = 0.8;
+        legSegs.forEach(function (seg) {
+          const pBase = toCanvas3D(seg.a.x, seg.a.y, seg.a.z);
+          const pTip = toCanvas3D(seg.b.x, seg.b.y, seg.b.z);
+          const dx = pTip.x - pBase.x;
+          const dy = pTip.y - pBase.y;
+          const len = Math.hypot(dx, dy);
+          if (len < 0.001) return;
+          const px = -dy / len;
+          const py = dx / len;
+          ctx.beginPath();
+          ctx.moveTo(pBase.x + px * topHalfPx, pBase.y + py * topHalfPx);
+          ctx.lineTo(pBase.x - px * topHalfPx, pBase.y - py * topHalfPx);
+          ctx.lineTo(pTip.x - px * botHalfPx, pTip.y - py * botHalfPx);
+          ctx.lineTo(pTip.x + px * botHalfPx, pTip.y + py * botHalfPx);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        });
+        ctx.restore();
+      }
+      solids.sort(function (a, b) { return a.depth - b.depth; });
+      solids.forEach(function (s) {
+        const fill = cssColorForPart(s.kind, s.item, payload);
+        if (s.kind === "joint") {
+          ctx.beginPath();
+          ctx.fillStyle = fill;
+          ctx.strokeStyle = "#111827";
+          ctx.lineWidth = 0.8;
+          ctx.arc(s.a.x, s.a.y, s.r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+          return;
+        }
+        drawCapsule(ctx, s.a.x, s.a.y, s.b.x, s.b.y, s.r, fill);
       });
     }
 
-    // LEG（脚）: 台形（ジョイント直下に“テーパー脚”）
-    // 実寸: 底φ25×上部10×高さ16mm
-    const legSegs = buildLegSegments3D(payload);
-    if (legSegs.length) {
-      const LEG_TOP_W_MM = 10;  // 上部φ10mm
-      const LEG_BOT_W_MM = 25;  // 底φ25mm
-      const LEG_HEIGHT_MM = 16; // 高さ16mm
+    const dimKind = (mode === "back") ? "front"
+      : (mode === "left" || mode === "right") ? "side"
+      : (mode === "bottom") ? "top"
+      : mode;
 
-      const topHalfPx = (LEG_TOP_W_MM * pxPerMmReal) / 2;
-      const botHalfPx = (LEG_BOT_W_MM * pxPerMmReal) / 2;
-
-      ctx.save();
-      ctx.fillStyle = "#111827";
-      ctx.strokeStyle = "#111827";
-      ctx.lineWidth = 1;
-
-      function drawTrapezoid(pBase, pTip) {
-        const dx = pTip.x - pBase.x;
-        const dy = pTip.y - pBase.y;
-        const len = Math.hypot(dx, dy);
-        if (len < 0.001) return;
-
-        const ux = dx / len;
-        const uy = dy / len;
-
-        const px = -uy;
-        const py = ux;
-
-        const topL = { x: pBase.x + px * topHalfPx, y: pBase.y + py * topHalfPx };
-        const topR = { x: pBase.x - px * topHalfPx, y: pBase.y - py * topHalfPx };
-        const botL = { x: pTip.x + px * botHalfPx, y: pTip.y + py * botHalfPx };
-        const botR = { x: pTip.x - px * botHalfPx, y: pTip.y - py * botHalfPx };
-
-        ctx.beginPath();
-        ctx.moveTo(topL.x, topL.y);
-        ctx.lineTo(topR.x, topR.y);
-        ctx.lineTo(botR.x, botR.y);
-        ctx.lineTo(botL.x, botL.y);
-        ctx.closePath();
-
-        ctx.fill();
-        ctx.stroke();
-      }
-
-      legSegs.forEach((seg) => {
-        const pBase = toCanvas3D(seg.a.x, seg.a.y, seg.a.z);
-        const pTip = toCanvas3D(seg.b.x, seg.b.y, seg.b.z);
-        drawTrapezoid(pBase, pTip);
-      });
-
-      ctx.restore();
-    }
-
-    // Joint点（ジョイントボール）: 実寸 φ22.5mm
-    const JOINT_BALL_DIAMETER_MM = 22.5; // φ22.5mm
-    const jointBallRadiusPx = (JOINT_BALL_DIAMETER_MM * pxPerMmReal) / 2;
-    
-    joints.forEach((j) => {
-      if (!j) return;
-      const P = projectJoint(j, mode);
-      if (!P) return;
-
-      let alpha = 1;
-      if (mode === "iso") {
-        const t = Math.max(0, Math.min(1, (P.v - minV) / (maxV - minV || 1)));
-        alpha = 0.25 + 0.75 * t;
-      }
-
-      const p = toCanvasUV(P.u, P.v);
-      ctx.beginPath();
-      ctx.fillStyle = (mode === "iso") ? `rgba(17,24,39,${alpha})` : "#111827";
-      ctx.arc(p.x, p.y, jointBallRadiusPx, 0, Math.PI * 2);
-      ctx.fill();
-      
-      // 輪郭線も描画（見やすくするため）
-      ctx.strokeStyle = (mode === "iso") ? `rgba(17,24,39,${alpha})` : "#111827";
-      ctx.lineWidth = 1;
-      ctx.stroke();
-    });
-
-    // 外形寸法（top/front/sideだけ）
-    if (mode === "top" || mode === "front" || mode === "side") {
+    // 外形寸法（正投影）
+    if (dimKind === "top" || dimKind === "front" || dimKind === "side") {
       // dimension-utils.js を使用して正確な外形寸法を計算
       let Wmm, Hmm, Dmm;
       
@@ -896,13 +1010,31 @@ if (mode === "iso") {
           }
         });
         
-        if (bestGroup) {
-          // 外形高さ = Σ(L_i) + (N+1) × D + LEG + TC
+        if (bestGroup && typeof window.calcPoleOuterHeightMm === "function") {
           Hmm = window.calcPoleOuterHeightMm(bestGroup);
         }
       }
+      if (typeof window.calcFrameOuterHeightMm === "function" && Array.isArray(joints) && joints.length) {
+        let minJY = Infinity;
+        let maxJY = -Infinity;
+        joints.forEach(function (j) {
+          if (!j || typeof j.y !== "number") return;
+          if (j.y < minJY) minJY = j.y;
+          if (j.y > maxJY) maxJY = j.y;
+        });
+        if (Number.isFinite(minJY) && Number.isFinite(maxJY)) {
+          const hasLeg = !!(payload.legs && payload.legs.length);
+          Hmm = window.calcFrameOuterHeightMm(maxJY - minJY, hasLeg, true);
+        }
+      }
       
-      // フォールバック：座標から直接計算（dimension-utilsが使えない場合）
+      if (payload.overall) {
+        if (payload.overall.W != null) Wmm = payload.overall.W;
+        if (payload.overall.D != null) Dmm = payload.overall.D;
+        if (payload.overall.H != null) Hmm = payload.overall.H;
+      }
+
+      // フォールバック：座標から直接計算（見積の整数丸めは使わない）
       if (typeof Wmm === "undefined") {
         Wmm = Math.round((maxU - minU) * 10) / 10;
       }
@@ -910,7 +1042,7 @@ if (mode === "iso") {
         Hmm = Math.round((maxV - minV) * 10) / 10;
       }
       if (typeof Dmm === "undefined") {
-        Dmm = Hmm; // デフォルト
+        Dmm = Hmm;
       }
 
       const pL = toCanvasUV(minU, (minV + maxV) / 2);
@@ -923,15 +1055,16 @@ if (mode === "iso") {
       // 1:1の時は8px、1:2の時は16px、1:5の時は40pxなど
       // マルチビューの場合はさらに小さく（約半分）
       const isMultiView = viewKeyForScale && viewKeyForScale.startsWith("multi_");
-      const baseOffset = isMultiView ? 4 : 8;
-      const off = baseOffset * denom;
+      const ppmZ = pxPerMmReal * camZoom;
+      const offMm = Math.max(isMultiView ? 22 : 32, dimScreenTol() * 2.2 / Math.max(0.2, ppmZ));
+      const defaultOffMm = offMm;
 
       // 高さ方向の寸法線は、LEGの底面からTCの上面までを正確に表示
       // Hmmは外寸（LEGの底面からTCの上面まで）なので、実際の3D座標から計算
       let pHTop = pT; // デフォルトはpT
       let pHBottom = pB; // デフォルトはpB
       
-      if (typeof Hmm !== "undefined" && Hmm > 0 && (mode === "front" || mode === "side")) {
+      if (typeof Hmm !== "undefined" && Hmm > 0 && (dimKind === "front" || dimKind === "side")) {
         // 実際の3D座標から、LEGの底面とTCの上面を計算
         const joints = payload.joints || [];
         if (joints.length > 0) {
@@ -951,66 +1084,123 @@ if (mode === "iso") {
           centerX /= joints.length;
           centerZ /= joints.length;
           
-          // LEGの底面・TCの上面は dimension-utils getter で算出
-          const legMm = window.getLegHeightMm();
-          const tcMm = window.getTopCapHeightMm();
-          const bottomY = minY3D - legMm;
-          const topY = maxY3D + tcMm;
+          const floorFn = window.getFloorYFromBottomJointMm;
+          const topFn = window.getTopOuterYFromJointMm;
+          const bottomY = typeof floorFn === "function"
+            ? floorFn(minY3D)
+            : minY3D - ((typeof window.getFloorToBottomJbCenterMm === "function") ? window.getFloorToBottomJbCenterMm() : 22);
+          const topY = typeof topFn === "function"
+            ? topFn(maxY3D, true)
+            : maxY3D + 9.1 + ((typeof window.getTopCapHeightMm === "function") ? window.getTopCapHeightMm() : 2.2);
           
           // 3D座標を投影
           const pBottom3D = toCanvas3D(centerX, bottomY, centerZ);
           const pTop3D = toCanvas3D(centerX, topY, centerZ);
           
           // front/sideモードでは、Y座標がV座標に対応
-          if (mode === "front") {
-            pHBottom = { x: pBottom3D.x, y: pBottom3D.y };
-            pHTop = { x: pTop3D.x, y: pTop3D.y };
-          } else if (mode === "side") {
+          if (dimKind === "front" || dimKind === "side") {
             pHBottom = { x: pBottom3D.x, y: pBottom3D.y };
             pHTop = { x: pTop3D.x, y: pTop3D.y };
           }
         }
       }
 
-      // 寸法線の位置を各ビューのrect内に収める
-      const rectRight = rect.x + rect.w;
-      const rectBottom = rect.y + rect.h;
-      
-      // 保存されたオフセットを取得
       const widthKey = `${viewKeyForScale}_width`;
       const depthKey = `${viewKeyForScale}_depth`;
       const heightKey = `${viewKeyForScale}_height`;
-      
-      const widthOffset = dimLineOffsets[widthKey] || { offsetX: 0, offsetY: off };
-      const depthOffset = dimLineOffsets[depthKey] || { offsetX: off, offsetY: 0 };
-      const heightOffset = dimLineOffsets[heightKey] || { offsetX: off, offsetY: 0 };
-      
-      // 右側の寸法線のX座標（rectの右端を超えないように）
-      const dimLineRightX = Math.min(pR.x + depthOffset.offsetX, rectRight - 10);
-      // 下側の寸法線のY座標（rectの下端を超えないように）
-      const dimLineBottomY = Math.min(pB.y + widthOffset.offsetY, rectBottom - 10);
-      
-      // 高さ方向の寸法線のX座標
-      const dimLineHeightX = Math.min(pR.x + heightOffset.offsetX, rectRight - 10);
 
-      if (mode === "top") {
-        drawDimLine(ctx, pL.x, dimLineBottomY, pR.x, dimLineBottomY, `W ${Wmm.toFixed(1)} mm`);
-        drawDimLine(ctx, dimLineRightX, pT.y, dimLineRightX, pB.y, `D ${Dmm.toFixed(1)} mm`);
+      function offsetMmOf(key, fallback) {
+        const stored = dimLineOffsets[key];
+        if (stored && Number.isFinite(Number(stored.offsetMm))) return Number(stored.offsetMm);
+        if (stored && Number.isFinite(Number(stored.offsetY)) && fallback > 0 && stored.offsetY !== 0 && Math.abs(stored.offsetX || 0) < 1e-6) {
+          return Number(stored.offsetY) / Math.max(0.001, ppmZ);
+        }
+        if (stored && Number.isFinite(Number(stored.offsetX)) && fallback > 0 && stored.offsetX !== 0 && Math.abs(stored.offsetY || 0) < 1e-6) {
+          return Number(stored.offsetX) / Math.max(0.001, ppmZ);
+        }
+        return fallback;
       }
 
-      if (mode === "front") {
-        drawDimLine(ctx, pL.x, dimLineBottomY, pR.x, dimLineBottomY, `W ${Wmm.toFixed(1)} mm`);
-        drawDimLine(ctx, dimLineHeightX, pHTop.y, dimLineHeightX, pHBottom.y, `H ${Hmm.toFixed(1)} mm`);
+      const widthMm = offsetMmOf(widthKey, defaultOffMm);
+      const depthMm = offsetMmOf(depthKey, defaultOffMm);
+      const heightMm = offsetMmOf(heightKey, defaultOffMm);
+      const dimLineRightX = pR.x + depthMm * ppmZ;
+      const dimLineBottomY = pB.y + widthMm * ppmZ;
+      const dimLineHeightX = pR.x + heightMm * ppmZ;
+
+      const fmtMm = (window.v3DrawingMath && window.v3DrawingMath.formatDesignMm)
+        ? window.v3DrawingMath.formatDesignMm
+        : function (v) { return Number(v).toFixed(1); };
+
+      function dimOpt(key, isHorizontal, direction) {
+        const dir = direction || (key.indexOf("width") >= 0 ? "width" : key.indexOf("depth") >= 0 ? "depth" : "height");
+        const style = window.v3DrawingDimStyle
+          ? window.v3DrawingDimStyle.getStyle(payload._dimStyles, viewKeyForScale, dir, isHorizontal)
+          : null;
+        return {
+          hover: dimHoverKey === key,
+          active: dimActiveKey === key,
+          style: style,
+          pxPerMmPaper: PX_PER_MM_PAPER,
+        };
       }
 
-      if (mode === "side") {
-        drawDimLine(ctx, pL.x, dimLineBottomY, pR.x, dimLineBottomY, `D ${Dmm.toFixed(1)} mm`);
-        drawDimLine(ctx, dimLineHeightX, pHTop.y, dimLineHeightX, pHBottom.y, `H ${Hmm.toFixed(1)} mm`);
+      function drawExt(ax, ay, bx, by, opt) {
+        ctx.save();
+        ctx.strokeStyle = opt && (opt.hover || opt.active) ? "#93c5fd" : "#94a3b8";
+        ctx.lineWidth = 0.8;
+        ctx.setLineDash([3, 2]);
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(bx, by);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      if (!payload._hideDims) {
+        if (dimKind === "top") {
+          drawExt(pL.x, pB.y, pL.x, dimLineBottomY, dimOpt(widthKey));
+          drawExt(pR.x, pB.y, pR.x, dimLineBottomY, dimOpt(widthKey));
+          drawDimLine(ctx, pL.x, dimLineBottomY, pR.x, dimLineBottomY, `W ${fmtMm(Wmm)} mm`, dimOpt(widthKey));
+          drawExt(pR.x, pT.y, dimLineRightX, pT.y, dimOpt(depthKey));
+          drawExt(pR.x, pB.y, dimLineRightX, pB.y, dimOpt(depthKey));
+          drawDimLine(ctx, dimLineRightX, pT.y, dimLineRightX, pB.y, `D ${fmtMm(Dmm)} mm`, dimOpt(depthKey));
+        }
+
+        if (dimKind === "front") {
+          drawExt(pL.x, pB.y, pL.x, dimLineBottomY, dimOpt(widthKey));
+          drawExt(pR.x, pB.y, pR.x, dimLineBottomY, dimOpt(widthKey));
+          drawDimLine(ctx, pL.x, dimLineBottomY, pR.x, dimLineBottomY, `W ${fmtMm(Wmm)} mm`, dimOpt(widthKey));
+          drawExt(pR.x, pHTop.y, dimLineHeightX, pHTop.y, dimOpt(heightKey));
+          drawExt(pR.x, pHBottom.y, dimLineHeightX, pHBottom.y, dimOpt(heightKey));
+          drawDimLine(ctx, dimLineHeightX, pHTop.y, dimLineHeightX, pHBottom.y, `H ${fmtMm(Hmm)} mm`, dimOpt(heightKey));
+        }
+
+        if (dimKind === "side") {
+          drawExt(pL.x, pB.y, pL.x, dimLineBottomY, dimOpt(widthKey));
+          drawExt(pR.x, pB.y, pR.x, dimLineBottomY, dimOpt(widthKey));
+          drawDimLine(ctx, pL.x, dimLineBottomY, pR.x, dimLineBottomY, `D ${fmtMm(Dmm)} mm`, dimOpt(widthKey));
+          drawExt(pR.x, pHTop.y, dimLineHeightX, pHTop.y, dimOpt(heightKey));
+          drawExt(pR.x, pHBottom.y, dimLineHeightX, pHBottom.y, dimOpt(heightKey));
+          drawDimLine(ctx, dimLineHeightX, pHTop.y, dimLineHeightX, pHBottom.y, `H ${fmtMm(Hmm)} mm`, dimOpt(heightKey));
+        }
       }
     }
+    ctx.restore();
   }
 
   function renderAll(payload) {
+    if (window.v3DrawingSheet && window.v3DrawingSheet.shouldRenderSheet()) {
+      window.v3DrawingSheet.render(ctx, payload, {
+        canvasW: canvasW,
+        canvasH: canvasH,
+        drawView: drawView,
+      });
+      return;
+    }
+    if (window.v3DrawingSheet && typeof window.v3DrawingSheet.applyCanvasCss === "function") {
+      window.v3DrawingSheet.applyCanvasCss();
+    }
     syncCanvasSize();
     clear();
 
@@ -1082,36 +1272,89 @@ if (mode === "iso") {
   // =========================================================
   // postMessage receive
   // =========================================================
+  function ingestPayload(payload) {
+    if (!payload || typeof payload !== "object") {
+      setStatus("data received but payload is invalid");
+      return false;
+    }
+    lastPayload = {
+      joints: Array.isArray(payload.joints) ? payload.joints : [],
+      beams: Array.isArray(payload.beams) ? payload.beams : [],
+      poles: Array.isArray(payload.poles) ? payload.poles : [],
+      legs: Array.isArray(payload.legs) ? payload.legs : [],
+      meta: payload.meta && typeof payload.meta === "object" ? payload.meta : {},
+      bom: Array.isArray(payload.bom) ? payload.bom : [],
+      dims: payload.dims && typeof payload.dims === "object" ? payload.dims : {},
+      overall: payload.overall && typeof payload.overall === "object" ? payload.overall : {},
+      captures: payload.captures && typeof payload.captures === "object" ? payload.captures : {},
+      preview: payload.preview && typeof payload.preview === "object" ? payload.preview : null,
+      colorChartOn: !!payload.colorChartOn,
+      drawingDocument: payload.drawingDocument || (lastPayload && lastPayload.drawingDocument) || null,
+      _orthoSlots: payload._orthoSlots || (lastPayload && lastPayload._orthoSlots) || null,
+      _isoViews: payload._isoViews || (lastPayload && lastPayload._isoViews) || null,
+      _dimOffsets: payload._dimOffsets || (lastPayload && lastPayload._dimOffsets) || null,
+      _dimStyles: payload._dimStyles || (lastPayload && lastPayload._dimStyles) || null,
+    };
+    if (window.v3DrawingSheet && typeof window.v3DrawingSheet.fillFromPayload === "function") {
+      window.v3DrawingSheet.fillFromPayload(lastPayload);
+    }
+    restoreDimOffsets(lastPayload);
+    setStatus(`data received (joints=${lastPayload.joints.length})`);
+    if (window.v3DrawingPreview && lastPayload.preview) {
+      window.v3DrawingPreview.setSnapshot(lastPayload.preview);
+    }
+    if (window.v3DrawingIsoNav && lastPayload.captures && lastPayload.captures.view
+        && typeof window.v3DrawingIsoNav.seedIfEmpty === "function") {
+      window.v3DrawingIsoNav.seedIfEmpty(lastPayload.captures.view);
+    }
+    if (window.v3DrawingSheet && typeof window.v3DrawingSheet.syncColorChart === "function") {
+      window.v3DrawingSheet.syncColorChart(lastPayload);
+    }
+    renderAll(lastPayload);
+    return true;
+  }
+
+  window.__CR_getDrawingPayload = function () { return lastPayload; };
+  window.__CR_setCapture = function (image, view, overflow) {
+    if (!lastPayload) return;
+    lastPayload.captures = lastPayload.captures || {};
+    if (image) lastPayload.captures.iso = image;
+    if (view) lastPayload.captures.view = view;
+    lastPayload.captures.overflow = !!overflow;
+    renderAll(lastPayload);
+  };
+
   window.addEventListener("message", (ev) => {
     const msg = ev.data;
     if (!msg || typeof msg !== "object") return;
 
     if (msg.type === "CUBERACK_DRAWING_DATA") {
-      const payload = msg.payload;
-
-      if (!payload || typeof payload !== "object") {
-        setStatus("data received but payload is invalid");
-        return;
+      ingestPayload(msg.payload);
+    }
+    if (msg.type === "CUBERACK_DRAWING_SNAPSHOT" && msg.preview && lastPayload) {
+      lastPayload.preview = msg.preview;
+      lastPayload.colorChartOn = !!msg.colorChartOn;
+      if (msg.overall && typeof msg.overall === "object") lastPayload.overall = msg.overall;
+      if (msg.dims && typeof msg.dims === "object") lastPayload.dims = msg.dims;
+      if (window.v3DrawingPreview) window.v3DrawingPreview.setSnapshot(msg.preview);
+      if (window.v3DrawingSheet && typeof window.v3DrawingSheet.syncColorChart === "function") {
+        window.v3DrawingSheet.syncColorChart(lastPayload);
       }
-
-      lastPayload = {
-        joints: Array.isArray(payload.joints) ? payload.joints : [],
-        beams: Array.isArray(payload.beams) ? payload.beams : [],
-        poles: Array.isArray(payload.poles) ? payload.poles : [],
-        legs: Array.isArray(payload.legs) ? payload.legs : [],
-      };
-
-      setStatus(`data received (joints=${lastPayload.joints.length})`);
       renderAll(lastPayload);
     }
   });
+
+  try {
+    const raw = localStorage.getItem("__cr_drawing_payload");
+    if (raw) ingestPayload(JSON.parse(raw));
+  } catch (e) {}
 
   // =========================================================
   // 寸法線ドラッグ機能
   // =========================================================
   let draggingDimLine = null; // { viewKey, direction, startX, startY, startOffset }
-  let dimLineHitTolerance = 20; // クリック検出の許容範囲（px）を広げる
-  let dimLineVerticalHitTolerance = 30; // 縦方向の寸法線用のより広い許容範囲（px）
+  let dimLineHitTolerance = 12;
+  let dimLineVerticalHitTolerance = 12;
 
   function getDimLineKey(viewKey, direction) {
     return `${viewKey}_${direction}`;
@@ -1134,60 +1377,114 @@ if (mode === "iso") {
     return dist <= tolerance;
   }
 
+  function distToSeg(px, py, x1, y1, x2, y2) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len2 = dx * dx + dy * dy;
+    if (len2 < 0.001) return Math.hypot(px - x1, py - y1);
+    const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / len2));
+    return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+  }
+
+  function dimScreenTol() {
+    const page = document.querySelector(".draw-page.is-current") || cv;
+    if (!page) return 12;
+    const br = page.getBoundingClientRect();
+    const cssW = page.clientWidth || br.width || 1;
+    return 12 * (cssW / Math.max(1, br.width));
+  }
+
+  function sheetOrthoViews(payload) {
+    const sheet = window.v3DrawingSheet;
+    if (!sheet || !sheet.shouldRenderSheet || !sheet.shouldRenderSheet()) return null;
+    const rects = typeof sheet.orthoRects === "function" ? sheet.orthoRects() : null;
+    const active = typeof sheet.activePage === "function" ? sheet.activePage() : null;
+    if (!rects || !active || active.kind !== "ortho" || !rects.active) return null;
+    const pageId = active.pageId || rects.pageId || "ortho";
+    const slots = (payload && payload._orthoSlots) || {};
+    const mode = (slots[pageId] && slots[pageId].mode) || active.orthoMode || rects.mode || "front";
+    return [{ mode: mode, viewKey: pageId, rect: rects.active }];
+  }
+
   function findDimLineAtPoint(mouseX, mouseY, payload) {
     if (currentView === "iso") return null;
-    
-    // 現在のビューに応じて寸法線を検索
-    const views = currentView === "multi" 
+
+    const sheetViews = sheetOrthoViews(payload);
+    const views = sheetViews || (currentView === "multi"
       ? [
           { mode: "top", viewKey: "multi_top", rect: null },
           { mode: "front", viewKey: "multi_front", rect: null },
           { mode: "side", viewKey: "multi_side", rect: null }
         ]
-      : [{ mode: currentView, viewKey: currentView, rect: null }];
-    
-    // まずrectを計算
-    const Wc = canvasW;
-    const Hc = canvasH;
-    const M = 30;
-    
-    if (currentView === "multi") {
-      const gap = 16;
-      const totalW = Wc - 2 * M;
-      const totalH = Hc - 2 * M;
-      const topRatio = 0.52;
-      views[0].rect = { x: M, y: M, w: totalW, h: Math.floor(totalH * topRatio) };
-      const botY = views[0].rect.y + views[0].rect.h + gap;
-      const botH = totalH - views[0].rect.h - gap;
-      views[1].rect = { x: M, y: botY, w: Math.floor((totalW - gap) / 2), h: botH };
-      views[2].rect = { x: views[1].rect.x + views[1].rect.w + gap, y: botY, w: totalW - views[1].rect.w - gap, h: botH };
-    } else {
-      views[0].rect = { x: M, y: M, w: Wc - 2 * M, h: Hc - 2 * M };
+      : [{ mode: currentView, viewKey: currentView, rect: null }]);
+
+    if (!sheetViews) {
+      const Wc = canvasW;
+      const Hc = canvasH;
+      const M = 30;
+      if (currentView === "multi") {
+        const gap = 16;
+        const totalW = Wc - 2 * M;
+        const totalH = Hc - 2 * M;
+        const topRatio = 0.52;
+        views[0].rect = { x: M, y: M, w: totalW, h: Math.floor(totalH * topRatio) };
+        const botY = views[0].rect.y + views[0].rect.h + gap;
+        const botH = totalH - views[0].rect.h - gap;
+        views[1].rect = { x: M, y: botY, w: Math.floor((totalW - gap) / 2), h: botH };
+        views[2].rect = { x: views[1].rect.x + views[1].rect.w + gap, y: botY, w: totalW - views[1].rect.w - gap, h: botH };
+      } else {
+        views[0].rect = { x: M, y: M, w: Wc - 2 * M, h: Hc - 2 * M };
+      }
     }
     
+    const candidates = [];
+    const screenTol = dimScreenTol();
+    function consider(x1, y1, x2, y2, hit, tol, label) {
+      const dLine = distToSeg(mouseX, mouseY, x1, y1, x2, y2);
+      const style = window.v3DrawingDimStyle
+        ? window.v3DrawingDimStyle.getStyle(payload._dimStyles, hit.viewKey, hit.direction, hit.isHorizontal)
+        : null;
+      const box = dimLabelBox(x1, y1, x2, y2, label || "", ctx, style, PX_PER_MM_PAPER);
+      const dLab = distToRect(mouseX, mouseY, box);
+      if (dLab <= tol && dLab <= dLine + 1) {
+        candidates.push({ dist: dLab, hit: Object.assign({}, hit, { hitPart: "label" }) });
+      } else if (dLine <= tol) {
+        candidates.push({ dist: dLine, hit: Object.assign({}, hit, { hitPart: "line" }) });
+      }
+    }
+
     // 各ビューで寸法線を検索
     for (const view of views) {
       if (!view.rect) continue;
-      if (mouseX < view.rect.x || mouseX > view.rect.x + view.rect.w ||
-          mouseY < view.rect.y || mouseY > view.rect.y + view.rect.h) continue;
+      const hitPad = screenTol;
+      if (mouseX < view.rect.x - hitPad || mouseX > view.rect.x + view.rect.w + hitPad ||
+          mouseY < view.rect.y - hitPad || mouseY > view.rect.y + view.rect.h + hitPad) continue;
       
       // このビュー内の寸法線を再計算して検出
       const pts = projectPoints(payload, view.mode);
       const { minU, maxU, minV, maxV } = getBoundsUV(pts);
       const sizeU = (maxU - minU) || 1;
       const sizeV = (maxV - minV) || 1;
-      const innerMargin = 24;
+      const innerMargin = typeof payload._viewPad === "number" ? payload._viewPad : 52;
       const usableW = view.rect.w - innerMargin * 2;
       const usableH = view.rect.h - innerMargin * 2;
       const denom = resolveDenomForView(view.viewKey, sizeU, sizeV, usableW, usableH);
       const pxPerMmReal = PX_PER_MM_PAPER / denom;
+      const slotCam = payload._orthoSlots && payload._orthoSlots[view.viewKey];
+      const camZoom = slotCam && slotCam.zoom > 0 ? slotCam.zoom : 1;
+      const camPanU = slotCam && Number.isFinite(slotCam.panU) ? slotCam.panU : 0;
+      const camPanV = slotCam && Number.isFinite(slotCam.panV) ? slotCam.panV : 0;
       const cu = (minU + maxU) / 2;
       const cvv = (minV + maxV) / 2;
       const cx = view.rect.x + view.rect.w / 2;
       const cy = view.rect.y + view.rect.h / 2;
+      const ppmZ = pxPerMmReal * camZoom;
       
       function toCanvasUV(u, v) {
-        return { x: cx + (u - cu) * pxPerMmReal, y: cy + (v - cvv) * pxPerMmReal };
+        return {
+          x: cx + (u - cu - camPanU) * ppmZ,
+          y: cy + (v - cvv - camPanV) * ppmZ,
+        };
       }
       
       const pL = toCanvasUV(minU, (minV + maxV) / 2);
@@ -1196,48 +1493,58 @@ if (mode === "iso") {
       const pB = toCanvasUV((minU + maxU) / 2, maxV);
       
       const isMultiView = view.viewKey && view.viewKey.startsWith("multi_");
-      const baseOffset = isMultiView ? 4 : 8;
-      const off = baseOffset * denom;
+      const defaultOffMm = Math.max(isMultiView ? 22 : 32, dimScreenTol() * 2.2 / Math.max(0.2, ppmZ));
       
       const widthKey = getDimLineKey(view.viewKey, "width");
       const depthKey = getDimLineKey(view.viewKey, "depth");
       const heightKey = getDimLineKey(view.viewKey, "height");
+
+      function offsetMmOf(key) {
+        const stored = dimLineOffsets[key];
+        if (stored && Number.isFinite(Number(stored.offsetMm))) return Number(stored.offsetMm);
+        return defaultOffMm;
+      }
       
-      const widthOffset = dimLineOffsets[widthKey] || { offsetX: 0, offsetY: off };
-      const depthOffset = dimLineOffsets[depthKey] || { offsetX: off, offsetY: 0 };
-      const heightOffset = dimLineOffsets[heightKey] || { offsetX: off, offsetY: 0 };
+      const dimLineRightX = pR.x + offsetMmOf(depthKey) * ppmZ;
+      const dimLineBottomY = pB.y + offsetMmOf(widthKey) * ppmZ;
+      const dimLineHeightX = pR.x + offsetMmOf(heightKey) * ppmZ;
       
-      const rectRight = view.rect.x + view.rect.w;
-      const rectBottom = view.rect.y + view.rect.h;
-      const dimLineRightX = Math.min(pR.x + depthOffset.offsetX, rectRight - 10);
-      const dimLineBottomY = Math.min(pB.y + widthOffset.offsetY, rectBottom - 10);
-      const dimLineHeightX = Math.min(pR.x + heightOffset.offsetX, rectRight - 10);
-      
+      const dimKind = (view.mode === "back") ? "front"
+        : (view.mode === "left" || view.mode === "right") ? "side"
+        : (view.mode === "bottom") ? "top"
+        : view.mode;
+
       // 幅の寸法線（水平）- 検出範囲を広げる（ラベル部分も含む）
-      if (view.mode === "top" || view.mode === "front" || view.mode === "side") {
+      if (dimKind === "top" || dimKind === "front" || dimKind === "side") {
         // 線分だけでなく、線分の両端から少し外側も検出範囲に含める
         const lineMinX = Math.min(pL.x, pR.x) - 20;
         const lineMaxX = Math.max(pL.x, pR.x) + 20;
         const lineY = dimLineBottomY;
         
-        if (mouseX >= lineMinX && mouseX <= lineMaxX && 
-            Math.abs(mouseY - lineY) <= dimLineHitTolerance) {
-          return { viewKey: view.viewKey, direction: "width", offset: widthOffset, isHorizontal: true };
-        }
+        consider(pL.x, lineY, pR.x, lineY, {
+          viewKey: view.viewKey,
+          direction: "width",
+          offsetMm: offsetMmOf(widthKey),
+          ppmZ: ppmZ,
+          isHorizontal: true,
+        }, screenTol, dimKind === "side" ? "D" : "W");
       }
       
       // 奥行/高さの寸法線（垂直）- 検出範囲を広げる（ラベル部分も含む）
-      if (view.mode === "top") {
+      if (dimKind === "top") {
         const lineX = dimLineRightX;
         const lineMinY = Math.min(pT.y, pB.y) - 30;
         const lineMaxY = Math.max(pT.y, pB.y) + 30;
         
         // TOPビューの奥行方向も縦方向の許容範囲を使用
-        if (mouseY >= lineMinY && mouseY <= lineMaxY && 
-            Math.abs(mouseX - lineX) <= dimLineVerticalHitTolerance) {
-          return { viewKey: view.viewKey, direction: "depth", offset: depthOffset, isHorizontal: false };
-        }
-      } else if (view.mode === "front" || view.mode === "side") {
+        consider(lineX, pT.y, lineX, pB.y, {
+          viewKey: view.viewKey,
+          direction: "depth",
+          offsetMm: offsetMmOf(depthKey),
+          ppmZ: ppmZ,
+          isHorizontal: false,
+        }, screenTol, "D");
+      } else if (dimKind === "front" || dimKind === "side") {
         // 高さ方向の寸法線を検出
         // pHTopとpHBottomを計算（LEGの底面とTCの上面）
         const joints = payload.joints || [];
@@ -1256,17 +1563,18 @@ if (mode === "iso") {
           });
           centerX /= joints.length;
           centerZ /= joints.length;
-          const legMm = window.getLegHeightMm();
-          const tcMm = window.getTopCapHeightMm();
-          const bottomY = minY3D - legMm;
-          const topY = maxY3D + tcMm;
+          const floorFn = window.getFloorYFromBottomJointMm;
+          const topFn = window.getTopOuterYFromJointMm;
+          const bottomY = typeof floorFn === "function"
+            ? floorFn(minY3D)
+            : minY3D - ((typeof window.getFloorToBottomJbCenterMm === "function") ? window.getFloorToBottomJbCenterMm() : 22);
+          const topY = typeof topFn === "function"
+            ? topFn(maxY3D, true)
+            : maxY3D + 9.1 + ((typeof window.getTopCapHeightMm === "function") ? window.getTopCapHeightMm() : 2.2);
           
           // 3D座標を投影（drawViewと同じロジックを使用）
           function projectJointForHit(j) {
-            if (!j) return null;
-            if (view.mode === "front") return { u: j.x, v: -j.y };
-            if (view.mode === "side") return { u: j.z, v: -j.y };
-            return null;
+            return projectJoint(j, view.mode === "side" ? "right" : view.mode);
           }
           
           function toCanvas3D(x, y, z) {
@@ -1287,26 +1595,29 @@ if (mode === "iso") {
           const lineMaxY = Math.max(pHTop.y, pHBottom.y) + 30;
           
           // 縦方向の寸法線はX方向の許容範囲を広げる
-          if (mouseY >= lineMinY && mouseY <= lineMaxY && 
-              Math.abs(mouseX - lineX) <= dimLineVerticalHitTolerance) {
-            return { viewKey: view.viewKey, direction: "height", offset: heightOffset, isHorizontal: false };
-          }
+          consider(lineX, pHTop.y, lineX, pHBottom.y, {
+            viewKey: view.viewKey,
+            direction: "height",
+            offsetMm: offsetMmOf(heightKey),
+            ppmZ: ppmZ,
+            isHorizontal: false,
+          }, screenTol, "H");
         } else {
-          // フォールバック：pTとpBを使用
           const lineX = dimLineHeightX;
-          const lineMinY = Math.min(pT.y, pB.y) - 30;
-          const lineMaxY = Math.max(pT.y, pB.y) + 30;
-          
-          // 縦方向の寸法線はX方向の許容範囲を広げる
-          if (mouseY >= lineMinY && mouseY <= lineMaxY && 
-              Math.abs(mouseX - lineX) <= dimLineVerticalHitTolerance) {
-            return { viewKey: view.viewKey, direction: "height", offset: heightOffset, isHorizontal: false };
-          }
+          consider(lineX, pT.y, lineX, pB.y, {
+            viewKey: view.viewKey,
+            direction: "height",
+            offsetMm: offsetMmOf(heightKey),
+            ppmZ: ppmZ,
+            isHorizontal: false,
+          }, screenTol, "H");
         }
       }
     }
-    
-    return null;
+
+    if (!candidates.length) return null;
+    candidates.sort(function (a, b) { return a.dist - b.dist; });
+    return candidates[0].hit;
   }
 
   cv.addEventListener("mousedown", (e) => {
@@ -1324,8 +1635,10 @@ if (mode === "iso") {
         isHorizontal: hit.isHorizontal,
         startX: mouseX,
         startY: mouseY,
-        startOffset: { ...hit.offset }
+        startMm: hit.offsetMm,
+        ppmZ: hit.ppmZ || 1,
       };
+      dimActiveKey = getDimLineKey(hit.viewKey, hit.direction);
       cv.style.cursor = hit.isHorizontal ? "ns-resize" : "ew-resize";
       e.preventDefault();
     }
@@ -1343,25 +1656,24 @@ if (mode === "iso") {
       const deltaX = mouseX - draggingDimLine.startX;
       const deltaY = mouseY - draggingDimLine.startY;
       
+      const ppmZ = draggingDimLine.ppmZ || 1;
       if (draggingDimLine.isHorizontal) {
-        // 水平線（幅）：Y方向のみ移動
-        dimLineOffsets[key] = {
-          offsetX: draggingDimLine.startOffset.offsetX,
-          offsetY: draggingDimLine.startOffset.offsetY + deltaY
-        };
+        dimLineOffsets[key] = { offsetMm: draggingDimLine.startMm + deltaY / ppmZ };
       } else {
-        // 垂直線（奥行/高さ）：X方向のみ移動
-        dimLineOffsets[key] = {
-          offsetX: draggingDimLine.startOffset.offsetX + deltaX,
-          offsetY: draggingDimLine.startOffset.offsetY
-        };
+        dimLineOffsets[key] = { offsetMm: draggingDimLine.startMm + deltaX / ppmZ };
       }
-      
+      persistDimOffsets(lastPayload);
+      dimActiveKey = key;
       renderAll(lastPayload);
       e.preventDefault();
     } else {
       // ホバー時のカーソル変更
       const hit = findDimLineAtPoint(mouseX, mouseY, lastPayload);
+      const nextHover = hit ? getDimLineKey(hit.viewKey, hit.direction) : null;
+      if (nextHover !== dimHoverKey) {
+        dimHoverKey = nextHover;
+        renderAll(lastPayload);
+      }
       if (hit) {
         cv.style.cursor = hit.isHorizontal ? "ns-resize" : "ew-resize";
       } else {
@@ -1373,7 +1685,10 @@ if (mode === "iso") {
   cv.addEventListener("mouseup", (e) => {
     if (draggingDimLine) {
       draggingDimLine = null;
+      dimActiveKey = null;
       cv.style.cursor = "default";
+      persistDimOffsets(lastPayload);
+      renderAll(lastPayload);
       e.preventDefault();
     }
   });
@@ -1388,12 +1703,193 @@ if (mode === "iso") {
   // =========================================================
   // Handshake to opener
   // =========================================================
+  window.__CR_drawingRedraw = function () {
+    if (lastPayload) renderAll(lastPayload);
+  };
+
+  window.__CR_orthoViewMetrics = function (payload, mode, rect, viewKeyForScale) {
+    const p = payload || lastPayload;
+    if (!p || !rect) return null;
+    const slotCamEarly = (p._orthoSlots && viewKeyForScale && p._orthoSlots[viewKeyForScale]) || null;
+    let useMode = mode;
+    if (slotCamEarly && slotCamEarly.mode && slotCamEarly.mode !== useMode) slotCamEarly.mode = useMode;
+    const pts = projectPoints(p, useMode);
+    const b = getBoundsUV(pts);
+    const sizeU = (b.maxU - b.minU) || 1;
+    const sizeV = (b.maxV - b.minV) || 1;
+    const innerMargin = typeof p._viewPad === "number" ? p._viewPad : 52;
+    const usableW = rect.w - innerMargin * 2;
+    const usableH = rect.h - innerMargin * 2;
+    const denom = resolveDenomForView(viewKeyForScale, sizeU, sizeV, usableW, usableH);
+    const pxPerMmReal = PX_PER_MM_PAPER / denom;
+    return {
+      mode: useMode,
+      minU: b.minU,
+      maxU: b.maxU,
+      minV: b.minV,
+      maxV: b.maxV,
+      pxPerMmReal: pxPerMmReal,
+      camZoom: slotCamEarly && slotCamEarly.zoom > 0 ? slotCamEarly.zoom : 1,
+      camPanU: slotCamEarly && Number.isFinite(slotCamEarly.panU) ? slotCamEarly.panU : 0,
+      camPanV: slotCamEarly && Number.isFinite(slotCamEarly.panV) ? slotCamEarly.panV : 0,
+      denom: denom,
+    };
+  };
+
+  window.__CR_orthoAlignDebug = function (mode, rect, viewKey, payload, stOverride) {
+    const p = payload || lastPayload;
+    const m = window.v3DrawingView;
+    if (!p || !rect || !m) return null;
+    const useMode = mode || "front";
+    const key = viewKey || useMode;
+    const metrics = window.__CR_orthoViewMetrics(p, useMode, rect, key);
+    if (!metrics) return null;
+    const st = stOverride || (p._orthoSlots && p._orthoSlots[key]) || m.orthoDefault(useMode);
+    const uv = { minU: metrics.minU, maxU: metrics.maxU, minV: metrics.minV, maxV: metrics.maxV };
+    const ppm = metrics.pxPerMmReal;
+    const frame = m.orthoFrame(st, p.preview && p.preview.box, rect, ppm, uv);
+    const joints = p.joints || [];
+    let maxJ = null;
+    let maxU = -Infinity;
+    let minJ = null;
+    let minU = Infinity;
+    joints.forEach(function (j) {
+      if (!j) return;
+      const q = projectJoint(j, useMode);
+      if (!q) return;
+      if (q.u > maxU) { maxU = q.u; maxJ = j; }
+      if (q.u < minU) { minU = q.u; minJ = j; }
+    });
+    if (!maxJ) return null;
+    const dimRight = m.orthoPaperFromUv(st, rect, ppm, uv, metrics.maxU, (metrics.minV + metrics.maxV) * 0.5);
+    const dimLeft = m.orthoPaperFromUv(st, rect, ppm, uv, metrics.minU, (metrics.minV + metrics.maxV) * 0.5);
+    const rackRight = m.orthoPaperFromWorld(frame, rect, maxJ);
+    const rackLeft = m.orthoPaperFromWorld(frame, rect, minJ);
+    return {
+      mode: useMode,
+      flipX: !!frame.flipX,
+      denom: metrics.denom,
+      dimRight: dimRight,
+      rackRight: rackRight,
+      dimLeft: dimLeft,
+      rackLeft: rackLeft,
+      errRightX: rackRight.x - dimRight.x,
+      errLeftX: rackLeft.x - dimLeft.x,
+      errRightY: rackRight.y - dimRight.y,
+    };
+  };
+
+  window.__CR_hitDimLine = function (mouseX, mouseY, payload) {
+    return findDimLineAtPoint(mouseX, mouseY, payload || lastPayload);
+  };
+
+  window.__CR_beginDimDrag = function (hit, mouseX, mouseY) {
+    if (!hit) return;
+    draggingDimLine = {
+      viewKey: hit.viewKey,
+      direction: hit.direction,
+      isHorizontal: hit.isHorizontal,
+      hitPart: hit.hitPart || "line",
+      startX: mouseX,
+      startY: mouseY,
+      startMm: hit.offsetMm,
+      startLabelCrossMm: 0,
+      startLabelAlongMm: 0,
+      ppmZ: hit.ppmZ || 1,
+    };
+    const styleKey = getDimLineKey(hit.viewKey, hit.direction);
+    if (hit.hitPart === "label" && lastPayload) {
+      if (!lastPayload._dimStyles) lastPayload._dimStyles = {};
+      const st = lastPayload._dimStyles[styleKey] || {};
+      draggingDimLine.startLabelCrossMm = Number(st.labelOffsetCrossMm) || 0;
+      draggingDimLine.startLabelAlongMm = Number(st.labelOffsetAlongMm) || 0;
+    }
+    dimActiveKey = styleKey;
+    if (window.v3DrawingDimInspector && typeof window.v3DrawingDimInspector.show === "function") {
+      window.v3DrawingDimInspector.show({
+        viewKey: hit.viewKey,
+        direction: hit.direction,
+        directionLabel: hit.direction === "width" ? "W" : hit.direction === "depth" ? "D" : "H",
+        isHorizontal: hit.isHorizontal,
+        valueText: "—",
+      });
+    }
+  };
+
+  window.__CR_moveDimDrag = function (mouseX, mouseY) {
+    if (!draggingDimLine || !lastPayload) return false;
+    const key = getDimLineKey(draggingDimLine.viewKey, draggingDimLine.direction);
+    const ppmZ = draggingDimLine.ppmZ || 1;
+    const deltaX = mouseX - draggingDimLine.startX;
+    const deltaY = mouseY - draggingDimLine.startY;
+    if (draggingDimLine.hitPart === "label") {
+      if (!lastPayload._dimStyles) lastPayload._dimStyles = {};
+      if (!lastPayload._dimStyles[key]) {
+        lastPayload._dimStyles[key] = window.v3DrawingDimStyle
+          ? window.v3DrawingDimStyle.defaultStyle(draggingDimLine.isHorizontal)
+          : {};
+      }
+      const st = lastPayload._dimStyles[key];
+      const paperPpm = PX_PER_MM_PAPER;
+      if (draggingDimLine.isHorizontal) {
+        st.labelOffsetAlongMm = draggingDimLine.startLabelAlongMm + deltaX / paperPpm;
+        st.labelOffsetCrossMm = draggingDimLine.startLabelCrossMm + deltaY / paperPpm;
+      } else {
+        st.labelOffsetAlongMm = draggingDimLine.startLabelAlongMm + deltaY / paperPpm;
+        st.labelOffsetCrossMm = draggingDimLine.startLabelCrossMm + deltaX / paperPpm;
+      }
+    } else if (draggingDimLine.isHorizontal) {
+      dimLineOffsets[key] = { offsetMm: draggingDimLine.startMm + deltaY / ppmZ };
+    } else {
+      dimLineOffsets[key] = { offsetMm: draggingDimLine.startMm + deltaX / ppmZ };
+    }
+    persistDimOffsets(lastPayload);
+    dimActiveKey = key;
+    renderAll(lastPayload);
+    return true;
+  };
+
+  window.__CR_endDimDrag = function () {
+    const was = !!draggingDimLine;
+    draggingDimLine = null;
+    dimActiveKey = null;
+    if (lastPayload) persistDimOffsets(lastPayload);
+    if (window.v3DrawingSheet && typeof window.v3DrawingSheet.persistDocument === "function") {
+      window.v3DrawingSheet.persistDocument();
+    }
+    if (was && lastPayload) renderAll(lastPayload);
+    return was;
+  };
+
+  window.__CR_hoverDimLine = function (mouseX, mouseY, payload) {
+    const hit = findDimLineAtPoint(mouseX, mouseY, payload || lastPayload);
+    const nextHover = hit ? getDimLineKey(hit.viewKey, hit.direction) : null;
+    if (nextHover !== dimHoverKey) {
+      dimHoverKey = nextHover;
+      if (lastPayload) renderAll(lastPayload);
+    }
+    return hit;
+  };
+
+  window.__CR_pageCanvasPoint = function (clientX, clientY) {
+    const page = document.querySelector(".draw-page.is-current") || cv;
+    if (!page) return { x: 0, y: 0 };
+    const br = page.getBoundingClientRect();
+    const scaleX = (page.width && br.width) ? (page.width / (window.devicePixelRatio || 1)) / br.width : 1;
+    const cssW = page.clientWidth || br.width;
+    const cssH = page.clientHeight || br.height;
+    return {
+      x: (clientX - br.left) * (cssW / Math.max(1, br.width)),
+      y: (clientY - br.top) * (cssH / Math.max(1, br.height)),
+    };
+  };
+
   try {
     if (window.opener && !window.opener.closed) {
       window.opener.postMessage({ type: "CUBERACK_DRAWING_READY" }, "*");
-      setStatus("ready (notified opener)");
+      if (!lastPayload) setStatus("ready (notified opener)");
     } else {
-      setStatus("ready (no opener)");
+      if (!lastPayload) setStatus("ready (no opener)");
     }
   } catch (e) {
     setStatus("ready (opener notify failed)");

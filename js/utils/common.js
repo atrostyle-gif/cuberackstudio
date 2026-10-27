@@ -29,7 +29,11 @@ window.materialTag = window.materialTag || function materialTag(m) {
 // 材種定数
 window.MATERIALS = ["IRON", "BS", "SUS"];
 
-/** 一時的に選択不可の材種（価格データ・既存設計データは保持） */
+/**
+ * 選択不可の材種。
+ * BS は廃番のため新規選択から外す。既存BS部材の表示・見積・変換は維持する。
+ * 在庫ゲートは行わない。
+ */
 window.MATERIAL_SELECT_DISABLED = ["BS"];
 
 window.isMaterialSelectable = window.isMaterialSelectable || function isMaterialSelectable(m) {
@@ -44,6 +48,53 @@ window.getSelectableMaterials = window.getSelectableMaterials || function getSel
 window.coerceSelectableMaterial = window.coerceSelectableMaterial || function coerceSelectableMaterial(m) {
   const code = window.normalizeMaterial(m);
   return window.isMaterialSelectable(code) ? code : "IRON";
+};
+
+/**
+ * オーダー／自由長さ（mm）。整数も小数も受け付ける。無効値は null。
+ * プリセット select は従来どおり parseInt で読む。
+ */
+window.parseLengthMm = window.parseLengthMm || function parseLengthMm(raw) {
+  const n = Number(String(raw == null ? "" : raw).trim());
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
+};
+
+window.PRESET_LENGTH_EPS_MM = 1e-6;
+
+window.actualJointDistanceMm = window.actualJointDistanceMm || function actualJointDistanceMm(a, b) {
+  if (!a || !b) return 0;
+  return Math.hypot(
+    (Number(b.x) || 0) - (Number(a.x) || 0),
+    (Number(b.y) || 0) - (Number(a.y) || 0),
+    (Number(b.z) || 0) - (Number(a.z) || 0)
+  );
+};
+
+window.isPresetLengthMm = window.isPresetLengthMm || function isPresetLengthMm(len, presets) {
+  const n = Number(len);
+  if (!Number.isFinite(n) || n <= 0) return false;
+  const list = presets || [];
+  const eps = window.PRESET_LENGTH_EPS_MM || 1e-6;
+  for (let i = 0; i < list.length; i++) {
+    if (Math.abs(Number(list[i]) - n) <= eps) return true;
+  }
+  return false;
+};
+
+/** 見積・在庫・単価キー用。既存の Math.round 業務ルールを名前付きにしただけ。設計実寸は丸めない。 */
+window.estimateBucketMm = window.estimateBucketMm || function estimateBucketMm(len) {
+  const n = Number(len);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.round(n);
+};
+
+window.formatDesignMm = window.formatDesignMm || function formatDesignMm(len) {
+  const n = Number(len);
+  if (!Number.isFinite(n)) return "";
+  const r = Math.round(n);
+  if (Math.abs(n - r) < 1e-6) return String(r);
+  return String(Number(n.toFixed(4)));
 };
 
 /**

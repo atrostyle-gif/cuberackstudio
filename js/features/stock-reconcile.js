@@ -22,6 +22,9 @@
   /** 在庫数 比較キー(stockKey) -> number（CSV読込値または手入力で上書きした値。在庫欄1つで管理） */
   var stockQtyByStockKey = {};
 
+  /** Square CSV を1度でも読み込んだか。未読込は在庫ゼロと断定しない。 */
+  var stockCatalogLoaded = false;
+
   /**
    * 現在の照合結果（ProductionRow 配列）を返す。印刷用。
    * @returns {Array<{ stockKey: string, displayName?: string, partName: string, finalMakeQty: number }>}
@@ -215,7 +218,7 @@
           return;
         }
         var items = result.items || [];
-        stockQtyByStockKey = {};
+        Object.keys(stockQtyByStockKey).forEach(function (k) { delete stockQtyByStockKey[k]; });
         for (var idx = 0; idx < items.length; idx++) {
           var it = items[idx];
           if (it && it.stockKey != null) {
@@ -223,8 +226,14 @@
             stockQtyByStockKey[it.stockKey] = Number.isNaN(q) || q < 0 ? 0 : Math.floor(q);
           }
         }
+        stockCatalogLoaded = true;
         setMessage("読み込み完了。照合結果を表示しています。", false);
         refreshCompareAndTable();
+        try {
+          global.dispatchEvent(new CustomEvent("cuberack:stock-loaded", {
+            detail: { count: items.length },
+          }));
+        } catch (_) {}
       })
       .catch(function (err) {
         setMessage(
@@ -361,6 +370,17 @@
       }
     }
   }
+
+  global.getStaffStockQtyMap = function () { return stockQtyByStockKey; };
+  global.isStaffStockCatalogLoaded = function () { return !!stockCatalogLoaded; };
+  global.markStaffStockCatalogLoaded = function (loaded) {
+    stockCatalogLoaded = !!loaded;
+    try {
+      global.dispatchEvent(new CustomEvent("cuberack:stock-loaded", {
+        detail: { loaded: stockCatalogLoaded },
+      }));
+    } catch (_) {}
+  };
 
   if (global.document && document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initStockReconcileUI);

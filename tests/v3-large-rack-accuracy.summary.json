@@ -1,0 +1,430 @@
+{
+  "passed": 60,
+  "failed": 0,
+  "tests": 60,
+  "maxCalcErrMm": 1.5279510989785194e-10,
+  "maxDrawErrMm": 0.5,
+  "maxGpuErrMm": 0.0016384380969945253,
+  "results": [
+    {
+      "name": "30m = 1000mm×30 計算スパン",
+      "kind": "calc",
+      "errMm": 0,
+      "ok": true,
+      "detail": "got=30000 expected=30000"
+    },
+    {
+      "name": "30m = 1000mm×30 lengthMm丸め",
+      "kind": "draw",
+      "errMm": 0,
+      "ok": true,
+      "detail": "max |round(d)-d|=0"
+    },
+    {
+      "name": "30m = 1000mm×30 メッシュ端点(全長丸め)",
+      "kind": "draw",
+      "errMm": 0,
+      "ok": true,
+      "detail": "err=0"
+    },
+    {
+      "name": "30m = 1000mm×30 GPU Float32端点(1スパン)",
+      "kind": "gpu",
+      "errMm": 0,
+      "ok": true,
+      "detail": "err=0"
+    },
+    {
+      "name": "30m = 1000mm×30 GPU Float32端点(全長)",
+      "kind": "gpu",
+      "errMm": 0,
+      "ok": true,
+      "detail": "err=0"
+    },
+    {
+      "name": "30m = 1000mm×30 JSON往復",
+      "kind": "calc",
+      "errMm": 0,
+      "ok": true,
+      "detail": "err=0"
+    },
+    {
+      "name": "30m = 50mm×600 計算スパン",
+      "kind": "calc",
+      "errMm": 0,
+      "ok": true,
+      "detail": "got=30000 expected=30000"
+    },
+    {
+      "name": "30m = 50mm×600 lengthMm丸め",
+      "kind": "draw",
+      "errMm": 0,
+      "ok": true,
+      "detail": "max |round(d)-d|=0"
+    },
+    {
+      "name": "30m = 50mm×600 メッシュ端点(全長丸め)",
+      "kind": "draw",
+      "errMm": 0,
+      "ok": true,
+      "detail": "err=0"
+    },
+    {
+      "name": "30m = 50mm×600 GPU Float32端点(1スパン)",
+      "kind": "gpu",
+      "errMm": 0,
+      "ok": true,
+      "detail": "err=0"
+    },
+    {
+      "name": "30m = 50mm×600 GPU Float32端点(全長)",
+      "kind": "gpu",
+      "errMm": 0,
+      "ok": true,
+      "detail": "err=0"
+    },
+    {
+      "name": "30m = 50mm×600 JSON往復",
+      "kind": "calc",
+      "errMm": 0,
+      "ok": true,
+      "detail": "err=0"
+    },
+    {
+      "name": "50m = 1000mm×50 計算スパン",
+      "kind": "calc",
+      "errMm": 0,
+      "ok": true,
+      "detail": "got=50000 expected=50000"
+    },
+    {
+      "name": "50m = 1000mm×50 lengthMm丸め",
+      "kind": "draw",
+      "errMm": 0,
+      "ok": true,
+      "detail": "max |round(d)-d|=0"
+    },
+    {
+      "name": "50m = 1000mm×50 メッシュ端点(全長丸め)",
+      "kind": "draw",
+      "errMm": 0,
+      "ok": true,
+      "detail": "err=0"
+    },
+    {
+      "name": "50m = 1000mm×50 GPU Float32端点(1スパン)",
+      "kind": "gpu",
+      "errMm": 0,
+      "ok": true,
+      "detail": "err=0"
+    },
+    {
+      "name": "50m = 1000mm×50 GPU Float32端点(全長)",
+      "kind": "gpu",
+      "errMm": 0,
+      "ok": true,
+      "detail": "err=0"
+    },
+    {
+      "name": "50m = 1000mm×50 JSON往復",
+      "kind": "calc",
+      "errMm": 0,
+      "ok": true,
+      "detail": "err=0"
+    },
+    {
+      "name": "50m = 50mm×1000 計算スパン",
+      "kind": "calc",
+      "errMm": 0,
+      "ok": true,
+      "detail": "got=50000 expected=50000"
+    },
+    {
+      "name": "50m = 50mm×1000 lengthMm丸め",
+      "kind": "draw",
+      "errMm": 0,
+      "ok": true,
+      "detail": "max |round(d)-d|=0"
+    },
+    {
+      "name": "50m = 50mm×1000 メッシュ端点(全長丸め)",
+      "kind": "draw",
+      "errMm": 0,
+      "ok": true,
+      "detail": "err=0"
+    },
+    {
+      "name": "50m = 50mm×1000 GPU Float32端点(1スパン)",
+      "kind": "gpu",
+      "errMm": 0,
+      "ok": true,
+      "detail": "err=0"
+    },
+    {
+      "name": "50m = 50mm×1000 GPU Float32端点(全長)",
+      "kind": "gpu",
+      "errMm": 0,
+      "ok": true,
+      "detail": "err=0"
+    },
+    {
+      "name": "50m = 50mm×1000 JSON往復",
+      "kind": "calc",
+      "errMm": 0,
+      "ok": true,
+      "detail": "err=0"
+    },
+    {
+      "name": "100m = 1000mm×100 計算スパン",
+      "kind": "calc",
+      "errMm": 0,
+      "ok": true,
+      "detail": "got=100000 expected=100000"
+    },
+    {
+      "name": "100m = 1000mm×100 lengthMm丸め",
+      "kind": "draw",
+      "errMm": 0,
+      "ok": true,
+      "detail": "max |round(d)-d|=0"
+    },
+    {
+      "name": "100m = 1000mm×100 メッシュ端点(全長丸め)",
+      "kind": "draw",
+      "errMm": 0,
+      "ok": true,
+      "detail": "err=0"
+    },
+    {
+      "name": "100m = 1000mm×100 GPU Float32端点(1スパン)",
+      "kind": "gpu",
+      "errMm": 0,
+      "ok": true,
+      "detail": "err=0"
+    },
+    {
+      "name": "100m = 1000mm×100 GPU Float32端点(全長)",
+      "kind": "gpu",
+      "errMm": 0,
+      "ok": true,
+      "detail": "err=0"
+    },
+    {
+      "name": "100m = 1000mm×100 JSON往復",
+      "kind": "calc",
+      "errMm": 0,
+      "ok": true,
+      "detail": "err=0"
+    },
+    {
+      "name": "100m = 50mm×2000 計算スパン",
+      "kind": "calc",
+      "errMm": 0,
+      "ok": true,
+      "detail": "got=100000 expected=100000"
+    },
+    {
+      "name": "100m = 50mm×2000 lengthMm丸め",
+      "kind": "draw",
+      "errMm": 0,
+      "ok": true,
+      "detail": "max |round(d)-d|=0"
+    },
+    {
+      "name": "100m = 50mm×2000 メッシュ端点(全長丸め)",
+      "kind": "draw",
+      "errMm": 0,
+      "ok": true,
+      "detail": "err=0"
+    },
+    {
+      "name": "100m = 50mm×2000 GPU Float32端点(1スパン)",
+      "kind": "gpu",
+      "errMm": 0,
+      "ok": true,
+      "detail": "err=0"
+    },
+    {
+      "name": "100m = 50mm×2000 GPU Float32端点(全長)",
+      "kind": "gpu",
+      "errMm": 0,
+      "ok": true,
+      "detail": "err=0"
+    },
+    {
+      "name": "100m = 50mm×2000 JSON往復",
+      "kind": "calc",
+      "errMm": 0,
+      "ok": true,
+      "detail": "err=0"
+    },
+    {
+      "name": "1000×30 vs 50×600 スパン一致",
+      "kind": "calc",
+      "errMm": 0,
+      "ok": true,
+      "detail": "Δ=0"
+    },
+    {
+      "name": "小数123.7mm×80 計算スパン",
+      "kind": "calc",
+      "errMm": 1.8189894035458565e-12,
+      "ok": true,
+      "detail": "got=9896 expected=9896"
+    },
+    {
+      "name": "小数123.7mm lengthMm丸め",
+      "kind": "draw",
+      "errMm": 0.3000000000001819,
+      "ok": true,
+      "detail": "max=0.3"
+    },
+    {
+      "name": "オーダーparseLengthMm('50.7')",
+      "kind": "calc",
+      "errMm": 0,
+      "ok": true,
+      "detail": "parsed=50.7"
+    },
+    {
+      "name": "接続メッシュは実距離追従",
+      "kind": "draw",
+      "errMm": 0,
+      "ok": true,
+      "detail": "updateConnectorMesh"
+    },
+    {
+      "name": "小数50.3mm×400 累積",
+      "kind": "calc",
+      "errMm": -1.5279510989785194e-10,
+      "ok": true,
+      "detail": "got=20120"
+    },
+    {
+      "name": "ループ閉合 1000mm 30×10 二経路",
+      "kind": "calc",
+      "errMm": 0,
+      "ok": true,
+      "detail": "Δ=0"
+    },
+    {
+      "name": "ループ閉合 50mm 200×80 二経路",
+      "kind": "calc",
+      "errMm": 0,
+      "ok": true,
+      "detail": "Δ=0"
+    },
+    {
+      "name": "ループ閉合 50.3mm 120×40 二経路",
+      "kind": "calc",
+      "errMm": 0,
+      "ok": true,
+      "detail": "Δ=0"
+    },
+    {
+      "name": "3000本 50mm 連鎖スパン",
+      "kind": "calc",
+      "errMm": 0,
+      "ok": true,
+      "detail": "span=150000"
+    },
+    {
+      "name": "3000本 JointとBeam端点(正確スケール)",
+      "kind": "draw",
+      "errMm": 0,
+      "ok": true,
+      "detail": "max=0"
+    },
+    {
+      "name": "3000本 JointとBeam端点(roundスケール)",
+      "kind": "draw",
+      "errMm": 0,
+      "ok": true,
+      "detail": "max=0"
+    },
+    {
+      "name": "100m対角 GPU Float32",
+      "kind": "gpu",
+      "errMm": 0.0016384380969945253,
+      "ok": true,
+      "detail": "err=0.00163843809699"
+    },
+    {
+      "name": "小数50.4mm round描画ずれ",
+      "kind": "draw",
+      "errMm": 0.1999999999999993,
+      "ok": true,
+      "detail": "display=50 actual=50.4"
+    },
+    {
+      "name": "Move後 30mスパン維持",
+      "kind": "calc",
+      "errMm": 0,
+      "ok": true,
+      "detail": "span=30000"
+    },
+    {
+      "name": "複製 相対座標維持",
+      "kind": "calc",
+      "errMm": 0,
+      "ok": true,
+      "detail": "maxΔ=0"
+    },
+    {
+      "name": "ラック接続 基準点一致",
+      "kind": "calc",
+      "errMm": 0,
+      "ok": true,
+      "detail": "Δ=0"
+    },
+    {
+      "name": "ラック接続 スパン維持",
+      "kind": "calc",
+      "errMm": 0,
+      "ok": true,
+      "detail": "span=10000"
+    },
+    {
+      "name": "Undoスナップショット復元",
+      "kind": "calc",
+      "errMm": 0,
+      "ok": true,
+      "detail": "Δ=0"
+    },
+    {
+      "name": "寸法測定 100m 芯々",
+      "kind": "calc",
+      "errMm": 0,
+      "ok": true,
+      "detail": "{\"ok\":true,\"mm\":100000,\"a\":0,\"b\":100000,\"startFace\":{\"member\":\"JB\",\"plane\":\"中心\"},\"endFace\":{\"member\":\"JB\",\"plane\":\"中心\"}}"
+    },
+    {
+      "name": "50m斜め2点 寸法線は軸平行",
+      "kind": "draw",
+      "errMm": 0,
+      "ok": true,
+      "detail": "ortho"
+    },
+    {
+      "name": "接続距離は実寸(丸めない)",
+      "kind": "draw",
+      "errMm": 0,
+      "ok": true,
+      "detail": "actual hypot"
+    },
+    {
+      "name": "createCylinderBetweenは実距離スケール",
+      "kind": "draw",
+      "errMm": 0,
+      "ok": true,
+      "detail": "exact scale then optional display overwrite"
+    },
+    {
+      "name": "mesh.jsはdisplay上書き関数を持つ",
+      "kind": "draw",
+      "errMm": 0.5,
+      "ok": true,
+      "detail": "applyConnectorDisplayLength exists"
+    }
+  ]
+}

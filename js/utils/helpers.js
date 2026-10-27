@@ -12,7 +12,8 @@ function __p3(v){ return v ? { x: __v3(v.x), y: __v3(v.y), z: __v3(v.z) } : null
 function __dist(a,b){
   if(!a||!b) return null;
   const dx=a.x-b.x, dy=a.y-b.y, dz=a.z-b.z;
-  return Math.round(Math.sqrt(dx*dx+dy*dy+dz*dz));
+  if (typeof window.actualJointDistanceMm === "function") return window.actualJointDistanceMm(a, b);
+  return Math.hypot(dx, dy, dz);
 }
 
 // 材種タグ（表示用）

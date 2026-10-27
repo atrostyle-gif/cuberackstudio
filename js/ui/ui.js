@@ -206,10 +206,10 @@ function getSelectedConnectorLengthMm() {
     if (!b) return null;
     // customLength 優先。無ければ実寸
     if (b.isCustom && Number.isFinite(b.customLength) && b.customLength > 0) {
-      return Math.round(b.customLength);
+      return Number(b.customLength);
     }
-    if (typeof getBeamLength === "function") return Math.round(getBeamLength(b));
-    if (typeof getBeamLengthMmSafe === "function") return Math.round(getBeamLengthMmSafe(b));
+    if (typeof getBeamLength === "function") return getBeamLength(b);
+    if (typeof getBeamLengthMmSafe === "function") return getBeamLengthMmSafe(b);
     return null;
   }
 
@@ -217,15 +217,21 @@ function getSelectedConnectorLengthMm() {
     const p = poles?.[window.selectedConnector.index];
     if (!p) return null;
     if (p.isCustom && Number.isFinite(p.customLength) && p.customLength > 0) {
-      return Math.round(p.customLength);
+      return Number(p.customLength);
     }
-    if (typeof getPoleLength === "function") return Math.round(getPoleLength(p));
-    // fallback：ジョイント座標から
-    const a = joints?.[p.a], b = joints?.[p.b];
-    if (a && b) {
-      const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
-      return Math.round(Math.sqrt(dx*dx + dy*dy + dz*dz));
+    let cad = null;
+    if (typeof getPoleLength === "function") cad = getPoleLength(p);
+    if (!(Number.isFinite(cad) && cad > 0)) {
+      const a = joints?.[p.a], b = joints?.[p.b];
+      if (a && b) {
+        cad = (typeof window.actualJointDistanceMm === "function")
+          ? window.actualJointDistanceMm(a, b)
+          : Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+      }
     }
+    if (!(Number.isFinite(cad) && cad > 0)) return Number(p.lengthMm) || null;
+    if (typeof window.getPoleSkuFromCadMm === "function") return window.getPoleSkuFromCadMm(cad);
+    return cad;
     return null;
   }
 
@@ -317,18 +323,22 @@ function initUI() {
 
       // ONにした直後：入力が妥当なら currentOrderLengthMm にも入れる（確定時に使う）
       if (nextOn) {
-  const v = parseInt(String(ui.orderLengthInput?.value || "").trim(), 10);
-if (Number.isFinite(v) && v > 0) {
-  window.currentOrderLengthMm = v;
-}
-}
+        const v = (typeof window.parseLengthMm === "function")
+          ? window.parseLengthMm(ui.orderLengthInput && ui.orderLengthInput.value)
+          : parseInt(String(ui.orderLengthInput?.value || "").trim(), 10);
+        if (Number.isFinite(v) && v > 0) {
+          window.currentOrderLengthMm = v;
+        }
+      }
       if (typeof hidePreview === "function") hidePreview();
     });
   }
 
 if (ui.orderLengthInput) {
   ui.orderLengthInput.addEventListener("input", () => {
-    const v = parseInt(String(ui.orderLengthInput.value || "").trim(), 10);
+    const v = (typeof window.parseLengthMm === "function")
+      ? window.parseLengthMm(ui.orderLengthInput.value)
+      : parseInt(String(ui.orderLengthInput.value || "").trim(), 10);
     if (Number.isFinite(v) && v > 0) {
       window.currentOrderLengthMm = v;
     } else {
@@ -428,9 +438,6 @@ function initMaterialSelectUI() {
     let m = (typeof window.normalizeMaterial === "function")
       ? window.normalizeMaterial(mat || "IRON")
       : (mat || "IRON");
-    if (typeof window.coerceSelectableMaterial === "function") {
-      m = window.coerceSelectableMaterial(m);
-    }
     window.__CR_CURRENT_MATERIAL__ = m;
     sel.value = m;
 
@@ -738,6 +745,13 @@ window.setupOverlaysAndToggles = setupOverlaysAndToggles;
       window.hideBoardPreview?.();
       // 壁板/棚板切り替え時に4点選択をクリア
       window.clearBoardSelection?.();
+      if (window.isBoardModeOn && window.v3LengthPanel && typeof window.v3LengthPanel.mountAdd === "function") {
+        const rail = window.v3EastRail && window.v3EastRail.getOpenId && window.v3EastRail.getOpenId();
+        if (rail === "add") window.v3LengthPanel.mountAdd();
+      }
+      if (window.v3CadToolbar && typeof window.v3CadToolbar.syncActive === "function") {
+        window.v3CadToolbar.syncActive();
+      }
     });
   }
 

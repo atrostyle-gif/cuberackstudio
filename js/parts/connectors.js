@@ -35,7 +35,37 @@ function getDistanceMmBetweenJoints(aIndex, bIndex) {
 
   const va = new THREE.Vector3(aPos.x, aPos.y, aPos.z);
   const vb = new THREE.Vector3(bPos.x, bPos.y, bPos.z);
-  return Math.round(va.distanceTo(vb));
+  if (typeof window.actualJointDistanceMm === "function") {
+    return window.actualJointDistanceMm(aPos, bPos);
+  }
+  return va.distanceTo(vb);
+}
+
+function poleSkuFromCad(dist) {
+  if (typeof window.getPoleSkuFromCadMm === "function") return window.getPoleSkuFromCadMm(dist);
+  return dist;
+}
+
+function syncDesignLengthFromJoints() {
+  const js = window.joints || joints;
+  const beamPresets = window.BEAM_LENGTH_OPTIONS || [25, 50, 100, 150, 200, 300, 400, 500, 600, 800];
+  const polePresets = window.POLE_LENGTH_OPTIONS || [50, 100, 200, 300, 400, 500, 600, 800];
+  function one(item, presets, asPole) {
+    if (!item) return;
+    const dist = getDistanceMmBetweenJoints(item.a, item.b);
+    if (!(dist > 0)) return;
+    const sku = asPole ? poleSkuFromCad(dist) : dist;
+    item.lengthMm = sku;
+    if (typeof window.isPresetLengthMm === "function" && window.isPresetLengthMm(sku, presets)) {
+      item.isCustom = false;
+      item.customLength = null;
+    } else {
+      item.isCustom = true;
+      item.customLength = sku;
+    }
+  }
+  (window.beams || beams || []).forEach(function (b) { one(b, beamPresets, false); });
+  (window.poles || poles || []).forEach(function (p) { one(p, polePresets, true); });
 }
 
 // ビーム接続追加
@@ -54,11 +84,17 @@ function addBeamConnection(aIndex, bIndex) {
     if (exists) return;
   }
 
-  // 3D メッシュ生成
-  const mesh = createCylinderBetween(aPos, bPos, beamMaterial);
+  if (typeof window.v3WorkLayers?.canConnectJoints === "function" && !window.v3WorkLayers.canConnectJoints(aIndex, bIndex)) {
+    console.warn("[work-layers] refused cross-layer beam");
+    return;
+  }
+  if (window.v3WorkLayers && typeof window.v3WorkLayers.canEditJoint === "function" && (!window.v3WorkLayers.canEditJoint(aIndex) || !window.v3WorkLayers.canEditJoint(bIndex))) {
+    console.warn("[work-layers] refused beam edit");
+    return;
+  }
 
-  // 実距離（ジョイント間距離）
   const lengthMm = getDistanceMmBetweenJoints(aIndex, bIndex);
+  const material = getCurrentMaterial();
 
   // ===== オーダーモード判定（UI状態から一意に決める）=====
   const ui = (typeof getUI === "function") ? getUI() : null;
@@ -66,18 +102,21 @@ function addBeamConnection(aIndex, bIndex) {
   let customLength = null;
 
   if (orderOn && ui?.orderLengthInput) {
-    const v = parseInt(String(ui.orderLengthInput.value || "").trim(), 10);
-    if (Number.isFinite(v) && v > 0) customLength = v;
+    const parsed = (typeof window.parseLengthMm === "function")
+      ? window.parseLengthMm(ui.orderLengthInput.value)
+      : Number(String(ui.orderLengthInput.value || "").trim());
+    if (Number.isFinite(parsed) && parsed > 0) customLength = parsed;
   }
 
-  // 見た目の長さ（mm）
   const displayLen = (orderOn && customLength != null) ? customLength : lengthMm;
+  if (window.v3BsStock && typeof window.v3BsStock.gateConnectorAdd === "function") {
+    const gate = window.v3BsStock.gateConnectorAdd("beam", displayLen, material);
+    if (!gate || gate.ok === false) return;
+  }
 
-  // 見た目へ反映
-  applyConnectorDisplayLength(mesh, displayLen);
-
-  // 材種（確定値）
-  const material = getCurrentMaterial();
+  // 3D メッシュは Joint 間の実距離が正本（rebuildSceneFromData と同じ）
+  const mesh = createCylinderBetween(aPos, bPos, beamMaterial);
+  if (mesh && typeof updateConnectorMesh === "function") updateConnectorMesh(mesh, aPos, bPos);
   applyMaterialColorToMesh(mesh, material);
 
   // V3 Phase 1: 安定ID (id / aId / bId) を併記する。インデックス参照は維持。
@@ -85,7 +124,10 @@ function addBeamConnection(aIndex, bIndex) {
   const _aIdForBeam = (joints[aIndex] && typeof joints[aIndex].id === "string") ? joints[aIndex].id : null;
   const _bIdForBeam = (joints[bIndex] && typeof joints[bIndex].id === "string") ? joints[bIndex].id : null;
 
-  // ★ Beam として beams に積む
+  const beamPresets = window.BEAM_LENGTH_OPTIONS || [];
+  const beamIsPreset = (typeof window.isPresetLengthMm === "function")
+    ? window.isPresetLengthMm(lengthMm, beamPresets)
+    : beamPresets.indexOf(lengthMm) >= 0;
   beams.push({
     id: _newBeamId,
     type: "beam",
@@ -96,9 +138,12 @@ function addBeamConnection(aIndex, bIndex) {
     mesh,
     lengthMm,
     material, // ★確定値を保存
-    isCustom: orderOn && customLength != null,
-    customLength: orderOn && customLength != null ? customLength : null,
+    isCustom: !beamIsPreset,
+    customLength: beamIsPreset ? null : lengthMm,
   });
+  try { window.v3WorkLayers?.syncRackIds?.(); } catch (e) {}
+  try { window.v3BsStock?.refreshUi?.(); } catch (e) {}
+  try { window.v3StructuralAnalysis?.schedule?.("beam add"); } catch (e) {}
 }
 
 // ポール接続追加
@@ -117,24 +162,38 @@ function addPoleConnection(aIndex, bIndex) {
     if (exists) return;
   }
 
-  const mesh = createCylinderBetween(aPos, bPos, poleMaterial);
-  const lengthMm = getDistanceMmBetweenJoints(aIndex, bIndex);
+  if (typeof window.v3WorkLayers?.canConnectJoints === "function" && !window.v3WorkLayers.canConnectJoints(aIndex, bIndex)) {
+    console.warn("[work-layers] refused cross-layer pole");
+    return;
+  }
+  if (window.v3WorkLayers && typeof window.v3WorkLayers.canEditJoint === "function" && (!window.v3WorkLayers.canEditJoint(aIndex) || !window.v3WorkLayers.canEditJoint(bIndex))) {
+    console.warn("[work-layers] refused pole edit");
+    return;
+  }
+
+  const cadLen = getDistanceMmBetweenJoints(aIndex, bIndex);
+  const lengthMm = poleSkuFromCad(cadLen);
+  const material = getCurrentMaterial();
 
   const ui = (typeof getUI === "function") ? getUI() : null;
   const orderOn = !!window.isOrderModeOn;
   let customLength = null;
 
   if (orderOn && ui?.orderLengthInput) {
-    const v = parseInt(String(ui.orderLengthInput.value || "").trim(), 10);
-    if (Number.isFinite(v) && v > 0) customLength = v;
+    const parsed = (typeof window.parseLengthMm === "function")
+      ? window.parseLengthMm(ui.orderLengthInput.value)
+      : Number(String(ui.orderLengthInput.value || "").trim());
+    if (Number.isFinite(parsed) && parsed > 0) customLength = parsed;
   }
 
   const displayLen = (orderOn && customLength != null) ? customLength : lengthMm;
+  if (window.v3BsStock && typeof window.v3BsStock.gateConnectorAdd === "function") {
+    const gate = window.v3BsStock.gateConnectorAdd("pole", displayLen, material);
+    if (!gate || gate.ok === false) return;
+  }
 
-  applyConnectorDisplayLength(mesh, displayLen);
-
-  // 材種（確定値）
-  const material = getCurrentMaterial();
+  const mesh = createCylinderBetween(aPos, bPos, poleMaterial);
+  if (mesh && typeof updateConnectorMesh === "function") updateConnectorMesh(mesh, aPos, bPos);
   applyMaterialColorToMesh(mesh, material);
 
   // V3 Phase 1: 安定ID (id / aId / bId) を併記する。インデックス参照は維持。
@@ -142,6 +201,10 @@ function addPoleConnection(aIndex, bIndex) {
   const _aIdForPole = (joints[aIndex] && typeof joints[aIndex].id === "string") ? joints[aIndex].id : null;
   const _bIdForPole = (joints[bIndex] && typeof joints[bIndex].id === "string") ? joints[bIndex].id : null;
 
+  const polePresets = window.POLE_LENGTH_OPTIONS || [];
+  const poleIsPreset = (typeof window.isPresetLengthMm === "function")
+    ? window.isPresetLengthMm(lengthMm, polePresets)
+    : polePresets.indexOf(lengthMm) >= 0;
   poles.push({
     id: _newPoleId,
     type: "pole",
@@ -152,9 +215,12 @@ function addPoleConnection(aIndex, bIndex) {
     mesh,
     lengthMm,
     material, // ★確定値を保存
-    isCustom: orderOn && customLength != null,
-    customLength: orderOn && customLength != null ? customLength : null,
+    isCustom: !poleIsPreset,
+    customLength: poleIsPreset ? null : lengthMm,
   });
+  try { window.v3WorkLayers?.syncRackIds?.(); } catch (e) {}
+  try { window.v3BsStock?.refreshUi?.(); } catch (e) {}
+  try { window.v3StructuralAnalysis?.schedule?.("pole add"); } catch (e) {}
 }
 
 // ビーム / ポールをメッシュから削除する共通関数
@@ -177,19 +243,28 @@ function deleteConnectorByMesh(hitObject) {
   );
   if (idx >= 0) {
     const beam = beams[idx];
-    if (beam.mesh) {
-      // ★ ここを scene → rackGroup に変更
+    if (window.v3WorkLayers && typeof window.v3WorkLayers.canEditJoint === "function" && (!window.v3WorkLayers.canEditJoint(beam.a) || !window.v3WorkLayers.canEditJoint(beam.b))) {
+      console.warn("[work-layers] refused beam delete");
+      return;
+    }
+    if (typeof disposeBeamMesh === "function") {
+      disposeBeamMesh(beam);
+    } else if (beam.mesh) {
       rackGroup.remove(beam.mesh);
-      beam.mesh.geometry.dispose();
-      beam.mesh.material.dispose();
+      if (beam.mesh.geometry && !(beam.mesh.geometry.userData && beam.mesh.geometry.userData.v3Shared)) {
+        beam.mesh.geometry.dispose();
+      }
+      if (beam.mesh.material && beam.mesh.material.dispose) beam.mesh.material.dispose();
     }
     beams.splice(idx, 1);
+    try { window.v3WorkLayers?.syncRackIds?.(); } catch (e) {}
     applyColorChartToAllConnectors?.();
     if (!__buildingAutoLayout) {
   requestEstimateRender("after autolayout");
 }
 
     saveHistory("delete beam");
+    try { window.v3StructuralAnalysis?.schedule?.("beam delete"); } catch (e) {}
     return;
   }
 
@@ -199,19 +274,28 @@ function deleteConnectorByMesh(hitObject) {
   );
   if (idx >= 0) {
     const pole = poles[idx];
-    if (pole.mesh) {
-      // ★ ここも scene → rackGroup に変更
+    if (window.v3WorkLayers && typeof window.v3WorkLayers.canEditJoint === "function" && (!window.v3WorkLayers.canEditJoint(pole.a) || !window.v3WorkLayers.canEditJoint(pole.b))) {
+      console.warn("[work-layers] refused pole delete");
+      return;
+    }
+    if (typeof disposePoleMesh === "function") {
+      disposePoleMesh(pole);
+    } else if (pole.mesh) {
       rackGroup.remove(pole.mesh);
-      pole.mesh.geometry.dispose();
-      pole.mesh.material.dispose();
+      if (pole.mesh.geometry && !(pole.mesh.geometry.userData && pole.mesh.geometry.userData.v3Shared)) {
+        pole.mesh.geometry.dispose();
+      }
+      if (pole.mesh.material && pole.mesh.material.dispose) pole.mesh.material.dispose();
     }
     poles.splice(idx, 1);
+    try { window.v3WorkLayers?.syncRackIds?.(); } catch (e) {}
     applyColorChartToAllConnectors?.();
     if (!__buildingAutoLayout) {
   requestEstimateRender("after autolayout");
 }
 
     saveHistory("delete pole");
+    try { window.v3StructuralAnalysis?.schedule?.("pole delete"); } catch (e) {}
     return;
   }
 
@@ -311,6 +395,7 @@ function createConnectorBetweenJoints(aIndex, bIndex) {
 window.hasBeamBetween = hasBeamBetween;
 window.hasPoleBetween = hasPoleBetween;
 window.getDistanceMmBetweenJoints = getDistanceMmBetweenJoints;
+window.syncDesignLengthFromJoints = syncDesignLengthFromJoints;
 window.addBeamConnection = addBeamConnection;
 window.addPoleConnection = addPoleConnection;
 window.deleteConnectorByMesh = deleteConnectorByMesh;

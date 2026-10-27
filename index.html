@@ -56,9 +56,10 @@
       --v3-north-h:48px;
       --v3-west-w:112px;
       --v3-cad-side-w:112px;
-      --v3-cad-edge-h:72px;
+      --v3-cad-edge-h:56px;
       --v3-cad-btn:44px;
       --v3-cad-icon:28px;
+      --v3-cad-cols:2;
       --control-h:44px;
       --control-h-sm:36px;
 
@@ -113,6 +114,60 @@
       border-bottom:1px solid #1e293b;
       z-index:40;
       min-width:0;
+      position:relative;
+    }
+    .v3-north-sort{
+      display:flex;
+      align-items:center;
+      gap:4px;
+      flex:1 1 auto;
+      min-width:0;
+      height:100%;
+      touch-action:manipulation;
+      user-select:none;
+      -webkit-user-select:none;
+    }
+    .v3-north-sort [data-north-id]:not([data-north-fixed]){
+      cursor:grab;
+      touch-action:none;
+    }
+    .v3-north-sort [data-north-id].is-dragging{
+      opacity:.4;
+    }
+    .v3-north-insert{
+      position:absolute;
+      top:10px;
+      width:2px;
+      height:28px;
+      background:#3b82f6;
+      border-radius:1px;
+      pointer-events:none;
+      z-index:80;
+    }
+    .v3-north-insert[hidden]{ display:none; }
+    body.v3-north-reordering{ cursor:grabbing; }
+    body.v3-north-reordering .v3-north-sort [data-north-id]{ cursor:grabbing; }
+    .v3-price-refresh-error{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:12px;
+      padding:8px 16px;
+      background:#7f1d1d;
+      color:#fecaca;
+      font-size:13px;
+      font-weight:600;
+    }
+    .v3-price-refresh-error.hidden{ display:none; }
+    .v3-price-refresh-error button{
+      height:28px;
+      padding:0 12px;
+      border:0;
+      border-radius:6px;
+      background:#fecaca;
+      color:#7f1d1d;
+      font-weight:700;
+      cursor:pointer;
     }
     .v3-north-brand{
       display:flex;
@@ -178,6 +233,25 @@
       height:18px;
       display:block;
       pointer-events:none;
+      flex:0 0 auto;
+    }
+    .v3-north .v3-north-file-btn{
+      width:auto;
+      min-width:36px;
+      padding:0 8px;
+      gap:5px;
+      font-size:11px;
+      font-weight:700;
+      letter-spacing:.02em;
+      color:#e2e8f0;
+    }
+    .v3-north-file-label{
+      white-space:nowrap;
+      line-height:1;
+    }
+    @media (max-width: 900px){
+      .v3-north-file-label{ display:none; }
+      .v3-north .v3-north-file-btn{ width:36px; padding:0; }
     }
     .v3-north .v3-icon-btn:hover{
       background:#1e293b;
@@ -201,13 +275,21 @@
       opacity:.35;
       cursor:not-allowed;
     }
+    #v3-legacy-panel-toggle{ display:none !important; }
+    body.v3-dev-show-legacy-panel #v3-legacy-panel-toggle{ display:inline-flex !important; }
     .v3-north .v3-icon-btn[aria-busy="true"]{
       opacity:.55;
       pointer-events:none;
     }
+    .v3-north-est-wrap{
+      display:flex;
+      align-items:center;
+      gap:6px;
+      flex:0 0 auto;
+    }
     .v3-north-total{
       height:32px;
-      padding:0 10px;
+      padding:0 10px 0 8px;
       border:1px solid #334155;
       border-radius:8px;
       background:#1e293b;
@@ -217,9 +299,19 @@
       font-variant-numeric:tabular-nums;
       white-space:nowrap;
       flex:0 0 auto;
-      max-width:28ch;
+      max-width:32ch;
       overflow:hidden;
       text-overflow:ellipsis;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      cursor:pointer;
+    }
+    .v3-north-total svg{
+      width:16px;
+      height:16px;
+      flex:0 0 auto;
+      color:#93c5fd;
     }
     .v3-north-total:hover{
       background:#334155;
@@ -257,7 +349,7 @@
       border-color:#2563eb;
       color:#fff;
     }
-    .v3-north-ver-phase::before{ content:" · "; }
+    .v3-north-ver-phase{ display:none; }
     .v3-north-menu-wrap{
       position:relative;
       flex:0 0 auto;
@@ -266,8 +358,12 @@
       position:absolute;
       top:calc(100% + 6px);
       right:0;
-      min-width:188px;
-      padding:6px;
+      width:max-content;
+      min-width:148px;
+      max-width:min(240px, calc(100vw - 16px));
+      max-height:min(70vh, calc(100vh - var(--v3-north-h) - 16px));
+      overflow:auto;
+      padding:4px;
       background:#0f172a;
       border:1px solid #334155;
       border-radius:10px;
@@ -275,22 +371,27 @@
       z-index:50;
       display:flex;
       flex-direction:column;
-      gap:2px;
+      gap:0;
     }
     .v3-north-menu.hidden{ display:none; }
     .v3-north-menu button{
-      height:32px;
+      display:flex;
+      align-items:center;
+      height:38px;
       justify-content:flex-start;
-      padding:0 10px;
+      padding:0 12px;
       border:none;
       background:transparent;
       color:#e2e8f0;
-      font-size:12px;
+      font-size:14px;
       font-weight:600;
+      line-height:1.2;
       border-radius:6px;
       width:100%;
+      white-space:nowrap;
     }
-    .v3-north-menu button:hover{
+    .v3-north-menu button:hover,
+    .v3-north-menu button:focus-visible{
       background:#1e293b;
     }
     .v3-north .v3-north-btn{
@@ -318,7 +419,6 @@
       .v3-north-name{ display:none; }
       .v3-hide-narrow{ display:none !important; }
       .v3-north-project{ max-width:12ch; }
-      .v3-north-ver-phase{ display:none; }
     }
     @media (max-width: 720px){
       .v3-north-total{ max-width:14ch; }
@@ -329,6 +429,7 @@
       display:flex;
       min-height:0;
       min-width:0;
+      position:relative;
     }
 
     .v3-west{
@@ -436,6 +537,131 @@
       overflow:visible;
       border-left:1px solid #1f2937;
     }
+    #v3-east-rail{
+      --v3-east-rail-w:280px;
+      --v3-east-tab-w:36px;
+      flex:0 0 var(--v3-east-tab-w);
+      width:var(--v3-east-tab-w);
+      min-width:var(--v3-east-tab-w);
+      display:flex;
+      flex-direction:row;
+      align-items:stretch;
+      background:#111827;
+      border-left:1px solid #1f2937;
+      z-index:28;
+      min-height:0;
+      position:relative;
+      overflow:visible;
+    }
+    #v3-east-rail.is-open.is-push{
+      flex:0 0 var(--v3-east-rail-w);
+      width:var(--v3-east-rail-w);
+    }
+    #v3-east-tabs{
+      flex:0 0 var(--v3-east-tab-w);
+      width:var(--v3-east-tab-w);
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      padding:6px 0;
+      gap:4px;
+      background:#0b1220;
+      border-left:1px solid #1f2937;
+      z-index:2;
+    }
+    .v3-east-tab{
+      position:relative;
+      width:28px;
+      height:28px;
+      margin:0;
+      padding:0;
+      border:0;
+      border-radius:7px;
+      background:transparent;
+      color:#e7edf8;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .v3-east-tab img,
+    .v3-east-tab svg{
+      width:18px;
+      height:18px;
+      pointer-events:none;
+    }
+    .v3-east-tab:hover,
+    .v3-east-tab:focus-visible{ background:#1e293b; }
+    .v3-east-tab.is-on{ background:#1e3a8a; }
+    .v3-east-tab::after{
+      content:attr(data-label);
+      position:absolute;
+      right:calc(100% + 8px);
+      top:50%;
+      transform:translateY(-50%);
+      padding:4px 8px;
+      border-radius:6px;
+      background:#0b1220;
+      border:1px solid #334155;
+      color:#f8fafc;
+      font-size:11px;
+      font-weight:700;
+      white-space:nowrap;
+      opacity:0;
+      pointer-events:none;
+      box-shadow:0 8px 18px rgba(0,0,0,0.35);
+      z-index:5;
+    }
+    .v3-east-tab:hover::after,
+    .v3-east-tab:focus-visible::after{ opacity:1; }
+    #v3-east-pane{
+      flex:1 1 auto;
+      min-width:0;
+      min-height:0;
+      display:flex;
+      flex-direction:row;
+      background:#0f172a;
+      position:relative;
+    }
+    #v3-east-rail.is-open.is-overlay #v3-east-pane{
+      position:absolute;
+      top:0;
+      bottom:0;
+      right:var(--v3-east-tab-w);
+      width:calc(var(--v3-east-rail-w) - var(--v3-east-tab-w));
+      flex:none;
+      box-shadow:-12px 0 28px rgba(0,0,0,.4);
+      border-left:1px solid #1f2937;
+    }
+    #v3-east-pane[hidden]{ display:none !important; }
+    #v3-east-resize{
+      flex:0 0 5px;
+      width:5px;
+      cursor:ew-resize;
+      background:transparent;
+      touch-action:none;
+    }
+    #v3-east-resize:hover,
+    body.v3-east-resizing #v3-east-resize{ background:#2563eb; }
+    #v3-east-pane-body{
+      flex:1 1 auto;
+      min-width:0;
+      min-height:0;
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+    }
+    .v3-east-pane-panel{
+      flex:1 1 auto;
+      min-width:0;
+      min-height:0;
+      overflow-x:hidden;
+      overflow-y:auto;
+      display:flex;
+      flex-direction:column;
+    }
+    .v3-east-pane-panel[hidden]{ display:none !important; }
+    #v3-east-pane-autolayout{ overflow:hidden; }
     #v3-float-layer{
       position:fixed;
       inset:0;
@@ -445,6 +671,7 @@
     #v3-float-layer > *{ pointer-events:auto; }
 
     .v3-toolbar{
+      position:relative;
       display:flex;
       align-items:center;
       gap:4px;
@@ -471,7 +698,7 @@
     .v3-toolbar.is-floating{
       position:fixed;
       width:var(--v3-cad-side-w);
-      max-width:min(160px, calc(100vw - 24px));
+      max-width:min(196px, calc(100vw - 24px));
       height:auto;
       max-height:min(720px, calc(100vh - 72px));
       flex-direction:column;
@@ -515,6 +742,86 @@
       text-transform:uppercase;
       text-align:center;
     }
+    .v3-cad-cols-wrap{
+      position:relative;
+      flex:0 0 auto;
+      display:flex;
+      justify-content:center;
+    }
+    .v3-cad-cols-btn{
+      height:18px;
+      min-width:36px;
+      padding:0 6px;
+      border:1px solid #334155;
+      border-radius:4px;
+      background:#0f172a;
+      color:#94a3b8;
+      font-size:9px;
+      font-weight:700;
+      letter-spacing:0.02em;
+      cursor:pointer;
+    }
+    .v3-cad-cols-btn:hover,
+    .v3-cad-cols-btn[aria-expanded="true"]{
+      color:#e2e8f0;
+      border-color:#475569;
+      background:#1e293b;
+    }
+    .v3-cad-cols-menu{
+      position:absolute;
+      top:calc(100% + 4px);
+      left:50%;
+      transform:translateX(-50%);
+      min-width:108px;
+      padding:4px;
+      background:#0f172a;
+      border:1px solid #334155;
+      border-radius:8px;
+      box-shadow:0 10px 22px rgba(0,0,0,0.35);
+      z-index:92;
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+    }
+    .v3-cad-cols-menu.hidden{ display:none; }
+    .v3-cad-cols-menu button{
+      height:26px;
+      padding:0 8px;
+      border:0;
+      border-radius:6px;
+      background:transparent;
+      color:#e2e8f0;
+      font-size:11px;
+      font-weight:600;
+      text-align:left;
+      cursor:pointer;
+    }
+    .v3-cad-cols-menu button:hover{ background:#1e293b; }
+    .v3-cad-cols-menu button.is-on,
+    .v3-north-menu button.is-on{ background:#1e3a8a; }
+    .v3-tb-resize{
+      position:absolute;
+      top:0;
+      bottom:0;
+      width:6px;
+      cursor:ew-resize;
+      z-index:6;
+      touch-action:none;
+    }
+    .v3-toolbar[data-resize-edge="right"] .v3-tb-resize{ right:0; left:auto; }
+    .v3-toolbar[data-resize-edge="left"] .v3-tb-resize{ left:0; right:auto; }
+    .v3-toolbar[data-resize-edge="none"] .v3-tb-resize,
+    .v3-toolbar.is-horizontal .v3-tb-resize{ display:none; }
+    .v3-tb-resize:hover,
+    body.v3-ui-resizing .v3-tb-resize{ background:rgba(96,165,250,0.38); }
+    .v3-north-menu-label{
+      padding:8px 10px 2px;
+      color:#64748b;
+      font-size:10px;
+      font-weight:700;
+      letter-spacing:0.04em;
+      text-transform:uppercase;
+    }
     .v3-toolbar.is-horizontal .v3-tb-title{ display:none; }
     .v3-toolbar .v3-icon-btn{
       width:var(--v3-cad-btn);
@@ -529,15 +836,28 @@
       color:#e2e8f0;
       flex:0 0 auto;
     }
-    .v3-toolbar .v3-icon-btn svg{
+    .v3-toolbar .v3-icon-btn svg,
+    .v3-toolbar .v3-icon-btn img.v3-cad-icon{
       width:var(--v3-cad-icon);
       height:var(--v3-cad-icon);
       display:block;
       pointer-events:none;
+      object-fit:contain;
+      flex:0 0 auto;
     }
     .v3-toolbar .v3-icon-btn:hover{ background:#1e293b; border-color:#334155; }
     .v3-toolbar .v3-icon-btn:focus-visible{ outline:2px solid #93c5fd; outline-offset:2px; }
-    .v3-toolbar .v3-icon-btn.is-on{ background:#1d4ed8; border-color:#2563eb; }
+    .v3-toolbar .v3-icon-btn.is-on{ background:#1e3a8a; border-color:#1d4ed8; color:#eff6ff; }
+    .v3-toolbar .v3-icon-btn[data-v3-cad-cmd="layers"],
+    .v3-toolbar .v3-icon-btn[data-v3-cad-cmd="settings"]{ color:#E7EDF8; }
+    .v3-toolbar .v3-icon-btn[data-v3-cad-cmd="layers"].is-on,
+    .v3-toolbar .v3-icon-btn[data-v3-cad-cmd="settings"].is-on{
+      color:#61A0FF !important;
+      background:#1e3a8a !important;
+      border-color:#1d4ed8 !important;
+    }
+    .v3-toolbar .v3-icon-btn:disabled,
+    .v3-toolbar .v3-icon-btn[aria-disabled="true"]{ opacity:0.35; pointer-events:none; }
 
     .v3-cad-toolbar{
       display:flex;
@@ -558,6 +878,7 @@
       height:100%;
     }
     .v3-cad-body{
+      position:relative;
       display:flex;
       flex:1 1 auto;
       min-width:0;
@@ -566,6 +887,30 @@
       gap:6px;
       overflow:hidden;
     }
+    .v3-cad-group-items .v3-cad-btn{
+      cursor:grab;
+      touch-action:none;
+    }
+    .v3-cad-btn.is-dragging{
+      opacity:.4;
+    }
+    .v3-cad-insert{
+      position:absolute;
+      top:6px;
+      width:2px;
+      background:#3b82f6;
+      border-radius:1px;
+      pointer-events:none;
+      z-index:30;
+    }
+    .v3-cad-insert.is-across{
+      width:auto;
+      height:2px;
+      top:0;
+    }
+    .v3-cad-insert[hidden]{ display:none; }
+    body.v3-cad-reordering{ cursor:grabbing; }
+    body.v3-cad-reordering .v3-cad-btn{ cursor:grabbing; }
     .v3-toolbar.is-vertical .v3-cad-body,
     .v3-toolbar.is-floating .v3-cad-body{
       flex-direction:column;
@@ -602,18 +947,20 @@
     .v3-cad-group-head{
       display:flex;
       align-items:center;
-      gap:4px;
-      height:16px;
+      gap:3px;
+      height:14px;
       padding:0 2px;
       border:0;
       border-radius:4px;
       background:transparent;
-      color:#94a3b8;
-      font-size:10px;
+      color:#64748b;
+      font-size:9px;
       font-weight:700;
       letter-spacing:0.02em;
       text-align:left;
       cursor:pointer;
+      width:100%;
+      min-width:0;
     }
     .v3-cad-group-head:hover{ background:#1e293b; color:#e2e8f0; }
     .v3-cad-group-chevron{
@@ -642,56 +989,51 @@
     .v3-cad-group.is-collapsed .v3-cad-group-items{ display:none !important; }
     .v3-cad-group-items{
       display:grid;
-      grid-template-columns:repeat(2, var(--v3-cad-btn));
+      grid-template-columns:repeat(var(--v3-cad-cols, 2), var(--v3-cad-btn));
       gap:4px;
       justify-content:center;
+      min-width:0;
     }
+    .v3-toolbar.is-horizontal .v3-cad-group-head{ display:none; }
     .v3-toolbar.is-horizontal .v3-cad-group-items{
       display:flex;
       flex-direction:row;
+      flex-wrap:nowrap;
       gap:4px;
     }
     .v3-cad-btn{
       position:relative;
       width:var(--v3-cad-btn);
       height:var(--v3-cad-btn);
+      overflow:hidden;
+      flex:0 0 var(--v3-cad-btn);
     }
-    .v3-cad-btn[data-tip]::after{
-      content:attr(data-tip);
-      position:absolute;
-      z-index:90;
-      padding:5px 8px;
-      border-radius:6px;
-      background:rgba(15,23,42,0.96);
+    .v3-cad-tip{
+      position:fixed;
+      z-index:120;
+      max-width:240px;
+      padding:7px 10px 8px;
+      border-radius:8px;
+      background:#0b1220;
       border:1px solid #334155;
-      color:#e2e8f0;
-      font-size:11px;
-      font-weight:600;
-      line-height:1.2;
-      white-space:nowrap;
-      opacity:0;
+      box-shadow:0 10px 24px rgba(0,0,0,0.4);
       pointer-events:none;
-      transform:translateY(2px);
-      transition:opacity 80ms ease;
+      color:#e2e8f0;
     }
-    .v3-toolbar.is-vertical .v3-cad-btn[data-tip]::after,
-    .v3-toolbar.is-floating .v3-cad-btn[data-tip]::after{
-      left:calc(100% + 8px);
-      top:50%;
-      transform:translateY(-50%);
+    .v3-cad-tip.hidden{ display:none; }
+    .v3-cad-tip-name{
+      font-size:12px;
+      font-weight:700;
+      color:#f8fafc;
+      line-height:1.3;
     }
-    #v3-dock-east .v3-cad-btn[data-tip]::after{
-      left:auto;
-      right:calc(100% + 8px);
-    }
-    .v3-toolbar.is-horizontal .v3-cad-btn[data-tip]::after{
-      left:50%;
-      top:calc(100% + 8px);
-      transform:translateX(-50%);
-    }
-    .v3-cad-btn:hover::after,
-    .v3-cad-btn:focus-visible::after{
-      opacity:1;
+    .v3-cad-tip-desc{
+      margin-top:3px;
+      font-size:11px;
+      font-weight:500;
+      color:#94a3b8;
+      line-height:1.35;
+      white-space:pre-line;
     }
     .v3-cad-overflow-wrap{
       position:relative;
@@ -737,11 +1079,13 @@
       text-align:left;
     }
     .v3-cad-overflow-menu button:hover{ background:#1e293b; }
-    .v3-cad-overflow-menu button.is-on{ background:#1d4ed8; }
-    .v3-cad-overflow-menu button svg{
+    .v3-cad-overflow-menu button.is-on{ background:#1e3a8a; }
+    .v3-cad-overflow-menu button svg,
+    .v3-cad-overflow-menu button img.v3-cad-icon{
       width:16px;
       height:16px;
       flex:0 0 auto;
+      object-fit:contain;
     }
     #v3-cmd-pop-apply[hidden]{ display:none !important; }
 
@@ -804,6 +1148,951 @@
       display:flex;
       flex-direction:column;
     }
+    .v3-cmd-pop.is-wide{
+      min-width:420px;
+      max-width:520px;
+      max-height:min(80vh, 720px);
+    }
+    .v3-cmd-pop.is-wide .v3-cmd-pop-body{
+      overflow:auto;
+      max-height:min(62vh, 560px);
+    }
+    .v3-cmd-pop:has(.v3-est-root){
+      min-width:520px;
+      max-width:min(580px, calc(100vw - 24px));
+    }
+    .v3-est-root{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      min-height:0;
+    }
+    .v3-est-table-wrap{
+      overflow:auto;
+      max-height:min(52vh, 440px);
+      border:1px solid #1e293b;
+      border-radius:8px;
+    }
+    .v3-est-table{
+      width:100%;
+      border-collapse:collapse;
+      font-size:12px;
+    }
+    .v3-est-table th{
+      position:sticky;
+      top:0;
+      text-align:left;
+      color:#93c5fd;
+      font-weight:700;
+      padding:7px 8px;
+      background:#0b1220;
+      border-bottom:1px solid #334155;
+      white-space:nowrap;
+    }
+    .v3-est-table td{
+      padding:6px 8px;
+      border-bottom:1px solid #1e293b;
+      color:#e2e8f0;
+    }
+    .v3-est-table th.num,
+    .v3-est-table td.num{
+      text-align:right;
+      font-variant-numeric:tabular-nums;
+      white-space:nowrap;
+    }
+    .v3-est-empty{
+      margin:0;
+      padding:16px 4px;
+      color:#94a3b8;
+    }
+    .v3-est-total{
+      display:flex;
+      justify-content:space-between;
+      align-items:baseline;
+      gap:12px;
+      padding:10px 4px 2px;
+      border-top:1px solid #334155;
+      color:#f8fafc;
+      font-size:13px;
+      font-weight:700;
+    }
+    .v3-est-total strong{
+      color:#fde68a;
+      font-size:18px;
+      font-variant-numeric:tabular-nums;
+    }
+    .v3-est-note{
+      margin:0;
+      color:#64748b;
+      font-size:11px;
+    }
+    .v3-est-price-switch{
+      display:flex;
+      justify-content:flex-end;
+      margin-top:8px;
+    }
+    .v3-est-price-seg{
+      height:32px;
+      padding:0 14px;
+      border:1px solid #334155;
+      background:#1e293b;
+      color:#94a3b8;
+      font-size:12px;
+      font-weight:600;
+      cursor:pointer;
+    }
+    .v3-est-price-seg:first-child{
+      border-radius:8px 0 0 8px;
+    }
+    .v3-est-price-seg:last-child{
+      border-radius:0 8px 8px 0;
+      margin-left:-1px;
+    }
+    .v3-est-price-seg.is-on{
+      position:relative;
+      z-index:1;
+      background:#2563eb;
+      color:#fff;
+      border-color:#2563eb;
+    }
+    .v3-est-table td.is-unregistered{
+      color:#ef4444;
+      font-weight:700;
+    }
+    .v3-est-total.is-unavailable strong{
+      color:#ef4444;
+    }
+    .v3-est-print:disabled{
+      opacity:.45;
+      cursor:not-allowed;
+    }
+    .v3-est-ws-error{
+      margin:0;
+      color:#fca5a5;
+      font-size:12px;
+      line-height:1.5;
+    }
+    .v3-cmd-pop.is-estimate .v3-cmd-pop-actions,
+    .v3-cmd-pop:has(.v3-est-root) .v3-cmd-pop-actions{
+      display:flex;
+      justify-content:flex-end;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .v3-cmd-pop.is-estimate .v3-cmd-pop-actions button,
+    .v3-cmd-pop:has(.v3-est-root) .v3-cmd-pop-actions button{
+      height:32px;
+      margin:0;
+      flex:0 0 auto;
+    }
+    @media (max-width: 560px){
+      .v3-cmd-pop.is-estimate,
+      .v3-cmd-pop:has(.v3-est-root){
+        min-width:0;
+        width:calc(100vw - 24px);
+      }
+      .v3-cmd-pop.is-estimate .v3-cmd-pop-actions,
+      .v3-cmd-pop:has(.v3-est-root) .v3-cmd-pop-actions{
+        justify-content:flex-end;
+      }
+    }
+    .v3-cmd-pop.is-compact:has(.v3-len-edit-root),
+    .v3-cmd-pop:has(.v3-len-edit-root):not(.is-len-add){
+      min-width:280px;
+      width:300px;
+      max-width:min(310px, calc(100vw - 24px));
+    }
+    .v3-cmd-pop.is-len-add{
+      box-sizing:border-box;
+      min-width:220px;
+      width:300px;
+      max-width:min(420px, calc(100vw - 24px));
+      overflow:visible;
+    }
+    .v3-cmd-pop.is-len-add .v3-len-resize:not([hidden]){
+      display:block;
+    }
+    .v3-len-resize[hidden]{ display:none !important; }
+    .v3-len-add-root,
+    .v3-len-edit-root{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .v3-len-current{
+      margin:0;
+      color:#93c5fd;
+      font-size:22px;
+      font-weight:800;
+      letter-spacing:0.02em;
+      font-variant-numeric:tabular-nums;
+    }
+    .v3-len-kind{
+      margin:0;
+      color:#e2e8f0;
+      font-size:13px;
+      font-weight:800;
+    }
+    .v3-len-io{
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .v3-len-io-col{
+      flex:1;
+      min-width:0;
+      background:#0b1220;
+      border:1px solid #334155;
+      border-radius:8px;
+      padding:6px 8px;
+    }
+    .v3-len-k{
+      display:block;
+      color:#64748b;
+      font-size:10px;
+      font-weight:700;
+    }
+    .v3-len-io-col strong{
+      display:block;
+      margin-top:2px;
+      color:#93c5fd;
+      font-size:14px;
+      font-variant-numeric:tabular-nums;
+    }
+    .v3-len-arrow{
+      color:#64748b;
+      font-weight:800;
+    }
+    .v3-len-modes{
+      display:flex;
+      gap:4px;
+    }
+    .v3-cmd-pop-body .v3-len-mode,
+    .v3-cmd-pop-body .v3-len-btn,
+    .v3-cmd-pop-body .v3-len-apply{
+      margin-top:0;
+    }
+    .v3-connect-root{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .v3-connect-status{
+      margin:0;
+      color:#e2e8f0;
+      font-size:12px;
+      font-weight:700;
+      line-height:1.45;
+    }
+    .v3-connect-meta{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      color:#94a3b8;
+      font-size:11px;
+      line-height:1.4;
+    }
+    .v3-connect-actions{
+      display:flex;
+      gap:6px;
+    }
+    .v3-connect-actions .v3-len-apply{
+      flex:1;
+      height:30px;
+      border:1px solid #1d4ed8;
+      border-radius:8px;
+      background:#1d4ed8;
+      color:#fff;
+      font-size:12px;
+      font-weight:800;
+      cursor:pointer;
+    }
+    .v3-connect-msg{
+      margin:0;
+      color:#fbbf24;
+      font-size:11px;
+      font-weight:700;
+      line-height:1.4;
+    }
+    .v3-move-gap-root{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .v3-move-gap-row{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:baseline;
+      color:#cbd5e1;
+      font-size:12px;
+      line-height:1.4;
+    }
+    .v3-move-gap-k{
+      color:#94a3b8;
+      font-weight:700;
+      white-space:nowrap;
+    }
+    .v3-move-gap-v{
+      color:#e2e8f0;
+      font-weight:700;
+      text-align:right;
+    }
+    .v3-mat-root{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .v3-mat-row{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      color:#cbd5e1;
+      font-size:12px;
+      font-weight:700;
+    }
+    .v3-mat-select{
+      height:32px;
+      border:1px solid #334155;
+      border-radius:8px;
+      background:#0f172a;
+      color:#e2e8f0;
+      padding:0 8px;
+    }
+    .v3-mat-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+    }
+    .v3-cmd-pop.is-measure,
+    .v3-cmd-pop:has(.v3-meas-root){
+      min-width:250px;
+      max-width:250px;
+      width:250px;
+    }
+    .v3-cmd-pop.is-measure .v3-cmd-pop-body,
+    .v3-cmd-pop:has(.v3-meas-root) .v3-cmd-pop-body{
+      padding:8px;
+    }
+    .v3-cmd-pop.is-minimized .v3-cmd-pop-body,
+    .v3-cmd-pop.is-minimized .v3-cmd-pop-actions{
+      display:none !important;
+    }
+    .v3-meas-root{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .v3-meas-note{
+      margin:0;
+      color:#94a3b8;
+      font-size:10px;
+      font-weight:700;
+      line-height:1.35;
+    }
+    .v3-meas-kinds{
+      display:flex;
+      gap:4px;
+    }
+    .v3-cmd-pop-body .v3-meas-root button{
+      height:26px;
+      margin-top:0;
+      padding:0 8px;
+      font-size:11px;
+    }
+    .v3-meas-kinds .v3-len-mode{ flex:1; }
+    .v3-meas-axes{
+      display:flex;
+      flex-wrap:nowrap;
+      align-items:center;
+      gap:6px;
+    }
+    .v3-cmd-pop-body .v3-meas-root label.v3-meas-ax{
+      display:inline-flex;
+      align-items:center;
+      gap:3px;
+      margin:0;
+      color:#e2e8f0;
+      font-size:11px;
+      font-weight:800;
+      white-space:nowrap;
+    }
+    .v3-cmd-pop-body .v3-meas-root input[type="checkbox"]{
+      width:14px;
+      height:14px;
+      margin:0;
+      padding:0;
+      accent-color:#38bdf8;
+      flex:0 0 auto;
+    }
+    .v3-meas-ax.v3-meas-vis{
+      margin-left:auto;
+      color:#94a3b8;
+      font-weight:700;
+    }
+    .v3-meas-actions{
+      display:flex;
+      gap:4px;
+    }
+    .v3-meas-actions .v3-len-mode{ flex:1; }
+    .v3-meas-list{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+    .v3-meas-list-toggle{
+      width:100%;
+      justify-content:flex-start;
+      background:#1e293b;
+    }
+    .v3-meas-list-body{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      max-height:160px;
+      overflow:auto;
+    }
+    .v3-meas-empty{
+      margin:0;
+      color:#64748b;
+      font-size:10px;
+      font-weight:700;
+    }
+    .v3-meas-item{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      grid-template-areas:"chip main del" "chip sub del";
+      gap:0 6px;
+      padding:5px 6px;
+      border:1px solid #334155;
+      border-radius:8px;
+      background:#0f172a;
+      align-items:center;
+    }
+    .v3-meas-item.is-draft{ border-color:#38bdf8; }
+    .v3-meas-item.is-invalid{ border-color:#f97316; }
+    .v3-meas-chip{
+      grid-area:chip;
+      display:inline-flex;
+      width:16px;
+      height:16px;
+      align-items:center;
+      justify-content:center;
+      border-radius:999px;
+      color:#0f172a;
+      font-size:10px;
+      font-weight:800;
+    }
+    .v3-meas-item-main{
+      grid-area:main;
+      color:#e2e8f0;
+      font-size:11px;
+      font-weight:800;
+    }
+    .v3-meas-item-sub{
+      grid-area:sub;
+      color:#94a3b8;
+      font-size:10px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .v3-meas-del{
+      grid-area:del;
+      width:22px;
+      min-width:22px;
+      height:22px;
+      padding:0;
+      border:1px solid #334155;
+      border-radius:6px;
+      background:#1e293b;
+      color:#e2e8f0;
+      font-size:12px;
+      font-weight:700;
+      cursor:pointer;
+    }
+    .v3-work-rack .v3-layer-name{ color:#cbd5e1; font-size:11px; }
+    #v3-measure-labels{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      z-index:6;
+    }
+    .v3-measure-tag{
+      position:absolute;
+      transform:translate(-50%,-50%);
+      display:flex;
+      align-items:center;
+      gap:4px;
+      padding:2px 6px;
+      border-radius:999px;
+      background:rgba(15,23,42,.88);
+      border:1px solid #334155;
+      color:#f8fafc;
+      font-size:11px;
+      font-weight:800;
+      white-space:nowrap;
+    }
+    .v3-measure-ax{
+      display:inline-flex;
+      min-width:16px;
+      justify-content:center;
+      border-radius:999px;
+      color:#0f172a;
+      padding:0 4px;
+      font-size:10px;
+    }
+    .v3-move-panel-root{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .v3-move-dist{
+      color:#e2e8f0;
+      font-size:13px;
+      font-weight:800;
+      line-height:1.4;
+    }
+    .v3-move-dist-hint{
+      margin:0;
+      color:#94a3b8;
+      font-size:10px;
+      font-weight:700;
+      line-height:1.3;
+    }
+    #v3-move-dist-labels{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      z-index:18;
+      overflow:hidden;
+    }
+    .v3-move-dist-tag{
+      position:absolute;
+      left:0;
+      top:0;
+      display:flex;
+      flex-direction:row;
+      align-items:center;
+      gap:6px;
+      padding:3px 8px;
+      border-radius:4px;
+      background:rgba(8,15,28,0.9);
+      border:1px solid #fbbf24;
+      color:#f8fafc;
+      white-space:nowrap;
+      line-height:1;
+      box-shadow:0 1px 4px rgba(0,0,0,0.4);
+      will-change:transform;
+    }
+    .v3-move-dist-tag strong{
+      font-size:12px;
+      font-weight:800;
+      letter-spacing:0.01em;
+    }
+    .v3-move-dist-tag span{
+      font-size:10px;
+      font-weight:800;
+      color:#0f172a;
+      background:#fbbf24;
+      border-radius:3px;
+      padding:1px 5px;
+    }
+    .v3-move-dist-tag.is-z span{ background:#4ade80; }
+    .v3-move-dist-tag.is-touch span{ background:#38bdf8; }
+    .v3-move-dist-tag.is-hit span{ background:#f87171; color:#111827; }
+    .v3-move-dist-tag.is-x{ border-color:#fbbf24; }
+    .v3-move-dist-tag.is-z{ border-color:#4ade80; }
+    .v3-move-dist-tag.is-touch{ border-color:#38bdf8; }
+    .v3-move-dist-tag.is-hit{
+      border-color:#f87171;
+      color:#fca5a5;
+    }
+    .v3-move-numeric{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      padding:8px;
+      border:1px solid #334155;
+      border-radius:8px;
+      background:#0b1220;
+    }
+    .v3-move-numeric-lab{
+      color:#e2e8f0;
+      font-size:12px;
+      font-weight:800;
+    }
+    .v3-move-numeric-row{
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+    .v3-move-numeric-input{
+      flex:1;
+      min-width:0;
+      height:30px;
+      border:1px solid #334155;
+      border-radius:8px;
+      background:#020617;
+      color:#f8fafc;
+      font-size:13px;
+      font-weight:800;
+      padding:0 8px;
+    }
+    .v3-move-numeric-input:focus{
+      outline:1px solid #38bdf8;
+      border-color:#38bdf8;
+    }
+    .v3-move-numeric-unit{
+      color:#94a3b8;
+      font-size:12px;
+      font-weight:800;
+    }
+    .v3-move-numeric-note{
+      margin:0;
+      color:#94a3b8;
+      font-size:11px;
+      line-height:1.4;
+    }
+    .v3-move-align-btn{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      height:36px;
+      padding:0 10px;
+      border:1px solid #334155;
+      border-radius:8px;
+      background:#0b1220;
+      color:#e2e8f0;
+      font-size:12px;
+      font-weight:800;
+      cursor:pointer;
+    }
+    .v3-move-align-btn svg{
+      width:28px;
+      height:28px;
+      flex:0 0 auto;
+    }
+    .v3-move-align-btn:hover{ background:#1e293b; }
+    .v3-move-pick{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    .v3-move-align-actions{
+      flex-wrap:wrap;
+    }
+    .v3-move-panel-root .v3-len-modes{
+      display:flex;
+      gap:4px;
+    }
+    .v3-len-mode{
+      flex:1;
+      height:28px;
+      border:1px solid #334155;
+      border-radius:8px;
+      background:#0b1220;
+      color:#94a3b8;
+      font-size:11px;
+      font-weight:700;
+      cursor:pointer;
+      white-space:nowrap;
+      overflow:hidden;
+      min-width:0;
+      padding:0 4px;
+    }
+    .v3-cmd-pop.is-len-add.is-narrow .v3-cmd-pop-body{
+      padding:12px;
+    }
+    .v3-cmd-pop.is-len-add.is-narrow .v3-len-mode{
+      font-size:10px;
+      padding:0 2px;
+      letter-spacing:-0.02em;
+    }
+    .v3-len-mode.is-on{
+      background:#1e3a5f;
+      border-color:#61A0FF;
+      color:#93c5fd;
+    }
+    .v3-len-grid{
+      display:grid;
+      grid-template-columns:repeat(3, minmax(0, 1fr));
+      gap:6px;
+    }
+    .v3-cmd-pop.is-len-add.is-narrow .v3-len-grid{
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+    }
+    .v3-len-btn,
+    .v3-len-apply{
+      height:30px;
+      border:1px solid #334155;
+      border-radius:8px;
+      background:#0b1220;
+      color:#e2e8f0;
+      font-size:12px;
+      cursor:pointer;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:clip;
+      min-width:0;
+      padding:0 4px;
+    }
+    .v3-len-btn.is-on{
+      background:#1e3a5f;
+      border-color:#61A0FF;
+      color:#93c5fd;
+      font-weight:700;
+    }
+    .v3-len-btn:hover,
+    .v3-len-mode:hover,
+    .v3-len-apply:hover{ background:#1e293b; }
+    .v3-len-order-only input{
+      width:100%;
+      height:32px;
+      margin:0;
+      background:#0b1220;
+      color:#e2e8f0;
+      border:1px solid #334155;
+      border-radius:8px;
+      padding:0 8px;
+      box-sizing:border-box;
+    }
+    .v3-len-order-only input.is-err{
+      border-color:#f87171;
+      box-shadow:0 0 0 1px rgba(248,113,113,0.35);
+    }
+    .v3-len-resize{
+      display:none;
+      position:absolute;
+      top:36px;
+      right:0;
+      bottom:0;
+      width:10px;
+      cursor:ew-resize;
+      touch-action:none;
+      z-index:2;
+    }
+    .v3-len-resize-left{
+      right:auto;
+      left:-2px;
+      width:14px;
+    }
+    .v3-len-resize::after{
+      content:"";
+      position:absolute;
+      right:0;
+      bottom:0;
+      width:16px;
+      height:16px;
+      cursor:nwse-resize;
+      background:
+        linear-gradient(135deg, transparent 50%, #64748b 50%, #64748b 62%, transparent 62%),
+        linear-gradient(135deg, transparent 70%, #64748b 70%, #64748b 82%, transparent 82%);
+    }
+    .v3-len-resize-left::after{ display:none; }
+    .v3-len-actions{ display:flex; justify-content:flex-end; }
+    .v3-len-apply{
+      padding:0 12px;
+      background:#1e3a5f;
+      border-color:#61A0FF;
+      color:#dbeafe;
+      font-weight:700;
+    }
+    .v3-len-msg{
+      margin:0;
+      font-size:11px;
+      color:#94a3b8;
+    }
+    .v3-len-msg.is-err{ color:#fca5a5; }
+    .v3-len-chip{
+      position:fixed;
+      z-index:50;
+      height:28px;
+      padding:0 10px;
+      border-radius:8px;
+      border:1px solid #334155;
+      background:#0f172a;
+      color:#93c5fd;
+      font-size:12px;
+      font-weight:700;
+      cursor:grab;
+      box-shadow:0 8px 20px rgba(0,0,0,0.35);
+      white-space:nowrap;
+      touch-action:none;
+      user-select:none;
+    }
+    .v3-len-chip:hover{ background:#1e293b; }
+    #v3-east-pane-add,
+    #v3-east-pane-length{
+      padding:8px;
+      color:#e8eef8;
+      overflow-x:hidden;
+      container-type:inline-size;
+      container-name:v3-len-pane;
+    }
+    #v3-len-root,
+    #v3-len-root-add,
+    #v3-len-root-edit{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      min-width:0;
+    }
+    .v3-len-badge{
+      font-size:10px;
+      font-weight:800;
+      letter-spacing:.06em;
+      color:#93c5fd;
+      text-transform:uppercase;
+      white-space:nowrap;
+    }
+    #v3-east-pane-add .v3-len-kind,
+    #v3-east-pane-length .v3-len-kind{
+      color:#f8fafc;
+      white-space:nowrap;
+    }
+    #v3-east-pane-add .v3-len-kinds,
+    #v3-east-pane-add .v3-len-modes,
+    #v3-east-pane-length .v3-len-modes,
+    #v3-east-pane-length .v3-len-actions{
+      min-width:0;
+      flex-wrap:nowrap;
+    }
+    #v3-east-pane-add .v3-len-grid,
+    #v3-east-pane-length .v3-len-grid{
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+    }
+    @container v3-len-pane (max-width: 199px){
+      .v3-len-grid{ grid-template-columns:1fr; }
+      .v3-len-board-seg{ grid-template-columns:1fr; }
+    }
+    #v3-len-root-add.is-board{
+      gap:8px;
+      min-width:0;
+    }
+    #v3-east-pane-add .v3-len-add-root.is-board{
+      gap:10px;
+      min-width:0;
+    }
+    .v3-len-board-title{
+      margin:0;
+      padding:0 0 8px;
+      border-bottom:1px solid #1e293b;
+      font-size:10px;
+      font-weight:700;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      color:#64748b;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .v3-len-board-field{
+      display:flex;
+      flex-direction:column;
+      gap:5px;
+      min-width:0;
+      padding:0 0 8px;
+      border-bottom:1px solid #1e293b;
+    }
+    .v3-len-board-label{
+      margin:0;
+      color:#94a3b8;
+      font-size:10px;
+      font-weight:700;
+      letter-spacing:.04em;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .v3-len-board-seg{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:4px;
+      min-width:0;
+    }
+    #v3-east-pane-add .v3-len-board-seg .v3-len-mode{
+      height:26px;
+      border-radius:6px;
+      border:1px solid #334155;
+      background:#0f172a;
+      color:#94a3b8;
+      font-size:11px;
+      font-weight:700;
+      padding:0 6px;
+    }
+    #v3-east-pane-add .v3-len-board-seg .v3-len-mode.is-on{
+      background:#1e3a5f;
+      border-color:#61A0FF;
+      color:#93c5fd;
+    }
+    .v3-len-board-note{
+      margin:0;
+      color:#64748b;
+      font-size:10px;
+      line-height:1.45;
+      white-space:normal;
+      overflow-wrap:anywhere;
+    }
+    #v3-east-pane-add .v3-len-btn,
+    #v3-east-pane-add .v3-len-mode,
+    #v3-east-pane-length .v3-len-btn,
+    #v3-east-pane-length .v3-len-mode,
+    #v3-east-pane-length .v3-len-apply,
+    #v3-east-pane-length .v3-len-cancel{
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    #v3-east-pane-length .v3-len-actions{
+      display:flex;
+      justify-content:flex-end;
+      gap:6px;
+      margin-top:4px;
+    }
+    #v3-east-pane-length .v3-len-cancel{
+      height:30px;
+      padding:0 10px;
+      border:1px solid #334155;
+      border-radius:8px;
+      background:#1e293b;
+      color:#e2e8f0;
+      font-size:12px;
+      font-weight:700;
+      cursor:pointer;
+    }
+    #v3-east-pane-length .v3-len-cancel:hover{ background:#334155; }
+    .v3-len-chip.is-dragging{ cursor:grabbing; }
+    .v3-len-chip[hidden]{ display:none !important; }
+    .v3-set-sec{ margin-bottom:16px; }
+    .v3-set-sec h3{
+      margin:0 0 8px;
+      font-size:12px;
+      color:#93c5fd;
+    }
+    .v3-set-field{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin:6px 0;
+      font-size:12px;
+    }
+    .v3-set-field > span{ flex:0 0 7.5em; color:#cbd5e1; }
+    .v3-set-field select{
+      flex:1;
+      min-width:0;
+      background:#0b1220;
+      color:#e2e8f0;
+      border:1px solid #334155;
+      border-radius:6px;
+      padding:4px 6px;
+    }
+    .v3-set-range{ flex:1; display:flex; align-items:center; gap:8px; }
+    .v3-set-range input{ flex:1; }
+    .v3-set-val{ min-width:3.2em; text-align:right; color:#94a3b8; }
+
     .v3-cmd-pop.hidden{ display:none !important; }
     .v3-cmd-pop-titlebar{
       display:flex;
@@ -834,6 +2123,7 @@
     .v3-cmd-pop-x:hover{ background:#1e293b; }
     .v3-cmd-pop-body{ padding:12px; font-size:12px; }
     .v3-cmd-pop-body label{ display:block; font-weight:700; margin-bottom:6px; }
+    .v3-cmd-pop-body label.v3-set-field{ display:flex; font-weight:600; margin-bottom:0; }
     .v3-cmd-pop-body input{
       width:100%;
       height:32px;
@@ -877,12 +2167,40 @@
       font-weight:600;
     }
     .v3-cmd-pop-body button:hover{ background:#334155; }
+    .v3-set-tabs{
+      display:flex;
+      gap:4px;
+      margin:-4px 0 12px;
+      padding-bottom:8px;
+      border-bottom:1px solid #1e293b;
+    }
+    .v3-cmd-pop-body .v3-set-tab,
+    #v3-east-pane-layers .v3-set-tab{
+      flex:1;
+      height:30px;
+      margin:0;
+      padding:0 8px;
+      border:0;
+      border-radius:8px;
+      background:transparent;
+      color:#94a3b8;
+      font-size:12px;
+    }
+    .v3-cmd-pop-body .v3-set-tab.is-on,
+    #v3-east-pane-layers .v3-set-tab.is-on{
+      background:#1e3a8a;
+      border-color:#1d4ed8;
+      color:#61A0FF;
+    }
+    .v3-set-panel[hidden]{ display:none !important; }
     .v3-cmd-pop-actions{
       display:flex;
       justify-content:flex-end;
+      flex-wrap:wrap;
       gap:8px;
       padding:8px 12px 12px;
     }
+    .v3-cmd-pop-actions[hidden]{ display:none !important; }
     .v3-cmd-pop-actions button{
       height:32px;
       padding:0 12px;
@@ -899,9 +2217,451 @@
       color:#fff;
     }
 
+    .v3-al-win{
+      position:absolute;
+      top:64px;
+      right:16px;
+      width:440px;
+      max-width:calc(100vw - 24px);
+      max-height:min(90vh, calc(100vh - 16px));
+      display:flex;
+      flex-direction:column;
+      background:#0f172a;
+      color:#e2e8f0;
+      border:1px solid #1e293b;
+      border-radius:10px;
+      box-shadow:0 18px 40px rgba(0,0,0,.45);
+      z-index:52;
+      overflow:hidden;
+    }
+    .v3-al-win.hidden{ display:none !important; }
+    .v3-al-win.is-docked{
+      position:static !important;
+      inset:auto;
+      left:auto !important;
+      top:auto !important;
+      right:auto !important;
+      width:100%;
+      height:100%;
+      max-width:none;
+      max-height:none !important;
+      border:none;
+      border-radius:0;
+      box-shadow:none;
+      z-index:auto;
+      overflow:hidden;
+    }
+    .v3-al-win.is-docked .v3-al-titlebar{ display:none; }
+    .v3-al-win.is-docked .v3-al-hint{ display:none; }
+    .v3-al-win.is-docked .v3-al-body{ padding:6px 8px 4px; overflow-x:hidden; }
+    .v3-al-win.is-docked .v3-al-sec{ margin:0 0 6px; padding:0 0 6px; }
+    .v3-al-win.is-docked .v3-al-viewport{ height:148px; }
+    .v3-al-win.is-docked .v3-al-counts{
+      grid-template-columns:1fr;
+      gap:4px;
+    }
+    .v3-al-win.is-docked .v3-al-field{
+      flex-direction:row;
+      align-items:center;
+      gap:6px;
+      min-width:0;
+    }
+    .v3-al-win.is-docked .v3-al-field > span{
+      flex:0 0 auto;
+      white-space:nowrap;
+    }
+    .v3-al-win.is-docked .v3-al-step{ flex:1; min-width:0; }
+    .v3-al-win.is-docked .v3-al-step input,
+    .v3-al-win.is-docked .v3-al-body input[type="number"],
+    .v3-al-win.is-docked .v3-al-body input[type="text"]{
+      width:56px;
+      max-width:none;
+      flex:1 1 56px;
+    }
+    .v3-al-win.is-docked .v3-al-h{
+      flex-wrap:nowrap;
+      align-items:center;
+    }
+    .v3-al-win.is-docked .v3-al-h > span{
+      flex:0 0 auto;
+      white-space:nowrap;
+    }
+    .v3-al-win.is-docked .v3-al-toolbar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:4px;
+      margin:0 0 4px;
+    }
+    .v3-al-win.is-docked .v3-al-toolbar button,
+    .v3-al-win.is-docked .v3-al-ghost,
+    .v3-al-win.is-docked .v3-al-h button,
+    .v3-al-win.is-docked .v3-al-footer button{
+      white-space:nowrap;
+      flex:0 0 auto;
+    }
+    .v3-al-win.is-docked .v3-al-footer{
+      flex-wrap:wrap;
+      gap:4px;
+      padding:6px 8px 8px;
+    }
+    .v3-al-win.is-docked .v3-al-rect-bar > span,
+    .v3-al-win.is-docked .v3-al-rect-bar button{
+      white-space:nowrap;
+    }
+    .v3-al-more{ margin:4px 0 0; }
+    .v3-al-more > summary{
+      cursor:pointer;
+      font-size:10px;
+      font-weight:700;
+      color:#94a3b8;
+      letter-spacing:.04em;
+      list-style:none;
+      user-select:none;
+    }
+    .v3-al-more > summary::-webkit-details-marker{ display:none; }
+    .v3-al-more > summary::before{
+      content:"▸ ";
+      color:#64748b;
+    }
+    .v3-al-more[open] > summary::before{ content:"▾ "; }
+    .v3-al-win.is-minimized{
+      height:auto;
+      max-height:none;
+    }
+    .v3-al-win.is-minimized .v3-al-body,
+    .v3-al-win.is-minimized .v3-al-footer{ display:none !important; }
+    .v3-al-titlebar{
+      display:flex;
+      align-items:center;
+      gap:6px;
+      height:32px;
+      flex:0 0 32px;
+      padding:0 6px 0 10px;
+      cursor:grab;
+      touch-action:none;
+      border-bottom:1px solid #1e293b;
+      user-select:none;
+    }
+    .v3-al-titlebar:active{ cursor:grabbing; }
+    .v3-al-title{
+      font-size:12px;
+      font-weight:700;
+      flex:1;
+      letter-spacing:.02em;
+    }
+    .v3-al-body{
+      flex:1 1 auto;
+      min-height:0;
+      overflow:auto;
+      padding:8px 10px 6px;
+      font-size:11px;
+    }
+    .v3-al-footer{
+      flex:0 0 auto;
+      display:flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 10px 8px;
+      border-top:1px solid #1e293b;
+      background:#0f172a;
+      z-index:2;
+    }
+    .v3-al-footer .v3-al-spacer{ flex:1; }
+    .v3-al-footer button,
+    .v3-al-body button{
+      height:24px;
+      padding:0 8px;
+      border-radius:6px;
+      border:1px solid #334155;
+      background:#1e293b;
+      color:#e2e8f0;
+      font-size:11px;
+      font-weight:600;
+    }
+    .v3-al-footer button:hover,
+    .v3-al-body button:hover{ background:#334155; }
+    .v3-al-footer .is-primary{
+      background:#1d4ed8;
+      border-color:#2563eb;
+      color:#fff;
+    }
+    .v3-al-ghost{
+      background:transparent !important;
+      color:#94a3b8 !important;
+      border-color:transparent !important;
+      padding:0 6px !important;
+      height:22px !important;
+    }
+    .v3-al-sec{
+      margin:0 0 8px;
+      padding:0 0 8px;
+      border-bottom:1px solid #1e293b;
+    }
+    .v3-al-sec:last-child{ margin-bottom:0; padding-bottom:0; border-bottom:none; }
+    .v3-al-h{
+      display:flex;
+      align-items:center;
+      gap:6px;
+      margin:0 0 4px;
+      font-size:10px;
+      font-weight:700;
+      color:#94a3b8;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+    }
+    .v3-al-h span{ flex:0 1 auto; white-space:nowrap; }
+    .v3-al-toolbar{
+      display:flex;
+      flex-wrap:wrap;
+      align-items:center;
+      gap:4px;
+      margin:0 0 4px;
+    }
+    .v3-al-toolbar button{ white-space:nowrap; }
+    .v3-al-counts{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:6px;
+    }
+    .v3-al-field{ display:flex; flex-direction:column; gap:2px; }
+    .v3-al-field > span{
+      font-size:10px;
+      font-weight:600;
+      color:#cbd5e1;
+      white-space:nowrap;
+    }
+    .v3-al-step{
+      display:flex;
+      align-items:center;
+      gap:3px;
+    }
+    .v3-al-step button{
+      width:22px;
+      flex:0 0 22px;
+      height:22px;
+      padding:0;
+      margin:0;
+    }
+    .v3-al-step input,
+    .v3-al-body input[type="number"],
+    .v3-al-body input[type="text"]{
+      width:100%;
+      height:22px;
+      padding:0 6px;
+      border-radius:5px;
+      border:1px solid #334155;
+      background:#1e293b;
+      color:#e2e8f0;
+      text-align:center;
+      font-size:11px;
+      font-variant-numeric:tabular-nums;
+    }
+    .v3-al-viewport{
+      position:relative;
+      height:210px;
+      border:1px solid #1e293b;
+      border-radius:8px;
+      background:#0b1220;
+      overflow:hidden;
+      touch-action:none;
+      cursor:grab;
+    }
+    .v3-al-viewport.is-pan{ cursor:grabbing; }
+    .v3-al-viewport.is-marquee,
+    .v3-al-viewport.is-rect{ cursor:crosshair; }
+    #v3-al-canvas{ width:100%; height:100%; display:block; }
+    .v3-al-ghost.is-on{
+      background:#1d4ed8 !important;
+      color:#f8fafc !important;
+      border-color:#2563eb !important;
+    }
+    .v3-al-rect-bar{
+      display:flex;
+      align-items:center;
+      gap:4px;
+      margin:4px 0 0;
+      min-height:22px;
+    }
+    .v3-al-rect-bar[hidden]{ display:none !important; }
+    .v3-al-rect-bar > span{
+      flex:1;
+      min-width:0;
+      font-size:10px;
+      font-weight:600;
+      color:#7dd3fc;
+      font-variant-numeric:tabular-nums;
+    }
+    .v3-al-rect-bar button{
+      height:22px;
+      padding:0 7px;
+      font-size:10px;
+      flex:0 0 auto;
+    }
+    .v3-al-rect-bar button:disabled{
+      opacity:.4;
+      pointer-events:none;
+    }
+    .v3-al-hint{
+      margin:4px 0 0;
+      color:#64748b;
+      font-size:9px;
+      letter-spacing:.01em;
+    }
+    .v3-al-dim{
+      min-width:44px;
+      height:20px;
+      padding:0 5px;
+      border:none;
+      border-bottom:1px dashed #38bdf8;
+      border-radius:0;
+      background:transparent;
+      color:#7dd3fc;
+      font-size:10px;
+      font-weight:700;
+      font-variant-numeric:tabular-nums;
+      cursor:pointer;
+      line-height:20px;
+    }
+    .v3-al-dim:hover{ color:#e0f2fe; background:rgba(56,189,248,.08); }
+    .v3-al-heights{
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+      margin-top:4px;
+    }
+    .v3-al-hrow{
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+    .v3-al-hrow > em{
+      flex:0 0 44px;
+      font-style:normal;
+      font-size:10px;
+      color:#94a3b8;
+    }
+    .v3-al-raise{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    .v3-al-check{
+      display:flex;
+      align-items:center;
+      gap:6px;
+      font-weight:600;
+      font-size:11px;
+      cursor:pointer;
+    }
+    .v3-al-check input{ width:14px; height:14px; accent-color:#2563eb; }
+    .v3-al-inline{
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .v3-al-inline > span{ font-size:10px; color:#cbd5e1; font-weight:600; }
+    .v3-al-seg{
+      display:flex;
+      gap:3px;
+      flex:1;
+    }
+    .v3-al-seg button{
+      flex:1;
+      margin:0;
+      height:22px;
+    }
+    .v3-al-seg button.is-on{
+      background:#1e3a8a;
+      border-color:#1d4ed8;
+      color:#93c5fd;
+    }
+    .v3-al-side{
+      display:flex;
+      align-items:flex-end;
+      padding:4px 6px;
+      border-radius:6px;
+      background:#0b1220;
+      border:1px solid #1e293b;
+    }
+    .v3-al-side svg{ display:block; }
+    .v3-al-pop{
+      position:absolute;
+      z-index:50;
+      min-width:196px;
+      padding:8px;
+      border-radius:8px;
+      border:1px solid #334155;
+      background:#111827;
+      box-shadow:0 12px 28px rgba(0,0,0,.4);
+    }
+    .v3-al-pop[hidden]{ display:none !important; }
+    .v3-al-chips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:4px;
+      margin-bottom:8px;
+    }
+    .v3-al-chips button{
+      height:24px;
+      margin:0;
+      padding:0 7px;
+      font-size:10px;
+    }
+    .v3-al-chips button.is-on{
+      background:#1e3a8a;
+      border-color:#2563eb;
+      color:#93c5fd;
+    }
+    .v3-al-pop-row{
+      display:flex;
+      gap:6px;
+      align-items:center;
+    }
+    .v3-al-pop-row input{ flex:1; text-align:left; }
+    .v3-al-pop button{
+      height:28px;
+      padding:0 10px;
+      border-radius:8px;
+      border:1px solid #334155;
+      background:#1e293b;
+      color:#e2e8f0;
+      font-size:12px;
+      font-weight:600;
+    }
+    .v3-al-pop .is-primary{
+      background:#1d4ed8;
+      border-color:#2563eb;
+      color:#fff;
+    }
+    .v3-al-cell-edit{
+      margin-top:6px;
+      padding:6px;
+      border-radius:6px;
+      background:#0b1220;
+      border:1px dashed #334155;
+    }
+    .v3-al-sel{
+      font-size:11px;
+      font-weight:700;
+      color:#e2e8f0;
+      margin-bottom:4px;
+    }
+    .v3-al-note{
+      margin:2px 0 0;
+      color:#64748b;
+      font-size:10px;
+    }
+
     body.v3-ui-dragging{
       user-select:none !important;
       cursor:grabbing;
+    }
+    body.v3-ui-resizing{
+      cursor:ew-resize !important;
+      user-select:none !important;
+    }
+    body.v3-ui-resizing #view canvas{
+      pointer-events:none !important;
     }
     body.v3-ui-dragging #view,
     body.v3-ui-dragging #view canvas{
@@ -927,6 +2687,491 @@
     #view canvas{
       display:block;
     }
+
+    #v3-view-nav{
+      --v3-view-icon:26px;
+      position:absolute;
+      right:16px;
+      bottom:16px;
+      z-index:26;
+      width:400px;
+      min-width:280px;
+      max-width:min(550px, calc(100vw - 32px));
+      display:flex;
+      flex-direction:row;
+      flex-wrap:nowrap;
+      align-items:center;
+      gap:4px;
+      padding:6px;
+      box-sizing:border-box;
+      background:#202B40;
+      border:1px solid #334155;
+      border-radius:14px;
+      pointer-events:auto;
+      overflow:visible;
+    }
+    #v3-view-nav.hidden{ display:none; }
+    .v3-view-nav-resize{
+      flex:0 0 8px;
+      width:8px;
+      align-self:stretch;
+      border-radius:4px;
+      cursor:ew-resize;
+      touch-action:none;
+      background:linear-gradient(90deg, transparent 2px, #64748b 2px, #64748b 3px, transparent 3px, transparent 5px, #64748b 5px, #64748b 6px, transparent 6px);
+    }
+    .v3-view-nav-resize:hover{ background-color:rgba(96,165,250,0.18); }
+    .v3-view-nav-btns{
+      flex:1 1 auto;
+      min-width:0;
+      display:grid;
+      grid-template-columns:repeat(8, minmax(0, 1fr));
+      grid-auto-flow:column;
+      gap:4px;
+    }
+    .v3-view-nav-grip{
+      flex:0 0 10px;
+      width:10px;
+      align-self:stretch;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:3px;
+      color:#94a3b8;
+      pointer-events:none;
+    }
+    .v3-view-nav-grip span{
+      width:3px;
+      height:3px;
+      border-radius:50%;
+      background:currentColor;
+    }
+    .v3-view-nav-btn{
+      position:relative;
+      min-width:0;
+      width:100%;
+      aspect-ratio:1;
+      height:auto;
+      padding:0;
+      border:1px solid transparent;
+      border-radius:10px;
+      background:#1e293b;
+      color:#e2e8f0;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .v3-view-nav-btn:hover{ background:#334155; }
+    .v3-view-nav-btn.is-on{
+      background:#377FF0;
+      border-color:#61A0FF;
+    }
+    .v3-view-nav-icon{
+      width:var(--v3-view-icon);
+      height:var(--v3-view-icon);
+      max-width:100%;
+      max-height:100%;
+      object-fit:contain;
+      pointer-events:none;
+    }
+    .v3-view-nav-btn::after{
+      content:attr(data-name);
+      position:absolute;
+      left:50%;
+      bottom:calc(100% + 6px);
+      transform:translateX(-50%);
+      padding:4px 8px;
+      border-radius:6px;
+      background:#0b1220;
+      border:1px solid #334155;
+      color:#f8fafc;
+      font-size:11px;
+      font-weight:700;
+      white-space:nowrap;
+      opacity:0;
+      pointer-events:none;
+      box-shadow:0 8px 18px rgba(0,0,0,0.35);
+    }
+    .v3-view-nav-btn:hover::after,
+    .v3-view-nav-btn:focus-visible::after{
+      opacity:1;
+    }
+
+    #v3-layer-body{ display:flex; flex-direction:column; gap:6px; }
+    .v3-layer-group{
+      border:1px solid #1e293b;
+      border-radius:8px;
+      background:#0b1220;
+      padding:2px 4px;
+    }
+    .v3-layer-group-head, .v3-layer-item{
+      display:flex; align-items:center; gap:4px;
+      min-height:24px; font-size:12px;
+    }
+    .v3-layer-group-head{ font-weight:700; }
+    .v3-layer-name{
+      flex:1;
+      min-width:0;
+      color:#e8eef8;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      line-height:22px;
+    }
+    .v3-layer-count{
+      flex:0 0 auto;
+      min-width:1.4em;
+      margin-left:auto;
+      color:#94a3b8;
+      font-size:11px;
+      font-weight:700;
+      text-align:right;
+      font-variant-numeric:tabular-nums;
+    }
+    .v3-layer-indent{
+      flex:0 0 22px;
+      width:22px;
+      height:22px;
+    }
+    .v3-cmd-pop-body .v3-layer-caret,
+    .v3-cmd-pop-body .v3-layer-eye,
+    .v3-cmd-pop-body .v3-layer-lock,
+    .v3-cmd-pop-body .v3-work-more,
+    #v3-east-pane-layers .v3-layer-caret,
+    #v3-east-pane-layers .v3-layer-eye,
+    #v3-east-pane-layers .v3-layer-lock,
+    #v3-east-pane-layers .v3-work-more{
+      width:22px;height:22px;min-width:22px;margin:0;padding:0;
+      border:0;border-radius:6px;
+      background:transparent;color:#E7EDF8;cursor:pointer;
+      display:inline-flex;align-items:center;justify-content:center;
+    }
+    .v3-cmd-pop-body .v3-layer-eye,
+    .v3-cmd-pop-body .v3-layer-lock,
+    .v3-cmd-pop-body .v3-work-more,
+    #v3-east-pane-layers .v3-layer-eye,
+    #v3-east-pane-layers .v3-layer-lock,
+    #v3-east-pane-layers .v3-work-more{ background:#1e293b; }
+    .v3-cmd-pop-body .v3-layer-eye svg,
+    .v3-cmd-pop-body .v3-layer-lock svg,
+    #v3-east-pane-layers .v3-layer-eye svg,
+    #v3-east-pane-layers .v3-layer-lock svg{ width:14px;height:14px; }
+    #v3-east-pane-layers{
+      padding:6px 6px 8px;
+      color:#e8eef8;
+      overflow-x:hidden;
+    }
+    #v3-east-pane-layers .v3-set-tab,
+    #v3-east-pane-layers .v3-work-add-root,
+    #v3-east-pane-layers .v3-work-move-btn,
+    #v3-east-pane-layers .v3-work-menu-item{
+      height:26px;
+      margin:0;
+      padding:0 8px;
+      border-radius:6px;
+      border:1px solid #334155;
+      background:#1e293b;
+      color:#e2e8f0;
+      font-size:12px;
+      font-weight:600;
+      cursor:pointer;
+      white-space:nowrap;
+    }
+    #v3-east-pane-layers .v3-set-tabs{ margin:0 0 6px; padding-bottom:4px; }
+    #v3-east-pane-layers .v3-layer-group{ padding:2px 4px; }
+    #v3-east-pane-layers .v3-layer-item{ padding-left:4px; min-height:24px; }
+    #v3-east-pane-layers .v3-layer-group-head,
+    #v3-east-pane-layers .v3-work-row{ min-height:24px; }
+    .v3-layer-group.is-collapsed .v3-layer-items{ display:none; }
+    .v3-layer-item{ padding-left:4px; color:#e8eef8; }
+    .v3-layer-group.is-off > .v3-layer-group-head .v3-layer-name,
+    .v3-layer-item.is-off .v3-layer-name,
+    .v3-work-row.is-off .v3-layer-name{ color:#94a3b8; }
+    .v3-layer-eye.is-off,
+    .v3-layer-item.is-off .v3-layer-eye{ color:#64748b; }
+    .v3-layer-eye.is-mix{
+      box-shadow:inset 0 0 0 2px #61A0FF;
+      opacity:1;
+    }
+    #v3-work-tree{ display:flex; flex-direction:column; gap:1px; position:relative; color:#e8eef8; }
+    .v3-work-row{
+      display:flex; align-items:center; gap:2px;
+      min-height:24px; font-size:12px;
+      border-radius:6px;
+      padding-right:2px;
+      position:relative;
+    }
+    .v3-work-row.is-active{ background:#1e3a8a; }
+    .v3-work-row.is-inherited-off .v3-layer-name{ color:#94a3b8; font-style:italic; }
+    .v3-work-row.is-inherited-lock .v3-layer-name{ color:#cbd5e1; }
+    .v3-work-handle{
+      flex:0 0 16px; width:16px; height:22px; margin:0;
+      display:inline-flex; align-items:center; justify-content:center;
+      color:#94a3b8; cursor:grab; touch-action:none;
+      border-radius:6px; user-select:none;
+    }
+    .v3-work-handle:hover{ color:#e2e8f0; background:#1e293b; }
+    .v3-work-handle svg{ width:12px; height:16px; pointer-events:none; fill:currentColor; }
+    .v3-work-row.is-dragging{
+      opacity:0.38;
+      outline:1px dashed #64748b;
+      outline-offset:-1px;
+    }
+    .v3-work-row.is-drop-child{
+      background:rgba(97,160,255,0.16);
+    }
+    .v3-work-row.is-drop-invalid{
+      outline:1px dashed #f87171;
+      outline-offset:-1px;
+    }
+    .v3-work-row.is-drop-invalid::after{
+      content:attr(data-drop-caption);
+      position:absolute;
+      left:8px; right:8px; top:100%;
+      margin-top:2px;
+      font-size:10px; font-weight:700; color:#fca5a5;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+      pointer-events:none; z-index:4;
+      text-shadow:0 1px 2px #0f172a;
+    }
+    .v3-work-drop-hint{
+      position:absolute; z-index:6; pointer-events:none;
+      box-sizing:border-box;
+    }
+    .v3-work-drop-hint-line{
+      height:4px; background:#61A0FF; border-radius:2px;
+      box-shadow:0 0 0 1px #0f172a;
+    }
+    .v3-work-drop-hint-label{
+      margin-top:1px;
+      font-size:10px; font-weight:700; line-height:1.2;
+      color:#93c5fd;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+      text-shadow:0 1px 2px #0f172a;
+    }
+    .v3-work-drop-hint.is-child{
+      border:2px solid #61A0FF;
+      border-radius:8px;
+      background:rgba(97,160,255,0.08);
+      box-sizing:content-box;
+    }
+    .v3-work-drop-hint.is-child .v3-work-drop-hint-label{
+      position:absolute;
+      left:var(--drop-indent, 24px);
+      right:8px;
+      bottom:2px;
+      margin:0;
+    }
+    .v3-work-root-drop{
+      display:none;
+      flex-direction:column;
+      align-items:stretch;
+      gap:4px;
+      margin:0 0 6px;
+      padding:8px 6px;
+      border-radius:8px;
+      background:#0f172a;
+    }
+    .v3-work-root-drop.is-armed{
+      display:flex; position:sticky; top:0; z-index:3;
+    }
+    .v3-work-root-drop-line{
+      display:block; height:3px; border-radius:2px; background:#475569;
+    }
+    .v3-work-root-drop-text{
+      display:block;
+      padding-left:8px;
+      font-size:11px; font-weight:700; line-height:1.3;
+      color:#94a3b8;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .v3-work-root-drop.is-drop{
+      background:rgba(97,160,255,0.12);
+    }
+    .v3-work-root-drop.is-drop .v3-work-root-drop-line{
+      height:4px; background:#61A0FF;
+    }
+    .v3-work-root-drop.is-drop .v3-work-root-drop-text{ color:#93c5fd; }
+    body.v3-ui-dragging .v3-work-handle{ cursor:grabbing; }
+    .v3-work-more-wrap{ position:relative; flex:0 0 22px; }
+    .v3-work-more{ font-size:14px; line-height:1; color:#e2e8f0; }
+    .v3-work-more.is-open{ background:#1e3a8a; }
+    .v3-work-menu{
+      position:absolute;
+      right:0;
+      top:calc(100% + 2px);
+      z-index:8;
+      min-width:148px;
+      padding:4px;
+      border:1px solid #334155;
+      border-radius:8px;
+      background:#1e293b;
+      box-shadow:0 10px 24px rgba(0,0,0,.45);
+    }
+    .v3-work-menu[hidden]{ display:none !important; }
+    .v3-work-menu-item{
+      display:block;
+      width:100%;
+      text-align:left;
+      height:26px;
+      margin:0 0 2px;
+      padding:0 8px;
+      border:0;
+      border-radius:6px;
+      background:transparent;
+      color:#e8eef8;
+      font-size:12px;
+      font-weight:600;
+      cursor:pointer;
+      white-space:nowrap;
+    }
+    .v3-work-menu-item:last-child{ margin-bottom:0; }
+    .v3-work-menu-item:hover{ background:#334155; }
+    .v3-work-menu-item:disabled{ opacity:0.4; cursor:default; }
+    .v3-layer-eye.is-inherited,
+    .v3-layer-lock.is-inherited{
+      box-shadow:inset 0 0 0 2px #64748b;
+      color:#94a3b8;
+    }
+    .v3-layer-lock.is-on{ color:#61A0FF; }
+    .v3-work-name-input{
+      flex:1; min-width:0; height:22px; margin:0;
+      padding:0 6px; font-size:12px;
+      color:#e8eef8;
+      background:#0b1220;
+      border:1px solid #334155;
+    }
+    .v3-work-tools{ display:flex; justify-content:flex-end; margin-top:6px; }
+    .v3-cmd-pop-body .v3-work-add-root,
+    #v3-east-pane-layers .v3-work-add-root{
+      height:26px; margin:0; padding:0 8px;
+      font-size:12px;
+    }
+    .v3-work-move{
+      margin-top:8px;
+      padding-top:8px;
+      border-top:1px solid #1e293b;
+    }
+    .v3-work-move-label{
+      font-size:11px;
+      color:#94a3b8;
+      margin-bottom:4px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .v3-work-move-row{ display:flex; gap:4px; align-items:center; min-width:0; }
+    .v3-cmd-pop-body .v3-work-move-dest,
+    #v3-east-pane-layers .v3-work-move-dest{
+      flex:1; min-width:0; height:26px; margin:0;
+      padding:0 6px; font-size:12px;
+      color:#e8eef8;
+      background:#0b1220;
+      border:1px solid #334155;
+    }
+    .v3-cmd-pop-body .v3-work-move-btn,
+    #v3-east-pane-layers .v3-work-move-btn{
+      height:26px; margin:0; padding:0 8px;
+      font-size:12px; white-space:nowrap;
+    }
+    .v3-cmd-pop-body .v3-work-move-btn:disabled,
+    #v3-east-pane-layers .v3-work-move-btn:disabled{ opacity:0.4; cursor:default; }
+
+    @media (max-width: 1366px){
+      .v3-al-win.is-docked .v3-al-viewport{ height:132px; }
+    }
+    @media (max-width: 1280px){
+      .v3-al-win.is-docked .v3-al-viewport{ height:120px; }
+    }
+
+    #v3-rotate-hud, #v3-radial, #v3-sel-hud{
+      position:fixed;
+      z-index:70;
+      pointer-events:auto;
+    }
+    #v3-rotate-status{
+      position:absolute;
+      left:50%;
+      bottom:88px;
+      transform:translateX(-50%);
+      z-index:28;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      max-width:min(560px, calc(100% - 48px));
+      padding:8px 12px;
+      box-sizing:border-box;
+      background:#0b1220;
+      border:1px solid #334155;
+      border-radius:12px;
+      color:#e2e8f0;
+      font-size:13px;
+      font-weight:700;
+      pointer-events:auto;
+      box-shadow:0 10px 24px rgba(0,0,0,0.35);
+    }
+    #v3-rotate-status-msg{ white-space:nowrap; }
+    #v3-rotate-status-actions{ display:flex; gap:6px; }
+    #v3-rotate-status-actions.hidden{ display:none !important; }
+    #v3-rotate-hud.hidden, #v3-radial.hidden, #v3-sel-hud.hidden, #v3-view-nav.hidden, #v3-rotate-status.hidden{ display:none !important; }
+    .v3-rotate-btn{
+      min-width:44px;height:32px;
+      padding:0 10px;
+      border:0;border-radius:8px;
+      background:#1e293b;color:#f8fafc;
+      font-size:12px;font-weight:800;cursor:pointer;
+    }
+    .v3-rotate-btn:hover{ background:#334155; }
+    #v3-rotate-cw{ background:#377FF0; }
+    #v3-rotate-cw:hover{ background:#4b8ff5; }
+
+    #v3-radial{
+      width:220px;height:220px;
+    }
+    #v3-radial-ring{
+      position:relative;width:220px;height:220px;
+      background:rgba(11,18,32,0.92);
+      border:1px solid #334155;
+      border-radius:50%;
+      box-shadow:0 16px 32px rgba(0,0,0,0.45);
+    }
+    .v3-radial-item{
+      position:absolute;width:44px;height:44px;padding:0;
+      border:1px solid #334155;border-radius:10px;
+      background:#0f172a;color:#e2e8f0;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;
+    }
+    .v3-radial-item img, .v3-radial-item svg{
+      width:28px;height:28px;object-fit:contain;
+    }
+    .v3-radial-item.is-hot{ background:#1d4ed8; border-color:#60a5fa; }
+    .v3-radial-item.is-off{ opacity:0.35; cursor:not-allowed; }
+    #v3-radial-cancel{
+      position:absolute;left:50%;top:50%;
+      width:72px;height:72px;margin:-36px 0 0 -36px;
+      border:1px solid #334155;border-radius:50%;
+      background:#0b1220;color:#94a3b8;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      font-size:10px;cursor:pointer;
+    }
+    #v3-radial-label{ color:#f8fafc; font-weight:700; font-size:11px; text-align:center; padding:0 4px; }
+
+    #v3-sel-hud{
+      left:12px; bottom:12px;
+      display:flex; align-items:center; gap:8px;
+      padding:6px 8px;
+      background:rgba(15,23,42,0.92);
+      border:1px solid #334155;
+      border-radius:10px;
+      color:#e2e8f0; font-size:12px;
+    }
+    #v3-sel-hud button{
+      height:28px; padding:0 8px; border:0; border-radius:6px;
+      background:#1e293b; color:#e2e8f0; cursor:pointer;
+    }
+    #v3-sel-hud button.is-off, #v3-sel-hud button:disabled{ opacity:0.4; cursor:not-allowed; }
 
     #panel{
       width:0;
@@ -1999,67 +4244,70 @@
       <span id="v3-north-project" class="v3-north-project" title="プロジェクト名">未保存のデザイン</span>
     </div>
 
-    <div class="v3-north-group" role="toolbar" aria-label="ファイルと編集">
-      <button type="button" id="v3-north-open" class="v3-icon-btn" title="ファイルを開く" aria-label="ファイルを開く">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7h6l2 2h10v10H3z" stroke-linejoin="round"/><path d="M3 7V5h6l2 2"/></svg>
+    <div id="v3-north-sort" class="v3-north-sort" role="toolbar" aria-label="ヘッダー操作">
+      <button type="button" id="v3-north-new" class="v3-icon-btn v3-north-file-btn" data-north-id="new" title="新規" aria-label="新規">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" stroke-linejoin="round"/><path d="M14 3v5h5M12 11v6M9 14h6"/></svg>
+        <span class="v3-north-file-label">新規</span>
       </button>
-      <button type="button" id="v3-north-save" class="v3-icon-btn" title="保存" aria-label="保存">
+      <button type="button" id="v3-north-open" class="v3-icon-btn v3-north-file-btn" data-north-id="open" title="開く" aria-label="開く">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h6l2 2h10v10H3z"/><path d="M3 7V5h6l2 2"/></svg>
+        <span class="v3-north-file-label">開く</span>
+      </button>
+      <button type="button" id="v3-north-save" class="v3-icon-btn v3-north-file-btn" data-north-id="save" title="保存" aria-label="保存">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 4h11l3 3v13H5z" stroke-linejoin="round"/><path d="M8 4v6h8V4M8 20v-7h8v7"/></svg>
+        <span class="v3-north-file-label">保存</span>
       </button>
-      <button type="button" id="v3-north-save-as" class="v3-icon-btn v3-hide-narrow" title="名前を付けて保存" aria-label="名前を付けて保存">
+      <button type="button" id="v3-north-save-as" class="v3-icon-btn v3-north-file-btn v3-hide-narrow" data-north-id="save-as" title="別名保存" aria-label="別名保存">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 4h11l3 3v13H5z" stroke-linejoin="round"/><path d="M12 11v6M9 14h6"/></svg>
+        <span class="v3-north-file-label">別名保存</span>
       </button>
-      <span class="v3-north-sep" aria-hidden="true"></span>
-      <button type="button" id="v3-north-undo" class="v3-icon-btn" title="元に戻す (Ctrl+Z)" aria-label="元に戻す">
+      <button type="button" id="v3-north-undo" class="v3-icon-btn" data-north-id="undo" title="元に戻す (Ctrl+Z)" aria-label="元に戻す">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 8H5V4"/><path d="M5 8a9 9 0 1 1-1.5 7"/></svg>
       </button>
-      <button type="button" id="v3-north-redo" class="v3-icon-btn" title="やり直す (Ctrl+Y)" aria-label="やり直す">
+      <button type="button" id="v3-north-redo" class="v3-icon-btn" data-north-id="redo" title="やり直す (Ctrl+Y)" aria-label="やり直す">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 8h4V4"/><path d="M19 8a9 9 0 1 0 1.5 7"/></svg>
       </button>
-    </div>
-
-    <div class="v3-north-spacer"></div>
-
-    <button type="button" id="v3-north-total" class="v3-north-total" title="見積合計（クリックで旧パネルの明細を表示）">合計：0 円</button>
-
-    <div class="v3-north-group" role="toolbar" aria-label="表示とアカウント">
-      <div class="v3-north-menu-wrap v3-hide-narrow">
-        <button type="button" id="v3-north-view" class="v3-icon-btn" title="表示設定" aria-label="表示設定" aria-haspopup="true" aria-expanded="false" aria-controls="v3-north-view-menu">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+      <span id="v3-north-gap" class="v3-north-spacer" data-north-id="gap" data-north-fixed="1" aria-hidden="true"></span>
+      <button type="button" id="v3-north-total" class="v3-north-total" data-north-fixed="1" title="見積明細を表示" aria-label="見積明細 合計 0 円">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="5" y="3.4" width="14" height="17.2" rx="2"/>
+          <rect x="7.2" y="5.6" width="9.6" height="3.4" rx="0.6"/>
+          <path d="M8.2 12.2h2.2M13.6 12.2h2.2M8.2 15.4h2.2M13.6 15.4h2.2M8.2 18.4h7.6"/>
+        </svg>
+        <span id="v3-north-total-text">合計 0 円</span>
+      </button>
+      <div class="v3-north-menu-wrap" data-north-id="view">
+        <button type="button" id="v3-north-view" class="v3-icon-btn" title="表示" aria-label="表示" aria-haspopup="menu" aria-expanded="false" aria-controls="v3-north-view-menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
         <div id="v3-north-view-menu" class="v3-north-menu hidden" role="menu">
-          <button type="button" data-click="#grid-toggle-btn">グリッド</button>
-          <button type="button" data-click="#color-chart-toggle-btn">カラーチャート</button>
-          <button type="button" data-click="#background-photo-toggle-btn">背景写真</button>
-          <button type="button" data-click="#help-toggle-btn">操作ヘルプ</button>
+          <button type="button" role="menuitem" data-click="#grid-toggle-btn">グリッド</button>
+          <button type="button" role="menuitem" data-click="#background-photo-toggle-btn">背景写真</button>
         </div>
       </div>
-      <button type="button" id="v3-staff-entry-btn" class="v3-icon-btn" title="STAFFログイン" aria-label="STAFFログイン">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="3.2"/><path d="M5 19c1.5-3.2 4-5 7-5s5.5 1.8 7 5"/></svg>
-      </button>
-      <button type="button" id="v3-legacy-panel-toggle" class="v3-icon-btn" title="旧操作パネルを開く" aria-label="旧操作パネルを開く" aria-expanded="false" aria-controls="panel">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg>
-      </button>
-      <div class="v3-north-menu-wrap">
-        <button type="button" id="v3-north-more" class="v3-icon-btn" title="その他" aria-label="その他" aria-haspopup="true" aria-expanded="false" aria-controls="v3-north-more-menu">
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="6" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18" cy="12" r="1.7"/></svg>
+      <div class="v3-north-menu-wrap" data-north-id="more">
+        <button type="button" id="v3-north-more" class="v3-icon-btn" title="その他" aria-label="その他" aria-haspopup="menu" aria-expanded="false" aria-controls="v3-north-more-menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
         </button>
         <div id="v3-north-more-menu" class="v3-north-menu hidden" role="menu">
-          <button type="button" data-click="#save-as-design-btn">名前を付けて保存</button>
-          <button type="button" data-click="#reset-btn">すべてリセット</button>
-          <button type="button" data-click="#grid-toggle-btn">グリッド</button>
-          <button type="button" data-click="#color-chart-toggle-btn">カラーチャート</button>
-          <button type="button" data-click="#help-toggle-btn">操作ヘルプ</button>
-          <button type="button" data-click="#help-page-btn">説明書</button>
-          <button type="button" data-click="#btn-open-drawing">図面を開く</button>
-          <button type="button" data-click="#btn-open-fit">CUBERACK FIT</button>
-          <button type="button" id="v3-north-layout-reset">UI配置を初期化</button>
+          <button type="button" role="menuitem" data-click="#btn-open-drawing">図面を開く</button>
+          <button type="button" role="menuitem" data-click="#help-toggle-btn">操作ヘルプ</button>
+          <button type="button" role="menuitem" data-click="#help-page-btn">説明書</button>
+          <button type="button" role="menuitem" data-click="#btn-open-fit">CUBERACK FIT</button>
+          <button type="button" role="menuitem" id="v3-north-layout-reset">UI配置を初期化</button>
         </div>
       </div>
-      <button type="button" id="v3-north-ver" class="v3-north-ver" title="バージョン情報" aria-label="バージョン情報" aria-haspopup="dialog" aria-expanded="false">
-        <span id="v3-north-ver-product" class="v3-north-ver-product">v3.0.0</span><span id="v3-north-ver-phase" class="v3-north-ver-phase">CUI-3B.1</span>
+      <button type="button" id="v3-staff-entry-btn" class="v3-icon-btn" data-north-id="staff" title="STAFFログイン" aria-label="STAFFログイン">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="3.2"/><path d="M5 19c1.5-3.2 4-5 7-5s5.5 1.8 7 5"/></svg>
+      </button>
+      <button type="button" id="v3-legacy-panel-toggle" class="v3-icon-btn" data-north-id="legacy" title="旧操作パネルを開く" aria-label="旧操作パネルを開く" aria-expanded="false" aria-controls="panel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg>
+      </button>
+      <button type="button" id="v3-north-ver" class="v3-north-ver" data-north-id="version" title="バージョン情報" aria-label="バージョン情報" aria-haspopup="dialog" aria-expanded="false">
+        <span id="v3-north-ver-product" class="v3-north-ver-product">v3.1.0</span><span id="v3-north-ver-phase" class="v3-north-ver-phase" hidden></span>
       </button>
     </div>
+    <div id="v3-north-insert" class="v3-north-insert" hidden></div>
   </header>
 
   <div id="v3-dock-north" class="v3-dock-slot v3-dock-empty" data-edge="north" aria-label="上ドック"></div>
@@ -2072,10 +4320,20 @@
           <svg width="12" height="16" viewBox="0 0 12 16" aria-hidden="true"><circle cx="4" cy="3" r="1.3" fill="currentColor"/><circle cx="8" cy="3" r="1.3" fill="currentColor"/><circle cx="4" cy="8" r="1.3" fill="currentColor"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/><circle cx="4" cy="13" r="1.3" fill="currentColor"/><circle cx="8" cy="13" r="1.3" fill="currentColor"/></svg>
         </div>
         <span class="v3-tb-title">CAD</span>
+        <div class="v3-cad-cols-wrap" data-no-drag>
+          <button type="button" id="v3-cad-cols-btn" class="v3-cad-cols-btn" title="列数: Auto" aria-label="CAD列数 Auto" aria-haspopup="true" aria-expanded="false" aria-controls="v3-cad-cols-menu">Auto</button>
+          <div id="v3-cad-cols-menu" class="v3-cad-cols-menu hidden" role="menu">
+            <button type="button" data-v3-cad-cols="auto" role="menuitemradio" aria-checked="true">Auto</button>
+            <button type="button" data-v3-cad-cols="1" role="menuitemradio" aria-checked="false">1 Column</button>
+            <button type="button" data-v3-cad-cols="2" role="menuitemradio" aria-checked="false">2 Columns</button>
+            <button type="button" data-v3-cad-cols="3" role="menuitemradio" aria-checked="false">3 Columns</button>
+          </div>
+        </div>
+        <div id="v3-tb-resize" class="v3-tb-resize" data-no-drag role="separator" aria-orientation="vertical" title="幅を変更" aria-label="ツールバー幅を変更"></div>
         <div id="v3-cad-toolbar" class="v3-cad-toolbar">
           <div id="v3-cad-body" class="v3-cad-body" role="toolbar" aria-label="CADツール"></div>
           <div class="v3-cad-overflow-wrap">
-            <button type="button" id="v3-cad-overflow-btn" class="v3-icon-btn v3-cad-btn" title="その他のツール" aria-label="その他のツール" aria-haspopup="true" aria-expanded="false" aria-controls="v3-cad-overflow-menu" hidden>
+            <button type="button" id="v3-cad-overflow-btn" class="v3-icon-btn v3-cad-btn" aria-label="その他のツール" aria-haspopup="true" aria-expanded="false" aria-controls="v3-cad-overflow-menu" hidden>
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="6" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18" cy="12" r="1.7"/></svg>
             </button>
             <div id="v3-cad-overflow-menu" class="v3-cad-overflow-menu hidden" role="menu"></div>
@@ -2109,6 +4367,9 @@
           <li><strong>ホイール</strong> … ズーム</li>
           <li><strong>Ctrl + Z</strong> … Undo</li>
           <li><strong>Ctrl + Y</strong> … Redo</li>
+          <li><strong>右クリック</strong> … 8方向ラジアルメニュー（ドラッグはパン）</li>
+          <li><strong>Rotate</strong> … Poleをクリックし、CW / CCWでラックを回転</li>
+          <li><strong>Ctrl + クリック</strong> … 複数選択（色変更・削除）</li>
         </ul>
       </div>
     </div>
@@ -2166,18 +4427,62 @@
       </div>
     </div>
 
+    <div id="v3-view-nav" aria-label="3D視点">
+      <div id="v3-view-nav-resize" class="v3-view-nav-resize" role="separator" aria-orientation="vertical" aria-label="視点バーの幅を変更"></div>
+      <div id="v3-view-nav-btns" class="v3-view-nav-btns"></div>
+      <div class="v3-view-nav-grip" aria-hidden="true"><span></span><span></span><span></span></div>
+    </div>
+    <div id="v3-rotate-status" class="hidden" role="status" aria-live="polite">
+      <span id="v3-rotate-status-msg">回転軸にするPOLEを選択してください</span>
+      <div id="v3-rotate-status-actions" class="hidden">
+        <button type="button" id="v3-rotate-ccw" class="v3-rotate-btn" title="反時計回り（上面）">CCW</button>
+        <button type="button" id="v3-rotate-cw" class="v3-rotate-btn" title="時計回り（上面）">CW</button>
+        <button type="button" id="v3-rotate-cancel" class="v3-rotate-btn" title="Rotateを終了">Esc</button>
+      </div>
+    </div>
+    <div id="v3-sel-hud" class="hidden">
+      <span id="v3-sel-count">0件選択</span>
+      <button type="button" id="v3-sel-color">色変更</button>
+      <button type="button" id="v3-sel-delete">削除</button>
+      <button type="button" id="v3-sel-clear">解除</button>
+    </div>
   </div><!-- /view -->
     </div><!-- /v3-center -->
 
     <aside id="v3-dock-east" class="v3-dock-slot v3-dock-empty" data-edge="east" aria-label="右ドック"></aside>
+    <aside id="v3-east-rail" class="is-collapsed" aria-label="右側パネル" data-east-open="">
+      <div id="v3-east-pane" hidden>
+        <div id="v3-east-resize" role="separator" aria-orientation="vertical" title="幅を変更"></div>
+        <div id="v3-east-pane-body">
+          <div id="v3-east-pane-autolayout" class="v3-east-pane-panel" hidden></div>
+          <div id="v3-east-pane-layers" class="v3-east-pane-panel" hidden></div>
+          <div id="v3-east-pane-add" class="v3-east-pane-panel" hidden></div>
+          <div id="v3-east-pane-length" class="v3-east-pane-panel" hidden></div>
+        </div>
+      </div>
+      <nav id="v3-east-tabs" aria-label="右側パネルタブ">
+        <button type="button" class="v3-east-tab" data-east-tab="autolayout" data-label="自動レイアウト" title="自動レイアウト" aria-label="自動レイアウト" aria-pressed="false">
+          <img src="img/v3-approved-icons/icons/20-auto-layout.svg" alt="" draggable="false" aria-hidden="true">
+        </button>
+        <button type="button" class="v3-east-tab" data-east-tab="layers" data-label="レイヤー" title="レイヤー" aria-label="レイヤー" aria-pressed="false">
+          <img src="img/v3-ui-icons/layers.svg" alt="" draggable="false" aria-hidden="true">
+        </button>
+        <button type="button" class="v3-east-tab" data-east-tab="add" data-label="パーツ追加" title="パーツ追加" aria-label="パーツ追加" aria-pressed="false">
+          <img src="img/v3-approved-icons/icons/01-beam.svg" alt="" draggable="false" aria-hidden="true">
+        </button>
+        <button type="button" class="v3-east-tab" data-east-tab="length" data-label="長さ変更" title="長さ変更" aria-label="長さ変更" aria-pressed="false">
+          <img src="img/v3-approved-icons/icons/06-length.svg" alt="" draggable="false" aria-hidden="true">
+        </button>
+      </nav>
+    </aside>
 
   <!-- 右のコントロールパネル（CUI-1: 折りたたみ。削除しない。ID維持） -->
   <div id="panel" class="v3-legacy-panel" aria-hidden="true">
 
     <section class="card">
       <div class="card-header">
-        <h1 id="page-title">CubeRackStudio v1.0.0-internal</h1>
-        <span class="app-version" aria-hidden="true">Ver 1.1.4</span>
+        <h1 id="page-title">CubeRackStudio</h1>
+        <span class="app-version" aria-hidden="true">v3.1.0</span>
       </div>
       <!-- ここ：サブ説明文を削除 -->
     </section>
@@ -2263,7 +4568,7 @@
           class="order-length-input"
           type="number"
           min="1"
-          step="1"
+          step="0.1"
           placeholder="mm"
         />
       </div>
@@ -2277,8 +4582,10 @@
     <option value="SUS">Sus</option>
   </select>
   </div>
-<div class="note-between" style="margin-top:4px;">
-  ※ 真鍮（Brass）は材料費高騰のため一時的に選択できません。既存データの表示・見積は引き続き可能です。
+<div id="bs-stock-panel" class="note-between" style="margin-top:4px;" hidden>
+  <div>※ 真鍮（BS）は廃番です。在庫がある部材のみ新規追加できます。既存設計は在庫ゼロでも表示・見積できます。</div>
+  <div id="bs-stock-banner" data-level="info" style="margin-top:4px; font-weight:600;" hidden></div>
+  <div id="bs-stock-lines" style="margin-top:4px;"></div>
 </div>
 <!-- 材質適用（C2） -->
 <div class="material-apply-row">
@@ -2356,7 +4663,7 @@
       <div class="row">
         <div class="label">変更後</div>
         <select id="len-preset" class="len-preset"></select>
-        <input id="len-after" class="len-after" type="number" min="1" step="1" placeholder="mm" />
+        <input id="len-after" class="len-after" type="number" min="1" step="0.1" placeholder="mm" />
       </div>
 
       <details class="row details">
@@ -2513,13 +4820,44 @@
     <div id="v3-cmd-pop" class="v3-cmd-pop hidden" role="dialog" aria-modal="false" aria-labelledby="v3-cmd-pop-title">
       <div class="v3-cmd-pop-titlebar" id="v3-cmd-pop-titlebar">
         <span class="v3-cmd-pop-title" id="v3-cmd-pop-title">コマンド</span>
+        <button type="button" class="v3-cmd-pop-x" id="v3-cmd-pop-min" title="最小化" aria-label="最小化" hidden>–</button>
         <button type="button" class="v3-cmd-pop-x" id="v3-cmd-pop-x" title="閉じる" aria-label="閉じる">×</button>
       </div>
       <div id="v3-cmd-pop-body" class="v3-cmd-pop-body"></div>
       <div class="v3-cmd-pop-actions">
+        <button type="button" id="v3-cmd-pop-print" class="v3-est-print" hidden>印刷</button>
         <button type="button" id="v3-cmd-pop-cancel">キャンセル</button>
         <button type="button" id="v3-cmd-pop-apply" class="is-primary">適用</button>
       </div>
+      <div class="v3-len-resize" id="v3-len-add-resize" data-edge="right" data-no-drag title="幅を変更" hidden></div>
+      <div class="v3-len-resize v3-len-resize-left" id="v3-len-add-resize-left" data-edge="left" data-no-drag title="幅を変更" hidden></div>
+    </div>
+    <div id="v3-al-win" class="v3-al-win hidden" role="dialog" aria-modal="false" aria-labelledby="v3-al-title">
+      <div class="v3-al-titlebar" id="v3-al-titlebar">
+        <span class="v3-al-title" id="v3-al-title">自動レイアウト</span>
+        <button type="button" class="v3-cmd-pop-x" id="v3-al-min" title="最小化" aria-label="最小化">–</button>
+        <button type="button" class="v3-cmd-pop-x" id="v3-al-x" title="閉じる" aria-label="閉じる">×</button>
+      </div>
+      <div class="v3-al-body" id="v3-al-body"></div>
+      <div class="v3-al-footer" id="v3-al-footer">
+        <button type="button" id="v3-al-reset" class="v3-al-ghost" title="マス・寸法・段設定を初期化">リセット</button>
+        <span class="v3-al-spacer"></span>
+        <button type="button" id="v3-al-append" title="既存ラックの横に追加">追加生成</button>
+        <button type="button" id="v3-al-replace" class="is-primary" title="現在のラックを置き換え">生成・更新</button>
+      </div>
+      <div id="v3-al-pop" class="v3-al-pop" hidden></div>
+    </div>
+  </div>
+  <div id="v3-cad-tip" class="v3-cad-tip hidden" role="tooltip">
+    <div class="v3-cad-tip-name"></div>
+    <div class="v3-cad-tip-desc"></div>
+  </div>
+  <div id="v3-rotate-hud" class="hidden" hidden></div>
+  <div id="v3-radial" class="hidden" role="menu" aria-label="ラジアルメニュー">
+    <div id="v3-radial-ring">
+      <button type="button" id="v3-radial-cancel" aria-label="キャンセル">
+        <span id="v3-radial-label">キャンセル</span>
+      </button>
     </div>
   </div>
   <div id="v3-dock-previews" class="v3-dock-previews" hidden>
@@ -2624,62 +4962,98 @@
   <!-- パーツカタログ -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
   <script src="js/config/pricing-config.js"></script>
-  <script src="js/data/parts-catalog.js"></script>
-  <script src="js/data/price-loader.js"></script>
+  <script src="js/data/parts-catalog.js?v=20261027-sku1"></script>
+  <script src="js/data/price-loader.js?v=20261027-pub1"></script>
 
   <!-- ユーティリティ -->
-  <script src="js/utils/common.js"></script>
-  <script src="js/utils/helpers.js"></script>
+  <script src="js/utils/common.js?v=20261023-dec1"></script>
+  <script src="js/utils/helpers.js?v=20261023-dec1"></script>
   
   <!-- 寸法計算ユーティリティ（3D表示・図面で共通使用） -->
-  <script src="js/app/dimension-utils.js"></script>
+  <script src="js/app/dimension-utils.js?v=20261027-sku1"></script>
+  <script src="js/app/drawing-math.js?v=20261027-h1"></script>
   <script src="js/utils/shelf-brackets.js"></script>
 
   <!-- コア機能 -->
-  <script src="js/core/scene.js"></script>
+  <script src="js/core/scene.js?v=20261023-perf1"></script>
   <script src="js/core/materials.js"></script>
-  <script src="js/core/mesh.js"></script>
+  <script src="js/core/mesh.js?v=20261023-perf1"></script>
+  <script src="js/core/v3-instance-pool.js?v=20261027-h1"></script>
 
   <!-- 状態管理 -->
   <!-- V3 Phase 1: 安定ID生成/補完ユーティリティ（state.js より先に読み込む） -->
   <script src="js/state/id-utils.js"></script>
+  <script src="js/state/work-layers.js?v=20261026-layer1"></script>
   <script src="js/data/ensure-ids.js"></script>
-  <script src="js/state/state.js"></script>
+  <script src="js/state/state.js?v=20261026-pick3"></script>
 
   <!-- パーツ操作 -->
-  <script src="js/parts/joints.js"></script>
-  <script src="js/parts/connectors.js"></script>
-  <script src="js/parts/legs.js"></script>
-  <script src="js/parts/boards.js"></script>
+  <script src="js/parts/joints.js?v=20261027-msdel1"></script>
+  <script src="js/parts/connectors.js?v=20261027-sku1"></script>
+  <script src="js/parts/legs.js?v=20261027-h1"></script>
+  <script src="js/parts/boards.js?v=20261026-board1"></script>
+  <!-- Developer-only structural reference calculation; does not alter CAD, pricing, or saved data. -->
+  <script src="js/structural/engine.js?v=20261023-struct1"></script>
+  <script src="js/features/structural-analysis.js?v=20261023-struct1"></script>
+  <script src="js/structural/analysis-ui-state.js?v=20261023-struct5"></script>
 
   <!-- UI -->
-  <script src="js/ui/ui.js"></script>
+  <script src="js/ui/ui.js?v=20261027-h1"></script>
 
   <!-- Features -->
-  <script src="js/app/order-pricing.js"></script>
-  <script src="js/features/estimate.js"></script>
+  <script src="js/app/order-pricing.js?v=20261027-order1"></script>
+  <script src="js/features/estimate.js?v=20261027-sku1"></script>
+  <script src="js/app/drawing-view.js?v=20261023-dw14"></script>
+  <script src="js/app/drawing-capture.js?v=20261027-h1"></script>
   <!-- 在庫照合（estimate の currentEstimateParts を参照するため estimate の後） -->
   <script src="js/lib/stockImport.js"></script>
-  <script src="js/lib/stockCompare.js"></script>
+  <script src="js/lib/stockCompare.js?v=20261022-bs1"></script>
   <script src="js/lib/print-production-list.js"></script>
-  <script src="js/features/stock-reconcile.js"></script>
-  <script src="js/features/autolayout.js"></script>
-  <script src="js/features/file.js"></script>
-  <script src="js/features/history.js"></script>
+  <script src="js/features/stock-reconcile.js?v=20261022-bs1"></script>
+  <script src="js/features/bs-stock.js?v=20261022-cad5"></script>
+  <script src="js/features/autolayout.js?v=20261027-h1b"></script>
+  <script src="js/features/file.js?v=20261027-sku1"></script>
+  <script src="js/features/history.js?v=20261022-cad5"></script>
   <script src="js/features/display.js"></script>
 
   <!-- main -->
   <script>window.ADMIN_MENU_OPTIONS = { stockMode: "embedded" };</script>
-  <script src="js/ui/admin-menu.js"></script>
+  <script src="js/ui/admin-menu.js?v=20261027-pub1"></script>
   <script src="staff-config.js"></script>
   <script src="js/ui/staff-collab-mode.js"></script>
-  <script src="main.js"></script>
+  <script src="js/ui/v3-rotate-math.js"></script>
+  <script src="js/ui/v3-place-pick.js?v=20261026-board1"></script>
+  <script src="main.js?v=20261027-h1"></script>
   <!-- CUI-1 シェルは main.js の左バー生成後に載せる -->
   <script src="js/ui/v3-shell.js"></script>
-  <script src="js/ui/v3-app-info.js"></script>
-  <script src="js/ui/v3-north.js"></script>
-  <script src="js/ui/v3-layout-store.js"></script>
-  <script src="js/ui/v3-workspace-ui.js"></script>
-  <script src="js/ui/v3-cad-toolbar.js"></script>
+  <script src="js/ui/v3-app-info.js?v=20261027-v31"></script>
+  <script src="js/ui/v3-layout-store.js?v=20261027-pub1"></script>
+  <script src="js/ui/v3-north.js?v=20261027-v31"></script>
+  <script src="js/ui/v3-workspace-ui.js?v=20261027-pub1"></script>
+  <script src="js/features/structural-visualization.js?v=20261023-struct5"></script>
+  <script src="js/ui/v3-user-axes.js?v=20261022-cad5b"></script>
+  <script src="js/ui/v3-material-panel.js?v=20261022-cad5"></script>
+  <script src="js/ui/v3-structural-panel.js?v=20261023-struct5"></script>
+  <script src="js/ui/v3-cad-toolbar.js?v=20261027-pub3"></script>
+  <script src="js/ui/v3-autolayout-panel.js?v=20261027-al1"></script>
+  <script src="js/ui/v3-cad-ops.js?v=20261027-meas3"></script>
+  <script src="js/ui/v3-rotate-mode.js?v=20261026-rail1"></script>
+  <script src="js/ui/v3-radial-menu.js"></script>
+  <script src="js/ui/v3-view-nav.js"></script>
+  <script src="js/ui/v3-layer-panel.js?v=20261026-ui1"></script>
+  <script src="js/ui/v3-east-rail.js?v=20261026-len2"></script>
+  <script src="js/ui/v3-multi-select.js?v=20261027-msdel1"></script>
+  <script src="js/ui/v3-settings-panel.js?v=20261016-ui"></script>
+  <script src="js/ui/v3-estimate-panel.js?v=20261027-sku1"></script>
+  <script src="js/ui/v3-length-panel.js?v=20261026-board2"></script>
+  <script src="js/ui/v3-connector-normalize.js?v=20261027-h1"></script>
+  <script src="js/ui/v3-connect-panel.js?v=20261027-h1"></script>
+  <script src="js/ui/v3-move-gap.js?v=20261022-cad5"></script>
+  <script src="js/ui/v3-move-gizmo.js?v=20261026-rail1"></script>
+  <script src="js/ui/v3-move-panel.js?v=20261026-rail1"></script>
+  <script src="js/ui/v3-duplicate.js?v=20261027-h1"></script>
+  <script src="js/ui/v3-measure.js?v=20261027-h1"></script>
+  <script src="js/ui/v3-rack-delete.js?v=20261022-cad5"></script>
+  <script src="js/ui/v3-diag-joint-select.js?v=20261026-diag1"></script>
 </body>
 </html>

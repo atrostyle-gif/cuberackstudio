@@ -17,28 +17,51 @@ function findJointIndexAt(pos) {
   return -1;
 }
 
+function notifyJointDiag(kind, payload) {
+  try {
+    const diag = window.v3DiagJointSelect;
+    if (diag && typeof diag.notify === "function") diag.notify(kind, payload);
+  } catch (e) {}
+}
+
 // ジョイント作成
 function createJoint(pos) {
   const existing = findJointIndexAt(pos);
-  if (existing !== -1) return existing;
+  if (existing !== -1) {
+    notifyJointDiag("createJoint", { path: "existing", index: existing, id: joints[existing] && joints[existing].id });
+    return existing;
+  }
+  if (window.v3WorkLayers && typeof window.v3WorkLayers.canEditActiveLayer === "function" && !window.v3WorkLayers.canEditActiveLayer()) {
+    console.warn("[work-layers] refused new joint");
+    return -1;
+  }
 
   // ---- Material（材種）: A1（種類ごと一括）なので jointBall の材質を使う ----
   const material = getPartTypeMaterial("jointBall");
+  if (window.v3BsStock && typeof window.v3BsStock.gateNewPart === "function") {
+    const gate = window.v3BsStock.gateNewPart("jointBall", material, 1, "JointBall");
+    if (!gate || gate.ok === false) return -1;
+  }
 
   // V3 Phase 1: 安定ID (id) を同時に採番する。既存の index 参照は維持。
   const _newJointId = (typeof window.newJointClientId === "function")
     ? window.newJointClientId()
     : null;
-  joints.push({ id: _newJointId, x: pos.x, y: pos.y, z: pos.z }); // ★materialは保持しない（混乱回避）
+  const createdJoint = { id: _newJointId, x: pos.x, y: pos.y, z: pos.z };
+  joints.push(createdJoint); // ★materialは保持しない（混乱回避）
+  try { window.v3WorkLayers?.assignNewJoint?.(createdJoint); } catch (e) {}
 
-  const mesh = new THREE.Mesh(jointGeometry, jointMaterialNormal.clone());
+  const mesh = (window.v3InstancePool && window.v3InstancePool.enabled && typeof window.v3InstancePool.createJoint === "function")
+    ? window.v3InstancePool.createJoint(pos, material)
+    : new THREE.Mesh(jointGeometry, jointMaterialNormal.clone());
   mesh.position.set(pos.x, pos.y, pos.z);
 
   // ★材質色を適用（ベース色）
   applyMaterialColorToMesh(mesh, material);
 
-  rackGroup.add(mesh);
+  if (!(mesh.userData && mesh.userData.v3Instanced)) rackGroup.add(mesh);
   jointMeshes.push(mesh);
+  if (window.v3InstancePool) window.v3InstancePool.note();
 
   // ★脚：ジョイント生成時に必ず付ける（idx未定義事故を避ける）
   try {
@@ -50,8 +73,16 @@ function createJoint(pos) {
 
   if (typeof requestEstimateRender === "function") requestEstimateRender("after autolayout");
   else if (typeof calcAndRenderEstimate === "function") calcAndRenderEstimate();
+  try { window.v3BsStock?.refreshUi?.(); } catch (e) {}
 
-  return joints.length - 1;
+  const createdIndex = joints.length - 1;
+  notifyJointDiag("createJoint", {
+    path: "new",
+    index: createdIndex,
+    id: createdJoint && createdJoint.id,
+    instanced: !!(mesh && mesh.userData && mesh.userData.v3Instanced),
+  });
+  return createdIndex;
 }
 
 // ジョイント選択
@@ -100,6 +131,13 @@ function setSelectedJoint(index) {
 
   if (index === null) {
     if (infoEl) infoEl.textContent = "選択中のジョイント: なし";
+    try {
+      if (window.v3InstancePool) {
+        if (typeof window.v3InstancePool.note === "function") window.v3InstancePool.note();
+        if (typeof window.v3InstancePool.sync === "function") window.v3InstancePool.sync(true);
+      }
+    } catch (e) {}
+    notifyJointDiag("setSelectedJoint", { index: null, windowIndex: window.selectedJointIndex });
     return;
   }
 
@@ -148,20 +186,47 @@ function setSelectedJoint(index) {
     if (typeof mat.emissiveIntensity === "number") mat.emissiveIntensity = 1.2;
     mat.needsUpdate = true;
   }
+  try {
+    if (window.v3InstancePool) {
+      if (typeof window.v3InstancePool.note === "function") window.v3InstancePool.note();
+      if (typeof window.v3InstancePool.sync === "function") window.v3InstancePool.sync(true);
+    }
+  } catch (e) {}
 
   if (infoEl && j) {
     infoEl.textContent = `選択中のジョイント: #${index} (x=${j.x}, y=${j.y}, z=${j.z})`;
   }
+  notifyJointDiag("setSelectedJoint", {
+    index: index,
+    windowIndex: window.selectedJointIndex,
+    id: j && j.id,
+    sameRef: jointMeshes[index] === mesh,
+  });
 }
 
 // ジョイント削除
 function deleteJoint(index) {
-  saveHistory();
+  if (typeof index !== "number" || index < 0 || index >= joints.length) return;
+  if (window.v3WorkLayers && typeof window.v3WorkLayers.canEditJoint === "function" && !window.v3WorkLayers.canEditJoint(index)) {
+    console.warn("[work-layers] refused joint delete");
+    return;
+  }
+
+  // 削除前の番号から、この1件を除いたあとの番号。板の j4 はこの表だけで付け替える。
+  const oldCount = joints.length;
+  const indexMap = new Array(oldCount);
+  let nextIndex = 0;
+  for (let i = 0; i < oldCount; i++) {
+    indexMap[i] = i === index ? -1 : nextIndex++;
+  }
+
+  try { window.clearBoardSelection?.(); } catch (e) {}
 
   // ビーム削除
   for (let i = beams.length - 1; i >= 0; i--) {
     if (beams[i].a === index || beams[i].b === index) {
-       rackGroup.remove(beams[i].mesh);   // ★
+      if (typeof disposeBeamMesh === "function") disposeBeamMesh(beams[i]);
+      else if (beams[i].mesh) rackGroup.remove(beams[i].mesh);
       beams.splice(i, 1);
     }
   }
@@ -169,7 +234,8 @@ function deleteJoint(index) {
   // ポール削除
   for (let i = poles.length - 1; i >= 0; i--) {
     if (poles[i].a === index || poles[i].b === index) {
-      rackGroup.remove(poles[i].mesh);
+      if (typeof disposePoleMesh === "function") disposePoleMesh(poles[i]);
+      else if (poles[i].mesh) rackGroup.remove(poles[i].mesh);
       poles.splice(i, 1);
     }
   }
@@ -183,7 +249,8 @@ function deleteJoint(index) {
   }
 
   // ジョイントメッシュ削除
-  rackGroup.remove(jointMeshes[index]);
+  if (typeof disposeSharedSafe === "function") disposeSharedSafe(jointMeshes[index]);
+  else if (jointMeshes[index]) rackGroup.remove(jointMeshes[index]);
   jointMeshes.splice(index, 1);
   joints.splice(index, 1);
 
@@ -199,6 +266,11 @@ function deleteJoint(index) {
   fixIndexInList(poles);
   fixIndexInList(legs);
 
+  // Beam / Pole / Leg は上で詰め済み。板は同じ削除に対してこの1回だけ変換する。
+  try { window.remapBoardsForJointIndexMap?.(indexMap); } catch (e) {
+    console.warn("[deleteJoint] board j4 remap failed", e);
+  }
+
   setSelectedJoint(null);
   if (typeof requestEstimateRender === "function") {
     requestEstimateRender("after delete joint");
@@ -207,14 +279,21 @@ function deleteJoint(index) {
   // 全部消えちゃったときは原点に1個だけ作り直す
   if (joints.length === 0) {
     const newIndex = createJoint({ x: 0, y: 0, z: 0 });
-    setSelectedJoint(newIndex);
-    addLegIfNeeded(newIndex);
+    if (typeof newIndex === "number" && newIndex >= 0) {
+      setSelectedJoint(newIndex);
+      addLegIfNeeded(newIndex);
+    }
     syncLegCountInput();
     if (!__buildingAutoLayout) {
   requestEstimateRender("after autolayout");
 }
 
   }
+
+  try { window.v3WorkLayers?.syncRackIds?.(); } catch (e) {}
+
+  // 削除後の状態を1件の履歴にする。板の破棄・j4変換もこのスナップショットに含まれる。
+  saveHistory("delete joint");
 }
 
 // 指定ジョイントに繋がるコネクタのメッシュだけ更新
@@ -393,7 +472,8 @@ function pickJointIndexByClientPos(clientX, clientY, maxPixelDist = 28) {
   mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
 
   raycaster.setFromCamera(mouse, camera);
-  const intersects = raycaster.intersectObjects(jointMeshes, false);
+  const visibleJoints = (jointMeshes || []).filter((m) => m && m.visible !== false);
+  const intersects = visibleJoints.length ? raycaster.intersectObjects(visibleJoints, false) : [];
   if (intersects.length > 0) {
     const hit = intersects[0].object;
     const idx = jointMeshes.indexOf(hit);
@@ -406,6 +486,7 @@ function pickJointIndexByClientPos(clientX, clientY, maxPixelDist = 28) {
   for (let i = 0; i < joints.length; i++) {
     const j = joints[i];
     if (!j) continue;
+    if (jointMeshes[i] && jointMeshes[i].visible === false) continue;
 
     const pos = new THREE.Vector3(j.x, j.y, j.z);
     const projected = pos.project(camera);
@@ -426,6 +507,24 @@ function pickJointIndexByClientPos(clientX, clientY, maxPixelDist = 28) {
   return bestIndex;
 }
 
+function pickJointsByClientPos(clientX, clientY, maxPixelDist = 28) {
+  const idx = pickJointIndexByClientPos(clientX, clientY, maxPixelDist);
+  if (idx < 0) return [];
+  const origin = joints[idx];
+  if (!origin) return [idx];
+  const EPS = 0.5;
+  const out = [];
+  for (let i = 0; i < joints.length; i++) {
+    const j = joints[i];
+    if (!j) continue;
+    if (jointMeshes[i] && jointMeshes[i].visible === false) continue;
+    if (Math.hypot((j.x || 0) - (origin.x || 0), (j.y || 0) - (origin.y || 0), (j.z || 0) - (origin.z || 0)) <= EPS) {
+      out.push(i);
+    }
+  }
+  return out.length ? out : [idx];
+}
+
 // 選択中ジョイントの「画面上の近さ」で判定（px）
 function isClientPosNearSelectedJoint(clientX, clientY, radiusPx = 80) {
   try {
@@ -438,6 +537,7 @@ function isClientPosNearSelectedJoint(clientX, clientY, radiusPx = 80) {
 
     const j = joints?.[sel];
     if (!j) return false;
+    if (jointMeshes?.[sel] && jointMeshes[sel].visible === false) return false;
 
     const rect = renderer.domElement.getBoundingClientRect();
 
@@ -465,4 +565,5 @@ window.isPointInsideExistingConnector = isPointInsideExistingConnector;
 window.isSegmentOverlappingExisting = isSegmentOverlappingExisting;
 window.doesSegmentPassThroughJoint = doesSegmentPassThroughJoint;
 window.pickJointIndexByClientPos = pickJointIndexByClientPos;
+window.pickJointsByClientPos = pickJointsByClientPos;
 window.isClientPosNearSelectedJoint = isClientPosNearSelectedJoint;

@@ -83,6 +83,10 @@
     ro.observe(view);
   }
 
+  if (typeof localStorage !== "undefined" && localStorage.getItem("v3.dev.showLegacyPanel") === "1") {
+    document.body.classList.add("v3-dev-show-legacy-panel");
+  }
+
   function mountLegacyLeftbar() {
     const host = document.getElementById("v3-west-tools");
     const bar = document.querySelector(".cr-leftbar");

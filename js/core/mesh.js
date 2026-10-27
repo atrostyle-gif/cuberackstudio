@@ -2,7 +2,7 @@
 // メッシュ生成 / 破棄ヘルパー
 // =========================================================
 
-function createCylinderBetween(aPos, bPos, material) {
+function createCylinderBetween(aPos, bPos, material, kind) {
   const start = new THREE.Vector3(aPos.x, aPos.y, aPos.z);
   const end   = new THREE.Vector3(bPos.x, bPos.y, bPos.z);
 
@@ -10,26 +10,33 @@ function createCylinderBetween(aPos, bPos, material) {
   const len = dir.length();
   if (len === 0) return null;
 
-  // ★固定長（基準長）で作る：ローカルYが長手
-  const baseLen = 200; // ここはプロジェクトの基準長に合わせる
-  const geom = new THREE.CylinderGeometry(4, 4, baseLen, 16);
-  const mesh = new THREE.Mesh(geom, material.clone());
+  const type = kind === "pole" ? "pole" : (kind === "beam" ? "beam" : (material === window.poleMaterial ? "pole" : "beam"));
+  const pool = window.v3InstancePool;
+  if (pool && pool.enabled && typeof pool.createConnector === "function") {
+    const mesh = pool.createConnector(type, material, window.getCurrentMaterial ? window.getCurrentMaterial() : "IRON");
+    mesh.userData.baseLengthMm = 1;
+    if (typeof window.updateConnectorMesh === "function") window.updateConnectorMesh(mesh, aPos, bPos);
+    else {
+      const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+      mesh.position.copy(mid);
+      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+      mesh.scale.set(1, len, 1);
+    }
+    pool.note();
+    return mesh;
+  }
 
-  // 中心位置
+  const geom = window.connectorGeometry || new THREE.CylinderGeometry(4, 4, 1, 12);
+  const mesh = new THREE.Mesh(geom, material.clone());
   const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
   mesh.position.copy(mid);
-
-  // 向き（Quaternion）←ここが「向きの正本」
   mesh.quaternion.setFromUnitVectors(
     new THREE.Vector3(0, 1, 0),
     dir.clone().normalize()
   );
-
-  // ★長さ反映：scale.y だけ変える（X/Zは太さ用途）
-  mesh.userData.baseLengthMm = baseLen;
+  mesh.userData.baseLengthMm = geom.parameters && geom.parameters.height ? geom.parameters.height : 1;
   const sx = mesh.scale.x, sz = mesh.scale.z;
-  mesh.scale.set(sx, len / baseLen, sz);
-
+  mesh.scale.set(sx, len / mesh.userData.baseLengthMm, sz);
   rackGroup.add(mesh);
   return mesh;
 }
@@ -76,38 +83,59 @@ function setConnectorThicknessPreserveLength(mesh, sx = 1, sz = 1) {
 }
 
 // ジョイントメッシュ破棄
+function disposeSharedSafe(obj) {
+  if (!obj) return;
+  if (window.v3InstancePool && typeof window.v3InstancePool.disposeHandle === "function") {
+    if (obj.userData && (obj.userData.v3Instanced || obj.userData.v3Unique || obj.userData.v3InstancedLeg)) {
+      window.v3InstancePool.disposeHandle(obj);
+      return;
+    }
+  }
+  if (obj.geometry && !(obj.geometry.userData && obj.geometry.userData.v3Shared) && obj.geometry !== window.jointGeometry && obj.geometry !== window.connectorGeometry) {
+    obj.geometry.dispose();
+  }
+  if (obj.material && obj.material.dispose) obj.material.dispose();
+  if (obj.parent) obj.parent.remove(obj);
+}
+
 function disposeJointMeshByIndex(idx) {
   const m = jointMeshes[idx];
   if (!m) return;
-  if (m.geometry) m.geometry.dispose();
-  if (m.material) m.material.dispose();
-  if (m.parent) m.parent.remove(m);
+  disposeSharedSafe(m);
   jointMeshes[idx] = null;
 }
 
 // ビームメッシュ破棄
 function disposeBeamMesh(beam) {
   if (!beam || !beam.mesh) return;
-  if (beam.mesh.geometry) beam.mesh.geometry.dispose();
-  if (beam.mesh.material) beam.mesh.material.dispose();
-  if (beam.mesh.parent) beam.mesh.parent.remove(beam.mesh);
+  disposeSharedSafe(beam.mesh);
   beam.mesh = null;
 }
 
 // ポールメッシュ破棄
 function disposePoleMesh(pole) {
   if (!pole || !pole.mesh) return;
-  if (pole.mesh.geometry) pole.mesh.geometry.dispose();
-  if (pole.mesh.material) pole.mesh.material.dispose();
-  if (pole.mesh.parent) pole.mesh.parent.remove(pole.mesh);
+  disposeSharedSafe(pole.mesh);
   pole.mesh = null;
 }
 
 // 脚メッシュ破棄
 function disposeLegMesh(leg) {
   if (!leg || !leg.mesh) return;
-  if (leg.mesh.geometry) leg.mesh.geometry.dispose();
-  if (leg.mesh.material) leg.mesh.material.dispose();
+  if (window.v3InstancePool && typeof window.v3InstancePool.disposeHandle === "function" && leg.mesh.userData && leg.mesh.userData.v3InstancedLeg) {
+    window.v3InstancePool.disposeHandle(leg.mesh);
+    leg.mesh = null;
+    return;
+  }
+  if (leg.mesh.traverse) {
+    leg.mesh.traverse(function (child) {
+      if (!child || !child.isMesh) return;
+      if (child.geometry && !(child.geometry.userData && child.geometry.userData.v3Shared)) child.geometry.dispose();
+      if (child.material && child.material.dispose) child.material.dispose();
+    });
+  } else {
+    disposeSharedSafe(leg.mesh);
+  }
   if (leg.mesh.parent) leg.mesh.parent.remove(leg.mesh);
   leg.mesh = null;
 }
@@ -123,6 +151,9 @@ function removeMeshFromParent(mesh) {
 
 // 全メッシュをクリア
 function clearAllMeshes() {
+  if (window.v3InstancePool && typeof window.v3InstancePool.clear === "function") {
+    window.v3InstancePool.clear();
+  }
   jointMeshes.forEach((m) => rackGroup.remove(m));
   jointMeshes.length = 0;
 

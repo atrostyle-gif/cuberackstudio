@@ -45,7 +45,7 @@
 // =========================================================
 
 window.openDrawingTop = function () {
-  window.open("./drawing.html", "cuberack_drawing", "width=1100,height=800");
+  window.open("./drawing.html?v=20261023-dw21", "cuberack_drawing", "width=1100,height=800");
 };
 
 function applyMaterialToAllMeshes() {
@@ -75,7 +75,7 @@ function applyMaterialToAllMeshes() {
 // buildDrawingPayload は下記の詳細版を使用（グローバルに公開済み）
 
 window.openDrawingWindowAndSend = function openDrawingWindowAndSend() {
-  const child = window.open("./drawing.html", "cuberack_drawing");
+  const child = window.open("./drawing.html?v=20261023-dw21", "cuberack_drawing");
   if (!child) {
     console.warn("[drawing] popup blocked?");
     return;
@@ -431,55 +431,22 @@ function syncJointMeshesFromData() {
   }
 }
 
-// =========================================
-// LEG を joints 座標に追従させる（x/zのみ）
-//  - 延長/移動で joints が変わったのに LEG が残る問題を防ぐ
-// =========================================
-// =========================================
-// LEG を joints 座標に追従させる（x/zのみ）
-//  - 延長/移動で joints が変わったのに LEG が残る問題を防ぐ
-// =========================================
+// LEG を接続先 Joint の現在座標へ追従させる。
+// legs[] が正本。存在しない legMeshes 配列や userData 走査だけに頼らない。
 function syncLegMeshesFromData() {
   try {
-    const hasJoints = (typeof joints !== "undefined") && Array.isArray(joints);
-    if (!hasJoints) return;
-
-    // ① legMeshes がある環境（存在チェックを必ず入れる）
-    if (typeof legMeshes !== "undefined" && Array.isArray(legMeshes)) {
-      for (let i = 0; i < legMeshes.length; i++) {
-        const lm = legMeshes[i];
-        const j = joints[i];
-        if (!lm || !j) continue;
-
-        if (Number.isFinite(j.x)) lm.position.x = j.x;
-        if (Number.isFinite(j.z)) lm.position.z = j.z;
-      }
+    if (typeof window.syncLegsToConnectedJoints === "function") {
+      window.syncLegsToConnectedJoints();
       return;
     }
-
-    // ② legMeshes が無い環境：userData.type==="leg" を走査して追従
-    if (typeof rackGroup !== "undefined" && rackGroup && typeof rackGroup.traverse === "function") {
-      rackGroup.traverse((obj) => {
-        const ud = obj?.userData;
-        if (!ud) return;
-
-        // leg判定（あなたの実装に合わせて拡張しやすいように複数条件）
-        const isLeg =
-          ud.type === "leg" ||
-          ud.kind === "leg" ||
-          ud.isLeg === true;
-
-        if (!isLeg) return;
-
-        const idx = ud.jointIndex;
-        if (typeof idx !== "number") return;
-
-        const j = joints[idx];
-        if (!j) return;
-
-        if (Number.isFinite(j.x)) obj.position.x = j.x;
-        if (Number.isFinite(j.z)) obj.position.z = j.z;
-      });
+    if (!Array.isArray(legs)) return;
+    for (let i = 0; i < legs.length; i++) {
+      const leg = legs[i];
+      if (!leg || typeof updateLegMeshPosition !== "function") continue;
+      const idx = (typeof window.resolveLegJointIndex === "function")
+        ? window.resolveLegJointIndex(leg)
+        : leg.jointIndex;
+      if (typeof idx === "number" && idx >= 0) updateLegMeshPosition(idx);
     }
   } catch (e) {
     console.warn("[syncLegMeshesFromData] failed:", e);
@@ -608,6 +575,7 @@ function updateConnectorMesh(mesh, aPos, bPos) {
   const sz = mesh.scale.z;
   mesh.scale.set(sx, len / baseLen, sz);
 }
+window.updateConnectorMesh = updateConnectorMesh;
 
 // =========================================================
 // joints → beams/poles mesh を同期（見た目の長さ・向き更新）
@@ -650,6 +618,7 @@ function syncConnectorMeshesFromData() {
 // - プリセット外はオーダー確定
 // =========================================================
 
+window.setSelectedConnectorLengthMm = setSelectedConnectorLengthMm;
 function setSelectedConnectorLengthMm(newLenMm) {
   const len = Number(newLenMm);
   if (!Number.isFinite(len) || len <= 0) return false;
@@ -674,6 +643,10 @@ function setSelectedConnectorLengthMm(newLenMm) {
     console.warn("[setSelectedConnectorLengthMm] connector has no endpoints:", c);
     return false;
   }
+  if (window.v3WorkLayers && typeof window.v3WorkLayers.canEditJoint === "function" && (!window.v3WorkLayers.canEditJoint(aIndex) || !window.v3WorkLayers.canEditJoint(bIndex))) {
+    console.warn("[work-layers] refused length edit");
+    return false;
+  }
 
   const a = joints?.[aIndex];
   const b = joints?.[bIndex];
@@ -682,15 +655,19 @@ function setSelectedConnectorLengthMm(newLenMm) {
     return false;
   }
 
-  const rounded = Math.round(len);
+  const targetLen = (isPole && typeof window.getPoleCadMmFromSku === "function")
+    ? window.getPoleCadMmFromSku(len)
+    : len;
 
-  // --- 現在長さ（実距離） ---
+  // --- 現在長さ（Joint間の実距離。設計寸法の正本） ---
   const dx = (b.x ?? 0) - (a.x ?? 0);
   const dy = (b.y ?? 0) - (a.y ?? 0);
   const dz = (b.z ?? 0) - (a.z ?? 0);
 
-  const currentLen = Math.round(Math.sqrt(dx * dx + dy * dy + dz * dz));
-  const delta = rounded - currentLen;
+  const currentLen = (typeof window.actualJointDistanceMm === "function")
+    ? window.actualJointDistanceMm(a, b)
+    : Math.hypot(dx, dy, dz);
+  const delta = targetLen - currentLen;
 
   // =========================================================
   // ★ 軸判定：ここで確定（外部関数に依存しない）
@@ -727,7 +704,7 @@ function setSelectedConnectorLengthMm(newLenMm) {
     dx, dy, dz,
     axis,
     currentLen,
-    newLen: rounded,
+    newLen: targetLen,
     delta,
   });
 
@@ -766,10 +743,12 @@ try {
   const dx2 = (jb2?.x ?? 0) - (ja2?.x ?? 0);
   const dy2 = (jb2?.y ?? 0) - (ja2?.y ?? 0);
   const dz2 = (jb2?.z ?? 0) - (ja2?.z ?? 0);
-  const lenAfterShift = Math.round(Math.sqrt(dx2 * dx2 + dy2 * dy2 + dz2 * dz2));
+  const lenAfterShift = (typeof window.actualJointDistanceMm === "function")
+    ? window.actualJointDistanceMm(ja2, jb2)
+    : Math.hypot(dx2, dy2, dz2);
 
-  if (lenAfterShift !== rounded) {
-    console.warn("[len] shift moved 0 (or ineffective) → fallback endpoint move", { axis, delta, lenAfterShift, target: rounded });
+  if (Math.abs(lenAfterShift - targetLen) > 1e-6) {
+    console.warn("[len] shift moved 0 (or ineffective) → fallback endpoint move", { axis, delta, lenAfterShift, target: targetLen });
     // どちら側を動かすか：UIのアンカー（MIN/MAX）を尊重
     const anchorPref = document.getElementById("anchor-side")?.value || "MIN";
     const aV = axis === "x" ? (ja2?.x ?? 0) : axis === "y" ? (ja2?.y ?? 0) : (ja2?.z ?? 0);
@@ -797,11 +776,26 @@ try {
 }
 
   // --- オーダー/プリセット判定（仕様通り：プリセット外=オーダー） ---
-  const isPreset = presets.includes(rounded);
+  // 設計寸法は Joint 間実距離。見積用の丸めは estimate.js 側で行う。
+  const jaFinal = joints?.[aIndex];
+  const jbFinal = joints?.[bIndex];
+  const actualLen = (typeof window.actualJointDistanceMm === "function")
+    ? window.actualJointDistanceMm(jaFinal, jbFinal)
+    : Math.hypot(
+        (jbFinal?.x ?? 0) - (jaFinal?.x ?? 0),
+        (jbFinal?.y ?? 0) - (jaFinal?.y ?? 0),
+        (jbFinal?.z ?? 0) - (jaFinal?.z ?? 0)
+      );
+  const storedLen = actualLen > 0 ? actualLen : targetLen;
+  const skuLen = (isPole && typeof window.getPoleSkuFromCadMm === "function")
+    ? window.getPoleSkuFromCadMm(storedLen)
+    : storedLen;
+  const isPreset = (typeof window.isPresetLengthMm === "function")
+    ? window.isPresetLengthMm(skuLen, presets)
+    : !!(presets && presets.includes(skuLen));
   c.isCustom = !isPreset;
-  c.customLength = c.isCustom ? rounded : null;
-  // lengthMmも更新（板のサイズ計算で使用される）
-  c.lengthMm = rounded;
+  c.customLength = c.isCustom ? skuLen : null;
+  c.lengthMm = skuLen;
 
   // UI/見積/色 も更新
 calcAndRenderEstimate?.();
@@ -863,10 +857,12 @@ function getBeamLenMmByIndex(i) {
   const ja = joints?.[b.a];
   const jb = joints?.[b.b];
   if (!ja || !jb) return 0;
+  if (typeof window.actualJointDistanceMm === "function") return window.actualJointDistanceMm(ja, jb);
   const dx = jb.x - ja.x, dy = jb.y - ja.y, dz = jb.z - ja.z;
-  return Math.round(Math.sqrt(dx*dx + dy*dy + dz*dz));
+  return Math.hypot(dx, dy, dz);
 }
 
+window.updateSelectedConnectorUI = updateSelectedConnectorUI;
 function updateSelectedConnectorUI() {
   const info = document.getElementById("sel-info");
   const before = document.getElementById("len-before");
@@ -1076,12 +1072,15 @@ function normalizeCustomFlagsByActualLength() {
 
       // getBeamLength が無い環境でも壊れないように保険
       let len = null;
-      if (typeof getBeamLength === "function") len = Math.round(getBeamLength(b));
-      else if (typeof getBeamLengthMmSafe === "function") len = Math.round(getBeamLengthMmSafe(b));
+      if (typeof getBeamLength === "function") len = getBeamLength(b);
+      else if (typeof getBeamLengthMmSafe === "function") len = getBeamLengthMmSafe(b);
 
       if (!Number.isFinite(len) || len <= 0) continue;
 
-      const isPreset = beamPresets.includes(len);
+      b.lengthMm = len;
+      const isPreset = (typeof window.isPresetLengthMm === "function")
+        ? window.isPresetLengthMm(len, beamPresets)
+        : beamPresets.includes(len);
       b.isCustom = !isPreset;
       b.customLength = b.isCustom ? len : null;
     }
@@ -1094,23 +1093,27 @@ function normalizeCustomFlagsByActualLength() {
       if (!p) continue;
 
       let len = null;
-      if (typeof getPoleLength === "function") len = Math.round(getPoleLength(p));
+      if (typeof getPoleLength === "function") len = getPoleLength(p);
       else {
-        // fallback：ジョイント座標から
         const a = joints?.[p.a], b = joints?.[p.b];
         if (a && b) {
-          const dx = (a.x ?? 0) - (b.x ?? 0);
-          const dy = (a.y ?? 0) - (b.y ?? 0);
-          const dz = (a.z ?? 0) - (b.z ?? 0);
-          len = Math.round(Math.sqrt(dx * dx + dy * dy + dz * dz));
+          len = (typeof window.actualJointDistanceMm === "function")
+            ? window.actualJointDistanceMm(a, b)
+            : Math.hypot((a.x ?? 0) - (b.x ?? 0), (a.y ?? 0) - (b.y ?? 0), (a.z ?? 0) - (b.z ?? 0));
         }
       }
 
       if (!Number.isFinite(len) || len <= 0) continue;
 
-      const isPreset = polePresets.includes(len);
+      const sku = (typeof window.getPoleSkuFromCadMm === "function")
+        ? window.getPoleSkuFromCadMm(len)
+        : len;
+      p.lengthMm = sku;
+      const isPreset = (typeof window.isPresetLengthMm === "function")
+        ? window.isPresetLengthMm(sku, polePresets)
+        : polePresets.includes(sku);
       p.isCustom = !isPreset;
-      p.customLength = p.isCustom ? len : null;
+      p.customLength = p.isCustom ? sku : null;
     }
   }
 }
@@ -1241,6 +1244,8 @@ function cancelClusterDragMove() {
   try {
     if (typeof controls !== "undefined" && controls) controls.enabled = true;
   } catch {}
+  try { window.v3MoveGap?.onDragEnd?.(); } catch {}
+  try { window.v3MoveGizmo?.cancelDrag?.(); } catch {}
 }
 
 // UIボタンから呼ぶ（ON->OFF時は強制終了）
@@ -1349,107 +1354,163 @@ function applyJointsToMeshesAndConnectors(indices) {
   });
 }
 
-// ★クラスタを +90° 回転（Y軸）
-window.rotateActiveCluster90 = function (deg = 90) {
+function findPoleForRotate(pivotPoleIndex, pivotJointIndex) {
+  if (typeof pivotPoleIndex === "number" && pivotPoleIndex >= 0 && poles?.[pivotPoleIndex]) {
+    return { pole: poles[pivotPoleIndex], index: pivotPoleIndex };
+  }
+  if (typeof pivotJointIndex !== "number" || pivotJointIndex < 0 || !Array.isArray(poles)) {
+    return null;
+  }
+  const matches = [];
+  poles.forEach((p, i) => {
+    if (p && (p.a === pivotJointIndex || p.b === pivotJointIndex)) matches.push(i);
+  });
+  if (!matches.length) return null;
+  if (matches.length === 1) return { pole: poles[matches[0]], index: matches[0] };
+  let best = matches[0];
+  let bestVert = -1;
+  matches.forEach((i) => {
+    const p = poles[i];
+    const a = joints?.[p.a];
+    const b = joints?.[p.b];
+    if (!a || !b) return;
+    const dy = Math.abs(b.y - a.y);
+    const len = Math.hypot(b.x - a.x, dy, b.z - a.z) || 1;
+    const vert = dy / len;
+    if (vert > bestVert) {
+      bestVert = vert;
+      best = i;
+    }
+  });
+  return { pole: poles[best], index: best };
+}
+
+// 選択Poleの中心線を軸にクラスタを ±90° 回転する
+// P' = A + R(P - A)  （A はPole端点、R は中心線まわり）
+window.rotateActiveCluster90 = function (deg = 90, pivotJointIndex, pivotPoleIndex) {
   console.log("[ROTATE] enter", {
     deg,
+    pivotJointIndex,
+    pivotPoleIndex,
     activeJoint: window.__CR_ACTIVE_JOINT_INDEX__,
     isLengthEdit: window.isLengthEditModeOn,
     isConnect: window.isConnectModeOn,
     dragging: dragState?.active,
   });
 
-  // ガード（既存方針を維持）
   if (window.isLengthEditModeOn || window.isConnectModeOn || dragState?.active) {
-    return;
+    return false;
   }
 
-  // --- 基準ジョイント決定 ---
-  let baseJ = window.__CR_ACTIVE_JOINT_INDEX__;
-
-  // クリック選択がある環境ならそれをフォールバックに使う
-  if ((baseJ == null || baseJ < 0) && typeof selectedJointIndex !== "undefined") {
-    if (typeof selectedJointIndex === "number" && selectedJointIndex >= 0) {
-      baseJ = selectedJointIndex;
-      window.__CR_ACTIVE_JOINT_INDEX__ = baseJ;
-    }
+  const found = findPoleForRotate(pivotPoleIndex, pivotJointIndex);
+  if (!found || !found.pole) {
+    console.warn("[rotate] pole axis is required; no pole selected");
+    return false;
   }
 
-  // クラスタ（ラック島）を取得
+  const pole = found.pole;
+  const ja = joints?.[pole.a];
+  const jb = joints?.[pole.b];
+  const math = window.v3RotateMath;
+  const axisInfo = math && math.poleAxisFromJoints(ja, jb);
+  if (!ja || !jb || !axisInfo) {
+    console.warn("[rotate] pole joints missing", pole.a, pole.b);
+    return false;
+  }
+
+  const baseJ = (typeof pole.a === "number" && pole.a >= 0) ? pole.a : pole.b;
+  window.__CR_ACTIVE_JOINT_INDEX__ = baseJ;
+
+  try { window.rebuildJointClusters?.(); } catch (e) {}
+
   const indices = getClusterJointIndicesFromJointIndex(baseJ);
   if (!indices || !indices.length) {
-    console.warn("[rotate] no active joint/cluster to rotate", {
-      __CR_ACTIVE_JOINT_INDEX__: window.__CR_ACTIVE_JOINT_INDEX__,
-      selectedJointIndex: (typeof selectedJointIndex !== "undefined" ? selectedJointIndex : "(undef)"),
-    });
-    return;
+    console.warn("[rotate] no active joint/cluster to rotate", { baseJ });
+    return false;
+  }
+  if (window.v3WorkLayers && typeof window.v3WorkLayers.canEditIndexes === "function" && !window.v3WorkLayers.canEditIndexes(indices)) {
+    console.warn("[work-layers] refused rotate");
+    return false;
   }
 
-  // --- 回転中心：選択ジョイントのポール軸（Y軸） ---
-  const pivot = joints?.[baseJ];
-  if (!pivot) {
-    console.warn("[rotate] pivot joint not found", baseJ);
-    return;
-  }
-  const cx = pivot.x;
-  const cz = pivot.z;
+  const rad = math.rotationRadForDeg(deg);
+  const axisKeepA = { x: ja.x, y: ja.y, z: ja.z };
+  const axisKeepB = { x: jb.x, y: jb.y, z: jb.z };
+  const indexSet = new Set(indices);
 
-  // 角度
-  const rad = (deg * Math.PI) / 180;
-  const cos = Math.cos(rad);
-  const sin = Math.sin(rad);
-
-  // ジョイント回転（XZ平面で回す）
-  indices.forEach((jIdx) => {
-    const j = joints?.[jIdx];
-    if (!j) return;
-
-    const dx = j.x - cx;
-    const dz = j.z - cz;
-
-    j.x = cx + dx * cos - dz * sin;
-    j.z = cz + dx * sin + dz * cos;
-
-    const mesh = jointMeshes?.[jIdx];
-    if (mesh) mesh.position.set(j.x, j.y, j.z);
-  });
-
-  // 追従更新（既存の updateConnectorMesh を尊重）
-  try {
-    beams?.forEach((b) => {
-      if (!b?.mesh) return;
-      const aPos = joints?.[b.a];
-      const bPos = joints?.[b.b];
-      if (!aPos || !bPos) return;
-      updateConnectorMesh(b.mesh, aPos, bPos);
+  function applyRotate() {
+    indices.forEach((jIdx) => {
+      const j = joints?.[jIdx];
+      if (!j) return;
+      math.applyRotateToPoint(j, axisInfo.origin, axisInfo.axis, rad);
+      const mesh = jointMeshes?.[jIdx];
+      if (mesh) mesh.position.set(j.x, j.y, j.z);
     });
-    poles?.forEach((p) => {
-      if (!p?.mesh) return;
-      const aPos = joints?.[p.a];
-      const bPos = joints?.[p.b];
-      if (!aPos || !bPos) return;
-      updateConnectorMesh(p.mesh, aPos, bPos);
-    });
-  } catch (e) {
-    console.warn("[rotate] updateConnectorMesh failed", e);
-  }
 
-  // 脚追従（存在する場合のみ）
-  try {
-    if (Array.isArray(legs)) {
-      legs.forEach((l) => {
-        if (!l || l.jointIndex == null) return;
-        updateLegMeshPosition?.(l.jointIndex);
+    // 選択Poleの中心線は動かさない
+    ja.x = axisKeepA.x; ja.y = axisKeepA.y; ja.z = axisKeepA.z;
+    jb.x = axisKeepB.x; jb.y = axisKeepB.y; jb.z = axisKeepB.z;
+    if (jointMeshes?.[pole.a]) jointMeshes[pole.a].position.set(ja.x, ja.y, ja.z);
+    if (jointMeshes?.[pole.b]) jointMeshes[pole.b].position.set(jb.x, jb.y, jb.z);
+
+    try {
+      beams?.forEach((b) => {
+        if (!b?.mesh) return;
+        const aPos = joints?.[b.a];
+        const bPos = joints?.[b.b];
+        if (!aPos || !bPos) return;
+        updateConnectorMesh(b.mesh, aPos, bPos);
       });
+      poles?.forEach((p) => {
+        if (!p?.mesh) return;
+        const aPos = joints?.[p.a];
+        const bPos = joints?.[p.b];
+        if (!aPos || !bPos) return;
+        updateConnectorMesh(p.mesh, aPos, bPos);
+      });
+    } catch (e) {
+      console.warn("[rotate] updateConnectorMesh failed", e);
     }
-  } catch (e) {
-    console.warn("[rotate] leg follow failed", e);
+
+    try {
+      if (Array.isArray(legs)) {
+        legs.forEach((l) => {
+          if (!l || l.jointIndex == null) return;
+          updateLegMeshPosition?.(l.jointIndex);
+        });
+      }
+    } catch (e) {
+      console.warn("[rotate] leg follow failed", e);
+    }
+
+    try {
+      (window.panels || []).forEach((p) => {
+        if (!p || !Array.isArray(p.j4)) return;
+        if (!p.j4.some((idx) => indexSet.has(idx))) return;
+        p.side = "auto";
+      });
+      (window.shelves || []).forEach((s) => {
+        if (!s || !Array.isArray(s.j4)) return;
+        if (!s.j4.some((idx) => indexSet.has(idx))) return;
+        s.cellKey = "";
+      });
+      window.rebuildBoards?.();
+    } catch (e) {
+      console.warn("[rotate] rebuildBoards failed", e);
+    }
+
+    try { requestEstimateRender?.("after rotate " + deg); } catch (e) {}
+    try { window.v3StructuralAnalysis?.schedule?.("rotate cluster"); } catch (e) {}
+    try { applyColorChartToAllConnectors?.(); } catch (e) {}
   }
 
-  // 後処理
-  try { saveHistory?.("rotate cluster " + deg); } catch {}
-  try { requestEstimateRender?.("after rotate " + deg); } catch {}
-  try { applyColorChartToAllConnectors?.(); } catch {}
+  if (window.v3CadOps && typeof window.v3CadOps.withSingleHistory === "function") {
+    window.v3CadOps.withSingleHistory("rotate cluster " + deg, applyRotate);
+  } else {
+    applyRotate();
+    try { saveHistory?.("rotate cluster " + deg); } catch (e) {}
+  }
+  return true;
 };
 
 // =========================================================
@@ -1471,20 +1532,33 @@ window.deleteActiveCluster = function (overrideJointIndex, opts) {
     return false;
   }
 
-  // 最新クラスタ
-  if (typeof rebuildJointClusters === "function") rebuildJointClusters();
+  // ラックID優先。接続クラスタだと未結合の別ラックまで巻き込むため。
+  const seed = joints[j0];
+  let clusterJoints = [];
+  if (seed && typeof seed.rackId === "string" && seed.rackId) {
+    for (let i = 0; i < joints.length; i++) {
+      if (joints[i] && joints[i].rackId === seed.rackId) clusterJoints.push(i);
+    }
+  }
+  if (!clusterJoints.length) {
+    if (typeof rebuildJointClusters === "function") rebuildJointClusters();
+    const cid = jointClusterId?.[j0];
+    clusterJoints =
+      (cid != null && jointClusters?.[cid]?.joints?.length)
+        ? jointClusters[cid].joints.slice()
+        : [j0];
+  }
 
-  const cid = jointClusterId?.[j0];
-  const clusterJoints =
-    (cid != null && jointClusters?.[cid]?.joints?.length)
-      ? jointClusters[cid].joints.slice()
-      : [j0];
+  if (window.v3WorkLayers && typeof window.v3WorkLayers.canEditIndexes === "function" && !window.v3WorkLayers.canEditIndexes(clusterJoints)) {
+    console.warn("[work-layers] refused cluster delete");
+    return false;
+  }
 
   if (options.confirm) {
     if (!confirm(`このラック（${clusterJoints.length} joints）を削除しますか？`)) return false;
   }
 
-  if (window.callIfExists) window.callIfExists("saveHistory", "delete cluster");
+  try { window.clearBoardSelection?.(); } catch (e) {}
 
   const delSet = new Set(clusterJoints);
 
@@ -1585,6 +1659,11 @@ window.deleteActiveCluster = function (overrideJointIndex, opts) {
   }
   window.manualLegJointSet = newManualSet;
 
+  // 板は Beam / Pole と同じ old→new 表を1回だけ使う。削除点を含む板は捨て、それ以外は順序を保って付け替える。
+  try { window.remapBoardsForJointIndexMap?.(indexMap); } catch (e) {
+    console.warn("[delete] board j4 remap failed", e);
+  }
+
   // 選択解除
   window.__CR_ACTIVE_JOINT_INDEX__ = undefined;
   try { setSelectedJoint?.(null); } catch {}
@@ -1659,6 +1738,12 @@ window.deleteActiveCluster = function (overrideJointIndex, opts) {
   calcAndRenderEstimate?.();
   applyColorChartToAllConnectors?.();
 
+  try { window.v3WorkLayers?.syncRackIds?.(); } catch (e) {}
+  try { window.v3Measure?.remapAfterJointIndexMap?.(indexMap); } catch (e) {}
+
+  // 削除と板の j4 更新が終わった状態を、1件の履歴として残す。
+  if (window.callIfExists) window.callIfExists("saveHistory", "delete cluster");
+
   return true;
 };
 
@@ -1690,26 +1775,22 @@ function getBeamLength__EARLY(b) {
   const a = joints[b.a];
   const c = joints[b.b];
   if (!a || !c) return 0;
-  return Math.round(
-    new THREE.Vector3(a.x, a.y, a.z).distanceTo(
-      new THREE.Vector3(c.x, c.y, c.z)
-    )
-  );
+  if (typeof window.actualJointDistanceMm === "function") return window.actualJointDistanceMm(a, c);
+  return Math.hypot(c.x - a.x, c.y - a.y, c.z - a.z);
 }
 
 function getPoleLength__EARLY(p) {
   const a = joints[p.a];
   const c = joints[p.b];
   if (!a || !c) return 0;
-  return Math.round(
-    new THREE.Vector3(a.x, a.y, a.z).distanceTo(
-      new THREE.Vector3(c.x, c.y, c.z)
-    )
-  );
+  if (typeof window.actualJointDistanceMm === "function") return window.actualJointDistanceMm(a, c);
+  return Math.hypot(c.x - a.x, c.y - a.y, c.z - a.z);
 }
 
 function getLengthColor__EARLY(lengthMm) {
-  return LENGTH_COLOR_MAP[lengthMm] || LENGTH_COLOR_MAP.order;
+  return (typeof getLengthColor === "function")
+    ? getLengthColor(lengthMm)
+    : (LENGTH_COLOR_MAP[lengthMm] || LENGTH_COLOR_MAP.order);
 }
 
 function renderColorChartTable() {
@@ -2063,7 +2144,32 @@ function findNearestLength(options, targetMm) {
 // highlightedObject, originalMaterial は js/state/state.js で定義済み
 // window経由でアクセス可能
 
+function selectedJointMesh() {
+  const idx = (typeof selectedJointIndex !== "undefined")
+    ? selectedJointIndex
+    : window.selectedJointIndex;
+  if (typeof idx !== "number" || idx < 0) return null;
+  return (jointMeshes && jointMeshes[idx]) || null;
+}
+
+let restoringSelectedJointVisual = false;
+function restoreSelectedJointVisual() {
+  if (restoringSelectedJointVisual) return;
+  const idx = (typeof selectedJointIndex !== "undefined")
+    ? selectedJointIndex
+    : window.selectedJointIndex;
+  if (typeof idx !== "number" || idx < 0) return;
+  restoringSelectedJointVisual = true;
+  try {
+    if (typeof setSelectedJoint === "function") setSelectedJoint(idx);
+  } finally {
+    restoringSelectedJointVisual = false;
+  }
+}
+
 function setHighlight(mesh) {
+  if (!mesh) return;
+  if (mesh === selectedJointMesh()) return;
   if (window.highlightedObject === mesh) return;
 
   resetHighlight();
@@ -2081,6 +2187,7 @@ function setHighlight(mesh) {
   hlMat.opacity = 0.9;
 
   mesh.material = hlMat;
+  try { window.v3InstancePool?.note?.(); } catch (err) {}
 }
 
 function resetHighlight() {
@@ -2093,6 +2200,8 @@ function resetHighlight() {
 
   window.highlightedObject = null;
   window.originalMaterial = null;
+  try { window.v3InstancePool?.note?.(); } catch (err) {}
+  restoreSelectedJointVisual();
 }
 
 // =========================================================
@@ -2211,6 +2320,7 @@ const PRICE_TABLE = {
     200: 500,
     300: 580,
     400: 680,
+    500: 850,
     600: 800,
     800: 930,
   },
@@ -2294,13 +2404,17 @@ function initSmallPartsMaterialUI() {
     const firstType = jointSetTypes[0];
     initialMat = getPartTypeMaterial(firstType);
   } catch {}
-  sel.value = window.coerceSelectableMaterial?.(initialMat) || "IRON";
+  sel.value = window.normalizeMaterial?.(initialMat) || initialMat || "IRON";
 
   // 材質をJointSetのすべてのパーツタイプに適用する関数
   function applyMaterialToJointSet(mat) {
-    const normalizedMat = typeof window.coerceSelectableMaterial === "function"
-      ? window.coerceSelectableMaterial(mat || "IRON")
+    const normalizedMat = typeof window.normalizeMaterial === "function"
+      ? window.normalizeMaterial(mat || "IRON")
       : normalizeMaterial(mat || "IRON");
+    if (window.v3BsStock && typeof window.v3BsStock.gateJointSetApply === "function") {
+      const gate = window.v3BsStock.gateJointSetApply(normalizedMat, 0);
+      if (!gate || gate.ok === false) return;
+    }
     
     for (const type of jointSetTypes) {
       setPartTypeMaterial(type, normalizedMat);
@@ -2405,10 +2519,13 @@ window.applyMaterialColorToAllConnectors = function () {
   const matJointBall = getPartTypeMaterial?.("jointBall") || "IRON";
   const matLeg       = getPartTypeMaterial?.("leg") || "IRON";
 
-  // JointBall：jointMeshes を塗る（選択中は setSelectedJoint が上書きするので解除時に戻る）
+  // JointBall：選択中ハンドルは instance sync が赤を載せるので材質色で消さない
+  const selJointMesh = (typeof window.selectedJointIndex === "number" && window.selectedJointIndex >= 0)
+    ? (window.jointMeshes || [])[window.selectedJointIndex]
+    : null;
   if (Array.isArray(window.jointMeshes)) {
     for (const jm of window.jointMeshes) {
-      if (!jm) continue;
+      if (!jm || jm === selJointMesh) continue;
       applyMaterialColorToMesh(jm, matJointBall);
     }
   }
@@ -2493,9 +2610,58 @@ if (!window.viewEl) {
   console.error("[main] window.viewEl is not defined. Make sure js/core/scene.js is loaded.");
 } else {
   window.viewEl.addEventListener("click", (e) => {
+  if (window.__V3_SKIP_LEG_CLICK__) {
+    window.__V3_SKIP_LEG_CLICK__ = false;
+    window.didDrag = false;
+    e.preventDefault();
+    return;
+  }
+
   // 0) ドラッグ直後の誤クリック防止
   if (window.didDrag) {
     window.didDrag = false;
+    return;
+  }
+
+  const wantLegTool = window.__V3_TOOL_MODE__ === "leg";
+  const exclusiveNav = !!(window.isRotateModeOn || window.isDeleteModeOn || window.isMoveModeOn || window.isDuplicateModeOn || window.isMeasureModeOn);
+  const wantLegShift = !exclusiveNav && !!(e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey);
+  if (wantLegTool || wantLegShift) {
+    const idx = pickJointIndexByClientPos(e.clientX, e.clientY, 28);
+    if (idx !== -1) {
+      if (wantLegShift && window.__CR_JOINTSET_MATERIAL_APPLY_MODE__) {
+        const sel = document.getElementById("mat-jointSet");
+        const raw = sel?.value || "IRON";
+        const mat = typeof window.coerceSelectableMaterial === "function"
+          ? window.coerceSelectableMaterial(raw)
+          : normalizeMaterial(raw);
+        setPartTypeMaterial("leg", mat);
+        try { calcAndRenderEstimate?.(); } catch {}
+        try { requestEstimateRender?.("jointSet material applied to leg"); } catch {}
+        try { window.reapplyConnectorVisuals?.("jointSet material applied to leg"); } catch {}
+      }
+      toggleLegForJoint(idx);
+      hidePreview?.();
+      hideLegPreview?.();
+    }
+    e.preventDefault();
+    return;
+  }
+
+  // Select / Move / Rotate / Delete 中は部材追加へ進まない
+  // 選択モードでも既存JBのクリック選択は維持する（専用JBモード廃止の代替）
+  if (window.isRotateModeOn || window.isDeleteModeOn || window.isMoveModeOn || window.isDuplicateModeOn || window.isMeasureModeOn) {
+    return;
+  }
+  if (window.__V3_TOOL_MODE__ === "select" || window.__V3_TOOL_MODE__ === "joint") {
+    if (!e.altKey && !e.shiftKey && !window.isConnectModeOn && !window.isLengthEditModeOn) {
+      const nearIdx = pickJointIndexByClientPos(e.clientX, e.clientY, 28);
+      if (nearIdx !== -1) {
+        setSelectedJoint(nearIdx);
+        hidePreview?.();
+        hideLegPreview?.();
+      }
+    }
     return;
   }
 
@@ -2511,10 +2677,26 @@ if (!window.viewEl) {
   if (e.altKey) {
     hideLegPreview();
 
+    const altHit = window.v3CadOps && window.v3CadOps.pickAt(e.clientX, e.clientY, { preferBoard: true });
+    if (altHit && (altHit.kind === "shelf" || altHit.kind === "panel")) {
+      const kind = altHit.kind === "shelf" ? "shelf" : "panel";
+      if (window.v3CadOps && typeof window.v3CadOps.withSingleHistory === "function") {
+        window.v3CadOps.withSingleHistory("delete " + kind, function () {
+          window.deleteBoard?.(kind, altHit.index);
+        });
+      } else {
+        window.deleteBoard?.(kind, altHit.index);
+        window.saveHistory?.("delete " + kind);
+      }
+      window.requestEstimateRender?.("delete " + kind);
+      hidePreview();
+      return;
+    }
+
     const connectorMeshes = [
       ...beams.map((b) => b.mesh),
       ...poles.map((p) => p.mesh),
-    ];
+    ].filter((m) => m && m.visible);
 
     // 子メッシュまで対象にする
     const hitConnector = raycaster.intersectObjects(connectorMeshes, true);
@@ -2527,7 +2709,7 @@ if (!window.viewEl) {
     }
 
     // ここに来たらコネクタに当たっていない → ジョイント削除
-    const hitJoints = raycaster.intersectObjects(jointMeshes);
+    const hitJoints = raycaster.intersectObjects((jointMeshes || []).filter((m) => m && m.visible));
     if (hitJoints.length > 0) {
       const idx = jointMeshes.indexOf(hitJoints[0].object);
       if (idx !== -1) {
@@ -2538,61 +2720,61 @@ if (!window.viewEl) {
     return;
   }
 
-  // （この下に Shift+クリック や プレビュー確定、ジョイント選択の処理が続く）
-
-
-  // --------------------------------------------------
-  // ② Shift + クリック → 脚 ON / OFF
-  // --------------------------------------------------
-  if (e.shiftKey) {
-    const idx = pickJointIndexByClientPos(e.clientX, e.clientY, 24);
-    if (idx !== -1) {
-      // JointSet材質適用モードが有効な場合はLegの材質も適用
-      if (window.__CR_JOINTSET_MATERIAL_APPLY_MODE__) {
-        const sel = document.getElementById("mat-jointSet");
-        const raw = sel?.value || "IRON";
-        const mat = typeof window.coerceSelectableMaterial === "function"
-          ? window.coerceSelectableMaterial(raw)
-          : normalizeMaterial(raw);
-        setPartTypeMaterial("leg", mat);
-        
-        // 見積/部材明細更新
-        try { calcAndRenderEstimate?.(); } catch {}
-        try { requestEstimateRender?.("jointSet material applied to leg"); } catch {}
-        
-        // 3D反映
-        try { window.reapplyConnectorVisuals?.("jointSet material applied to leg"); } catch {}
-      }
-      
-      toggleLegForJoint(idx);
-      hidePreview();
-    }
-    return;
-  }
+  // （この下に プレビュー確定、ジョイント選択の処理が続く）
+  // Shift+クリックの脚切替は click 先頭で処理済み
 
     // --------------------------------------------------
-  // ②.6 通常クリック：ジョイント選択の吸着を最優先
-  //  - 選択中ジョイント付近だけ「確定」を許可
-  //  - それ以外の場所クリックは「ジョイント選択」にする
+  // ②.6 通常クリック：有効プレビュー上なら配置確定を優先
+  //  - hover と同じ候補を使う
+  //  - 候補の有効範囲外で別ジョイントに近ければ選択へ
   // --------------------------------------------------
   if (!e.altKey && !e.shiftKey && !window.isConnectModeOn && !window.isLengthEditModeOn) {
     const nearIdx = pickJointIndexByClientPos(e.clientX, e.clientY, 28);
+    const curSel =
+      (typeof selectedJointIndex !== "undefined")
+        ? selectedJointIndex
+        : (typeof window.selectedJointIndex !== "undefined" ? window.selectedJointIndex : -1);
+    const pick = window.v3PlacePick;
+    const decided = pick && typeof pick.decideAddClick === "function"
+      ? pick.decideAddClick({
+          candidate: pick.getCandidate && pick.getCandidate(),
+          selectedJointIndex: curSel,
+          nearJointIndex: nearIdx,
+          clientX: e.clientX,
+          clientY: e.clientY,
+          project: projectWorldToClient,
+          joints: joints,
+          lengthMm: (function () {
+            let mm = typeof window.getEffectiveCurrentLength === "function"
+              ? window.getEffectiveCurrentLength()
+              : window.currentLengthMm;
+            if (window.currentPartType === "pole" && typeof window.getPoleCadMmFromSku === "function") {
+              const cad = window.getPoleCadMmFromSku(mm);
+              if (Number.isFinite(cad) && cad > 0) mm = cad;
+            }
+            return mm;
+          })(),
+          canAdd: typeof window.v3CanAddPart !== "function" || window.v3CanAddPart(window.currentPartType === "pole" ? "pole" : "beam"),
+        })
+      : null;
 
-    if (nearIdx !== -1) {
-      // 現在の選択ジョイントを取得（環境差の保険）
-      const curSel =
-        (typeof selectedJointIndex !== "undefined")
-          ? selectedJointIndex
-          : (typeof window.selectedJointIndex !== "undefined" ? window.selectedJointIndex : -1);
-
-      // ★「選択ジョイント付近以外」をクリックした場合は、確定へ行かず選択だけで終了
-      if (curSel !== nearIdx) {
-        setSelectedJoint(nearIdx);
-        hidePreview?.();
-        hideLegPreview?.();
-        return;
-      }
-      // curSel === nearIdx のときだけ、この後の既存「プレビュー確定」ロジックへ進む
+    if (decided && decided.action === "place") {
+      // プレビュー確定へ進む（ジョイント選択へ落とさない）
+    } else if (decided && decided.action === "cancel-preview") {
+      hidePreview?.();
+      hideLegPreview?.();
+      if (nearIdx !== -1 && curSel !== nearIdx) setSelectedJoint(nearIdx);
+      return;
+    } else if (decided && decided.action === "select-joint") {
+      setSelectedJoint(decided.jointIndex);
+      hidePreview?.();
+      hideLegPreview?.();
+      return;
+    } else if (nearIdx !== -1 && curSel !== nearIdx) {
+      setSelectedJoint(nearIdx);
+      hidePreview?.();
+      hideLegPreview?.();
+      return;
     }
   }
 
@@ -2614,6 +2796,13 @@ if (window.isConnectModeOn) {
   // --------------------------------------------------
   if (window.previewTargetPos && selectedJointIndex !== null) {
 
+    const addType = window.currentPartType === "pole" ? "pole" : "beam";
+    if (typeof window.v3CanAddPart === "function" && !window.v3CanAddPart(addType)) {
+      hidePreview?.();
+      window.previewTargetPos = null;
+      return;
+    }
+
     const basePos = joints[selectedJointIndex];
     if (!basePos) {
       hidePreview();
@@ -2627,7 +2816,9 @@ if (window.isConnectModeOn) {
     let orderLenNow = null;
     {
       const ui = (typeof getUI === "function") ? getUI() : null;
-      const v = parseInt(String(ui?.orderLengthInput?.value || "").trim(), 10);
+      const v = (typeof window.parseLengthMm === "function")
+        ? window.parseLengthMm(ui?.orderLengthInput?.value)
+        : parseInt(String(ui?.orderLengthInput?.value || "").trim(), 10);
       if (Number.isFinite(v) && v > 0) orderLenNow = v;
     }
 
@@ -2761,7 +2952,7 @@ if (!window.isConnectModeOn && !window.isLengthEditModeOn && !window.__CR_MATERI
         : (Array.isArray(window.jointMeshes) ? window.jointMeshes.filter(Boolean) : 
            (Array.isArray(jointMeshes) ? jointMeshes.filter(Boolean) : []));
 
-    const hitJ = raycaster.intersectObjects(jointTargets, true);
+    const hitJ = raycaster.intersectObjects(jointTargets.filter((m) => m && m.visible), true);
     console.log("[connect/diag] intersect@2605", { win: window.isConnectModeOn, hitLen: hitJ.length });
 
     if (hitJ.length > 0) {
@@ -2876,9 +3067,9 @@ if (!window.isConnectModeOn && !window.isLengthEditModeOn && !window.__CR_MATERI
     // 材質適用モードが有効な場合は長さ変更モードでなくてもBeam/Pole選択を有効化
     if (!window.isConnectModeOn && (lengthModeOn || materialApplyModeOn)) {
       const connectorMeshes = [
-        ...beams.map((b) => b.mesh).filter(Boolean),
-        ...poles.map((p) => p.mesh).filter(Boolean),
-      ];
+        ...beams.map((b) => b.mesh),
+        ...poles.map((p) => p.mesh),
+      ].filter((m) => m && m.visible);
 
       const hitConn = raycaster.intersectObjects(connectorMeshes, true);
       if (hitConn.length > 0) {
@@ -2906,6 +3097,8 @@ if (!window.isConnectModeOn && !window.isLengthEditModeOn && !window.__CR_MATERI
             }
 
 console.log("[select] beam", selectedConnector);
+
+try { window.v3StructuralAnalysis?.onSelectionChanged?.(); } catch (e) {}
 
 // ★見た目の最終適用（ColorChart優先／OFFなら材質色へ復帰）
 window.reapplyConnectorVisuals?.("select beam");
@@ -2950,6 +3143,8 @@ return;
 
 console.log("[select] pole", selectedConnector);
 
+try { window.v3StructuralAnalysis?.onSelectionChanged?.(); } catch (e) {}
+
 // ★見た目の最終適用（ColorChart優先／OFFなら材質色へ復帰）
 window.reapplyConnectorVisuals?.("select pole");
 
@@ -2985,7 +3180,7 @@ return;
   // --------------------------------------------------
   const jointTargets = (Array.isArray(window.jointMeshes) ? window.jointMeshes.filter(Boolean) : 
                          (Array.isArray(jointMeshes) ? jointMeshes.filter(Boolean) : []));
-  const hitJoints = raycaster.intersectObjects(jointTargets);
+  const hitJoints = raycaster.intersectObjects(jointTargets.filter((m) => m && m.visible));
   if (hitJoints.length > 0) {
     const mesh = hitJoints[0].object;
     const idx = (Array.isArray(window.jointMeshes) ? window.jointMeshes.indexOf(mesh) : -1) ||
@@ -3010,9 +3205,18 @@ return;
         
         const sel = document.getElementById("mat-jointSet");
         const raw = sel?.value || "IRON";
-        const mat = typeof window.coerceSelectableMaterial === "function"
-          ? window.coerceSelectableMaterial(raw)
-          : (typeof window.normalizeMaterial === "function" ? window.normalizeMaterial : normalizeMaterial)(raw);
+        const mat = typeof window.normalizeMaterial === "function"
+          ? window.normalizeMaterial(raw)
+          : (typeof normalizeMaterial === "function" ? normalizeMaterial(raw) : raw);
+        if (window.v3BsStock && typeof window.v3BsStock.gateJointSetApply === "function") {
+          const gate = window.v3BsStock.gateJointSetApply(mat, 0);
+          if (!gate || gate.ok === false) {
+            setSelectedJoint(idx);
+            hidePreview?.();
+            hideLegPreview?.();
+            return;
+          }
+        }
         if (typeof window.setPartTypeMaterial === "function") {
           window.setPartTypeMaterial("jointBall", mat);
         } else if (typeof setPartTypeMaterial === "function") {
@@ -3150,6 +3354,10 @@ const grid25 = new THREE.GridHelper(
 grid25.position.y = 0.003;
 setGridMaterial(grid25, 0.08);   // ★ 一番薄く
 scene.add(grid25);
+window.grid25 = grid25;
+window.grid50 = grid50;
+window.grid100 = grid100;
+window.grid200 = grid200;
 
 // =========================================
 // 左ドラッグで「ラックの島（クラスター）」を移動させる
@@ -3182,6 +3390,12 @@ renderer.domElement.addEventListener("pointerdown", (e) => {
     hasUpdate: (typeof updateRaycasterFromPointerEvent === "function")
   });
 
+  if (window.isRotateModeOn || window.isDuplicateModeOn) {
+    e.preventDefault();
+    e.stopPropagation();
+    return;
+  }
+
   // ================================
   // 板モード最優先（V1.1.1）
   // ================================
@@ -3191,28 +3405,39 @@ renderer.domElement.addEventListener("pointerdown", (e) => {
 
     if (e.button !== 0) return; // 左のみ
 
-    // ジョイントをクリックした場合は4点選択モードに切り替え
     const jointIdx = pickJointIndexByClientPos(e.clientX, e.clientY, 28);
-    if (jointIdx !== -1) {
-      // 4点選択に追加
+    const placeMode = (typeof window.getBoardPlaceMode === "function" && window.getBoardPlaceMode() === "pick4") ? "pick4" : "auto";
+    const pick = window.v3PlacePick;
+    const decided = pick && typeof pick.decideBoardClick === "function"
+      ? pick.decideBoardClick({
+          previewJ4: window.previewBoardJ4,
+          joints: window.joints || joints,
+          clientX: e.clientX,
+          clientY: e.clientY,
+          project: projectWorldToClient,
+          nearJointIndex: jointIdx,
+          selectedCount: (window.selectedJoints4 && window.selectedJoints4.length) || 0,
+          placeMode: placeMode,
+        })
+      : null;
+    if (hitBoardPreviewMesh(e.clientX, e.clientY) || (decided && decided.action === "place")) {
+      window.__CR_BOARD_PENDING_ADD__ = true;
+      window.__CR_BOARD_MOUSE_DOWN_POS__ = { x: e.clientX, y: e.clientY };
+      window.__CR_BOARD_PENDING_J4__ = (decided && decided.j4 && decided.j4.length === 4)
+        ? decided.j4.slice()
+        : ((window.previewBoardJ4 || []).slice());
+      return;
+    }
+    if (placeMode === "auto") return;
+    if (decided && decided.action === "pick-joint") {
+      const added = window.addJointToBoardSelection?.(decided.jointIndex);
+      if (added) return;
+    } else if (jointIdx !== -1) {
       const added = window.addJointToBoardSelection?.(jointIdx);
       if (added) {
         console.log("[board] joint selected for 4-point selection:", jointIdx, "total:", window.selectedJoints4?.length || 0);
-        // 4点選択中は自動プレビューを無効化（4点選択完了時にプレビューが表示される）
         return;
       }
-    }
-
-    // ジョイント以外をクリックした場合、または4点選択が完了している場合はプレビューから板を追加
-    // 4点選択が完了している場合は、その4点でプレビューが表示されているはず
-    if (window.previewBoardJ4 && window.previewBoardJ4.length === 4) {
-      // プレビューから板を追加（ドラッグ判定はpointerupで行う）
-      window.__CR_BOARD_PENDING_ADD__ = true;
-      window.__CR_BOARD_MOUSE_DOWN_POS__ = { x: e.clientX, y: e.clientY };
-      console.log("[board] pointerdown: __CR_BOARD_PENDING_ADD__ = true", {
-        previewJ4: window.previewBoardJ4,
-        hasPreview: !!window.previewBoardMesh
-      });
     }
 
     return;
@@ -3220,18 +3445,29 @@ renderer.domElement.addEventListener("pointerdown", (e) => {
 
   if (e.button !== 0 || e.altKey) return; // 左のみ + Alt除外
 
-  // v1.0.5+ manual legs: Shift+クリックで手動LEG追加/削除トグル（最優先）
-  if (e.shiftKey) {
+  // Legモード / Shift+クリック：脚 ON/OFF（同一処理。click 側の二重実行を抑止）
+  const wantLegToolDown = window.__V3_TOOL_MODE__ === "leg";
+  const exclusiveNavDown = !!(window.isRotateModeOn || window.isDeleteModeOn || window.isMoveModeOn || window.isDuplicateModeOn || window.isMeasureModeOn);
+  const wantLegShiftDown = !exclusiveNavDown && !!(e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey);
+  if (wantLegToolDown || wantLegShiftDown) {
     try {
-      const j = pickJointIndexByClientPos(e.clientX, e.clientY, 20);
-      if (typeof j === "number" && j >= 0 && typeof toggleManualLeg === "function") {
-        toggleManualLeg(j);
+      const j = pickJointIndexByClientPos(e.clientX, e.clientY, 28);
+      if (typeof j === "number" && j >= 0) {
+        toggleLegForJoint(j);
+        hidePreview?.();
+        hideLegPreview?.();
+        window.__V3_SKIP_LEG_CLICK__ = true;
         e.preventDefault();
         e.stopPropagation();
         return;
       }
+      if (wantLegToolDown) {
+        window.__V3_SKIP_LEG_CLICK__ = true;
+        e.preventDefault();
+        return;
+      }
     } catch (err) {
-      console.warn("[manual leg] pick failed", err);
+      console.warn("[leg] pick failed", err);
     }
   }
 
@@ -3254,17 +3490,26 @@ renderer.domElement.addEventListener("pointerdown", (e) => {
   // ★削除モード最優先：MoveMode OFFでも“クリックで削除”できるようにする
   // --------------------------------------------------
   if (window.isDeleteModeOn) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (window.v3RackDelete) return;
+    const hitDel = window.v3CadOps && window.v3CadOps.pickAt(e.clientX, e.clientY, { preferBoard: true });
+    if (hitDel && (hitDel.kind === "shelf" || hitDel.kind === "panel")) {
+      const kind = hitDel.kind === "shelf" ? "shelf" : "panel";
+      if (window.v3CadOps && typeof window.v3CadOps.withSingleHistory === "function") {
+        window.v3CadOps.withSingleHistory("delete " + kind, function () {
+          window.deleteBoard?.(kind, hitDel.index);
+        });
+      } else {
+        window.deleteBoard?.(kind, hitDel.index);
+        window.saveHistory?.("delete " + kind);
+      }
+      window.requestEstimateRender?.("delete " + kind);
+      return;
+    }
     const jDel = pickJointIndexByClientPos(e.clientX, e.clientY, 20);
     if (jDel !== -1) {
-      e.preventDefault();
-      e.stopPropagation();
-
-      // Active を更新してから削除（deleteActiveClusterがactive参照の実装でも動く）
       window.__CR_ACTIVE_JOINT_INDEX__ = jDel;
-
-      // 対象クラスタ削除（あなたの deleteActiveCluster 実装に合わせる）
-      // 1) 引数を取る実装なら jointIndex を渡す
-      // 2) 引数を取らない実装でも active が更新済みなので動く
       window.deleteActiveCluster?.(jDel);
     }
     return; // 削除モード中は“選択”や“移動開始”へ行かない
@@ -3274,6 +3519,11 @@ renderer.domElement.addEventListener("pointerdown", (e) => {
   // A) 接続モード最優先（MoveModeの影響を受けない）
   // ================================
   if (window.isConnectModeOn) {
+    if (window.v3ConnectPanel && typeof window.v3ConnectPanel.isJoinActive === "function" && window.v3ConnectPanel.isJoinActive()) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     // ★長さ変更モード中は「接続」を無効化して、選択も残さない
     if (window.isLengthEditModeOn) {
       e.preventDefault();
@@ -3301,7 +3551,7 @@ renderer.domElement.addEventListener("pointerdown", (e) => {
         : (Array.isArray(jointMeshes) ? jointMeshes.filter(Boolean) : 
            (Array.isArray(window.jointMeshes) ? window.jointMeshes.filter(Boolean) : []));
 
-    const hitJ = raycaster.intersectObjects(jointTargets, true);
+    const hitJ = raycaster.intersectObjects(jointTargets.filter((m) => m && m.visible), true);
 
     let jIdx = -1;
 
@@ -3399,9 +3649,15 @@ renderer.domElement.addEventListener("pointerdown", (e) => {
   }
 
   // ================================
-  // B) 通常：クラスタ移動（MoveMode ON の時だけ）
+  // B) Moveモード：ギズモ対象クラスタを選択（Jointドラッグ移動はしない）
   // ================================
   if (!window.isMoveModeOn) return;
+  if (window.v3MoveGizmo && typeof window.v3MoveGizmo.isDragging === "function" && window.v3MoveGizmo.isDragging()) {
+    return;
+  }
+  if (window.v3MovePanel && typeof window.v3MovePanel.blocksGizmo === "function" && window.v3MovePanel.blocksGizmo()) {
+    return;
+  }
 
   const jointIndex = pickJointIndexByClientPos(e.clientX, e.clientY, 20);
 if (jointIndex === -1) return;
@@ -3410,6 +3666,7 @@ if (jointIndex === -1) return;
 if (window.isDeleteModeOn) {
   e.preventDefault();
   e.stopPropagation();
+  if (window.v3RackDelete) return;
 
   // ★このクリックで「ラック削除確認→削除」
   const ok = window.deleteActiveCluster?.(jointIndex, { confirm: true });
@@ -3430,6 +3687,16 @@ window.__CR_ACTIVE_JOINT_INDEX__ = jointIndex;
 // ★MoveMode OFF のときは「移動ドラッグ開始」だけしない（記録は残す）
 if (!window.isMoveModeOn) return;
 
+  if (window.v3MovePanel && typeof window.v3MovePanel.onJointPicked === "function") {
+    window.v3MovePanel.onJointPicked(jointIndex);
+    e.preventDefault();
+    return;
+  }
+  if (window.v3MoveGizmo && typeof window.v3MoveGizmo.selectJoint === "function") {
+    window.v3MoveGizmo.selectJoint(jointIndex);
+    e.preventDefault();
+    return;
+  }
 
   if (typeof rebuildJointClusters === "function") rebuildJointClusters();
 
@@ -3438,6 +3705,11 @@ if (!window.isMoveModeOn) return;
     clusterId != null && clusterId >= 0 && jointClusters?.[clusterId]
       ? jointClusters[clusterId].joints
       : [jointIndex];
+
+  if (window.v3WorkLayers && typeof window.v3WorkLayers.canEditIndexes === "function" && !window.v3WorkLayers.canEditIndexes(cluster)) {
+    console.warn("[work-layers] refused move");
+    return;
+  }
 
   dragState.active = true;
   dragState.clusterJointIndices = cluster.slice();
@@ -3462,13 +3734,15 @@ if (!window.isMoveModeOn) return;
 
   // pointer capture 安定化：pointerId を保持して解除に使う
   dragState._pointerId = e.pointerId;
-  renderer.domElement.setPointerCapture?.(e.pointerId);
+  try { renderer.domElement.setPointerCapture?.(e.pointerId); } catch (err) {}
 
   if (typeof controls !== "undefined" && controls) controls.enabled = false;
+  try { window.v3MoveGap?.onDragStart?.(dragState.clusterJointIndices); } catch {}
 });
 
 // ★ ドラッグ中
 renderer.domElement.addEventListener("pointermove", (e) => {
+  if (window.v3MoveGizmo && typeof window.v3MoveGizmo.isDragging === "function" && window.v3MoveGizmo.isDragging()) return;
   if (!dragState.active || !dragState.clusterJointIndices?.length) return;
 
   updateRaycasterFromPointerEvent(e);
@@ -3524,15 +3798,44 @@ renderer.domElement.addEventListener("pointermove", (e) => {
     if (!aPos || !bPos) return;
     updateConnectorMesh(p.mesh, aPos, bPos);
   });
+
+  // 板は j4 のJoint参照を維持したまま、動いたJointの現在座標から再配置する
+  let boardsMoved = false;
+  dragState.clusterJointIndices.forEach((jIdx, i) => {
+    const j = joints[jIdx];
+    const base = dragState.clusterStartPositions[i];
+    if (!j || !base) return;
+    if (Math.abs(j.x - base.x) > 0.01 || Math.abs(j.y - base.y) > 0.01 || Math.abs(j.z - base.z) > 0.01) {
+      boardsMoved = true;
+    }
+  });
+  if (boardsMoved && typeof window.rebuildBoards === "function") {
+    try { window.rebuildBoards(dragState.clusterJointIndices); } catch (err) {
+      console.warn("[move] rebuildBoards failed", err);
+    }
+  }
+  try { window.v3MoveGap?.onDragMove?.(); } catch {}
 });
 
 // ★ ドラッグ終了
 function endClusterDrag() {
   if (!dragState.active) return;
 
+  const movedJointIndices = (dragState.clusterJointIndices || []).filter((jIdx, i) => {
+    const j = joints[jIdx];
+    const base = dragState.clusterStartPositions?.[i];
+    if (!j || !base) return false;
+    return Math.abs(j.x - base.x) > 0.01 || Math.abs(j.y - base.y) > 0.01 || Math.abs(j.z - base.z) > 0.01;
+  });
+  if (movedJointIndices.length && typeof window.rebuildBoards === "function") {
+    try { window.rebuildBoards(dragState.clusterJointIndices); } catch (err) {
+      console.warn("[move] rebuildBoards failed", err);
+    }
+  }
+
   const pid = dragState._pointerId;
   if (pid != null) {
-    renderer?.domElement?.releasePointerCapture?.(pid);
+    try { renderer?.domElement?.releasePointerCapture?.(pid); } catch (err) {}
   }
   dragState._pointerId = null;
 
@@ -3546,8 +3849,11 @@ function endClusterDrag() {
 
   if (typeof controls !== "undefined" && controls) controls.enabled = true;
 
+  try { window.v3MoveGap?.onDragEnd?.(); } catch {}
+
   if (window.callIfExists) window.callIfExists("saveHistory", "move cluster");
   requestEstimateRender("after move cluster");
+  try { window.v3StructuralAnalysis?.schedule?.("move cluster"); } catch (e) {}
   applyColorChartToAllConnectors?.();
 }
 
@@ -3566,6 +3872,7 @@ renderer.domElement.addEventListener("pointerup", (e) => {
       console.log("[board] drag detected, cancel", moveDist);
       window.__CR_BOARD_PENDING_ADD__ = false;
       window.__CR_BOARD_MOUSE_DOWN_POS__ = null;
+      window.__CR_BOARD_PENDING_J4__ = null;
       return;
     }
   }
@@ -3575,9 +3882,11 @@ renderer.domElement.addEventListener("pointerup", (e) => {
     console.log("[board] adding board from preview (pointerup)");
     window.__CR_BOARD_PENDING_ADD__ = false;
     window.__CR_BOARD_MOUSE_DOWN_POS__ = null;
+    const pendingJ4 = window.__CR_BOARD_PENDING_J4__;
+    window.__CR_BOARD_PENDING_J4__ = null;
     
     if (typeof window.addBoardFromPreview === "function") {
-      window.addBoardFromPreview();
+      window.addBoardFromPreview(pendingJ4);
     } else {
       console.warn("[board] addBoardFromPreview not found");
     }
@@ -3591,27 +3900,23 @@ renderer.domElement.addEventListener("pointercancel", endClusterDrag);
 // =========================================================
 // カメラ距離に応じてグリッドを自動切り替え
 // =========================================================
+function hideGridHelpers() {
+  if (typeof grid50 !== "undefined" && grid50) grid50.visible = false;
+  if (typeof grid100 !== "undefined" && grid100) grid100.visible = false;
+  if (typeof grid200 !== "undefined" && grid200) grid200.visible = false;
+}
+
 function updateGridVisibilityByDistance() {
   
   // ★ 追加：UIトグルがOFFなら、距離判定より優先して完全非表示
   if (typeof gridEnabled !== "undefined" && !gridEnabled) {
-    // GridHelperを全部隠す
-    if (typeof scene !== "undefined" && scene) {
-      scene.traverse((obj) => {
-        if (obj && obj.isGridHelper) obj.visible = false;
-      });
-    }
+    hideGridHelpers();
     return;
   }
 
   // ★ 追加：背景写真ONの場合は、距離判定より優先して完全非表示
   if (typeof window.isBackgroundPhotoOn !== "undefined" && window.isBackgroundPhotoOn) {
-    // GridHelperを全部隠す
-    if (typeof scene !== "undefined" && scene) {
-      scene.traverse((obj) => {
-        if (obj && obj.isGridHelper) obj.visible = false;
-      });
-    }
+    hideGridHelpers();
     return;
   }
 
@@ -3678,16 +3983,7 @@ function setGridMaterial(helper, opacity) {
 // - disposeJointMeshByIndex, disposeBeamMesh, disposePoleMesh, disposeLegMesh
 // window経由でアクセス可能
 
-// createLegMeshForJointIndex は js/parts/legs.js に移動済み
-
-function updateLegMeshPosition(jointIndex) {
-  const leg = legs.find((l) => l.jointIndex === jointIndex);
-  if (leg && leg.mesh) {
-    const j = joints[jointIndex];
-    const offsetY = LEG_TOTAL_HEIGHT / 2 + jointRadius;
-    leg.mesh.position.set(j.x, j.y - offsetY, j.z);
-  }
-}
+// createLegMeshForJointIndex / updateLegMeshPosition は js/parts/legs.js に移動済み
 
 // isBottomJoint, hasLegAtJoint, addLegIfNeeded, hideLegPreview, showLegPreview, toggleLegForJoint は js/parts/legs.js に移動済み
 
@@ -3711,39 +4007,9 @@ function hasPoleBelowJoint(jointIndex) {
   return false;
 }
 
-// v1.0.5+ manual legs: 手動LEGの追加/削除トグル
+// v1.0.5+ manual legs: 既存呼び出しは toggleLegForJoint に委譲する
 function toggleManualLeg(jointIndex) {
-  if (jointIndex == null || jointIndex < 0) return;
-  const j = joints?.[jointIndex];
-  if (!j) return;
-
-  if (typeof window.saveHistory === "function") window.saveHistory("toggle manual leg");
-  const set = window.manualLegJointSet || new Set();
-  window.manualLegJointSet = set;
-
-  if (set.has(jointIndex)) {
-    set.delete(jointIndex);
-    const idx = legs.findIndex((l) => l.jointIndex === jointIndex);
-    if (idx !== -1) {
-      const leg = legs[idx];
-      if (typeof disposeLegMesh === "function") disposeLegMesh(leg);
-      legs.splice(idx, 1);
-    }
-  } else {
-    if (hasPoleBelowJoint(jointIndex)) {
-      console.warn("[manual leg] 直下にPOLEがあるためLEGを追加できません。", jointIndex);
-      return;
-    }
-    if (legs.some((l) => l.jointIndex === jointIndex)) return;
-    const material = (typeof normalizeMaterial === "function") ? normalizeMaterial(j.material) : (j.material || "IRON");
-    const mesh = (typeof createLegMeshForJointIndex === "function") ? createLegMeshForJointIndex(jointIndex) : null;
-    if (mesh && typeof applyMaterialColorToMesh === "function") applyMaterialColorToMesh(mesh, material);
-    legs.push({ jointIndex, material, mesh });
-    set.add(jointIndex);
-  }
-
-  if (typeof syncLegCountInput === "function") syncLegCountInput();
-  if (typeof window.requestEstimateRender === "function") window.requestEstimateRender("after toggle manual leg");
+  if (typeof toggleLegForJoint === "function") return toggleLegForJoint(jointIndex);
 }
 
 function updateLegCountFromArray() {
@@ -3789,6 +4055,78 @@ function hidePreview() {
     window.previewJoint = null;
   }
   window.previewTargetPos = null;
+  if (window.v3PlacePick && typeof window.v3PlacePick.clearCandidate === "function") {
+    window.v3PlacePick.clearCandidate();
+  }
+  resetHighlight?.();
+  restoreSelectedJointVisual();
+}
+
+function projectWorldToClient(pos) {
+  if (!pos || !camera || !renderer || !renderer.domElement) return null;
+  const rect = renderer.domElement.getBoundingClientRect();
+  if (!rect.width || !rect.height) return null;
+  const v = new THREE.Vector3(pos.x, pos.y, pos.z).project(camera);
+  if (!Number.isFinite(v.x) || !Number.isFinite(v.y) || v.z > 1) return null;
+  return {
+    x: rect.left + (v.x + 1) * 0.5 * rect.width,
+    y: rect.top + (1 - (v.y + 1) * 0.5) * rect.height,
+  };
+}
+
+function rememberPlaceCandidate(basePos, targetPos, existingIndex) {
+  const pick = window.v3PlacePick;
+  if (!pick || typeof pick.makePlaceCandidate !== "function") return null;
+  const kind = window.currentPartType === "pole" ? "pole" : "beam";
+  let axis = "x";
+  let dir = 1;
+  let lengthMm = 0;
+  if (kind === "pole") {
+    axis = "y";
+    dir = targetPos.y >= basePos.y ? 1 : -1;
+    lengthMm = Math.abs(targetPos.y - basePos.y);
+  } else if (Math.abs(targetPos.z - basePos.z) > Math.abs(targetPos.x - basePos.x)) {
+    axis = "z";
+    dir = targetPos.z >= basePos.z ? 1 : -1;
+    lengthMm = Math.abs(targetPos.z - basePos.z);
+  } else {
+    axis = "x";
+    dir = targetPos.x >= basePos.x ? 1 : -1;
+    lengthMm = Math.abs(targetPos.x - basePos.x);
+  }
+  const cand = pick.makePlaceCandidate({
+    kind: kind,
+    fromJoint: selectedJointIndex,
+    fromPos: basePos,
+    toPos: targetPos,
+    lengthMm: lengthMm,
+    axis: axis,
+    dir: dir,
+    toJoint: existingIndex,
+  });
+  pick.setCandidate(cand);
+  return cand;
+}
+
+function highlightPlaceDest(existingIndex) {
+  if (typeof existingIndex === "number" && existingIndex >= 0 && jointMeshes && jointMeshes[existingIndex]) {
+    setHighlight?.(jointMeshes[existingIndex]);
+    restoreSelectedJointVisual();
+    return;
+  }
+  resetHighlight?.();
+}
+
+function hitBoardPreviewMesh(clientX, clientY) {
+  const mesh = window.previewBoardMesh;
+  if (!mesh || !raycaster || !camera || !renderer) return false;
+  const rect = renderer.domElement.getBoundingClientRect();
+  if (!rect.width || !rect.height) return false;
+  mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObject(mesh, false);
+  return !!(hits && hits.length);
 }
 
 // raycaster, mouse は js/core/scene.js で定義済み
@@ -3969,9 +4307,18 @@ function showPreview(basePos, targetPos) {
   window.previewJoint.position.set(targetPos.x, targetPos.y, targetPos.z);
 
   window.previewTargetPos = { ...targetPos };
+  rememberPlaceCandidate(basePos, targetPos, existingIndex);
+  highlightPlaceDest(existingIndex);
 }
 
 function updatePreviewWithMouse(clientX, clientY) {
+  const addType = window.currentPartType === "pole" ? "pole" : "beam";
+  if (typeof window.v3CanAddPart === "function" && !window.v3CanAddPart(addType)) {
+    hidePreview?.();
+    window.previewTargetPos = null;
+    return;
+  }
+
   // ★最小パッチ：長さ変更モード中は「選択もプレビューも必ず消して」ここで終了
   if (window.isLengthEditModeOn) {
     // 選択解除（この関数は null を「未選択」として扱っているので null に揃える）
@@ -4048,7 +4395,9 @@ let length = null;
 
 // 1) Order ONなら orderLengthInput を使う
 if (!!window.isOrderModeOn && ui?.orderLengthInput) {
-  const v = parseInt(String(ui.orderLengthInput.value || "").trim(), 10);
+  const v = (typeof window.parseLengthMm === "function")
+    ? window.parseLengthMm(ui.orderLengthInput.value)
+    : parseInt(String(ui.orderLengthInput.value || "").trim(), 10);
   if (Number.isFinite(v) && v > 0) length = v;
 }
 
@@ -4084,7 +4433,11 @@ const targetPos = {
     const isUp = dyScreen < 0;
     const dirY = isUp ? 1 : -1;
 
-    const length = getEffectiveCurrentLength();
+    let length = getEffectiveCurrentLength();
+    if (typeof window.getPoleCadMmFromSku === "function") {
+      const cad = window.getPoleCadMmFromSku(length);
+      if (Number.isFinite(cad) && cad > 0) length = cad;
+    }
     const targetY = base.y + dirY * length;
 
     if (targetY < 0) {
@@ -4340,6 +4693,15 @@ if (!m) {
   canvas.addEventListener(
     "mousedown",
     (e) => {
+      if (window.isRotateModeOn || window.isDuplicateModeOn) {
+        e.preventDefault();
+        e.stopPropagation();
+        hidePreview?.();
+        hideLegPreview?.();
+        hideBoardPreview?.();
+        return;
+      }
+
       // ★長さ変更モード中は「何も確定しない」＋「選択見た目を確実に解除」
       if (window.isLengthEditModeOn) {
         // まず状態を消す
@@ -4385,29 +4747,39 @@ if (!m) {
 
         if (e.button !== 0) return; // 左のみ
 
-        // ジョイントをクリックした場合は4点選択モードに切り替え
         const jointIdx = pickJointIndexByClientPos(e.clientX, e.clientY, 28);
-        if (jointIdx !== -1) {
-          // 4点選択に追加
+        const placeMode = (typeof window.getBoardPlaceMode === "function" && window.getBoardPlaceMode() === "pick4") ? "pick4" : "auto";
+        const pick = window.v3PlacePick;
+        const decided = pick && typeof pick.decideBoardClick === "function"
+          ? pick.decideBoardClick({
+              previewJ4: window.previewBoardJ4,
+              joints: window.joints || joints,
+              clientX: e.clientX,
+              clientY: e.clientY,
+              project: projectWorldToClient,
+              nearJointIndex: jointIdx,
+              selectedCount: (window.selectedJoints4 && window.selectedJoints4.length) || 0,
+              placeMode: placeMode,
+            })
+          : null;
+        if (hitBoardPreviewMesh(e.clientX, e.clientY) || (decided && decided.action === "place")) {
+          window.__CR_BOARD_PENDING_ADD__ = true;
+          window.__CR_BOARD_MOUSE_DOWN_POS__ = { x: e.clientX, y: e.clientY };
+          window.__CR_BOARD_PENDING_J4__ = (decided && decided.j4 && decided.j4.length === 4)
+            ? decided.j4.slice()
+            : ((window.previewBoardJ4 || []).slice());
+          return;
+        }
+        if (placeMode === "auto") return;
+        if (decided && decided.action === "pick-joint") {
+          const added = window.addJointToBoardSelection?.(decided.jointIndex);
+          if (added) return;
+        } else if (jointIdx !== -1) {
           const added = window.addJointToBoardSelection?.(jointIdx);
           if (added) {
             console.log("[board] joint selected for 4-point selection:", jointIdx, "total:", window.selectedJoints4?.length || 0);
-            // 4点選択中は自動プレビューを無効化（4点選択完了時にプレビューが表示される）
             return;
           }
-        }
-
-        // ジョイント以外をクリックした場合、または4点選択が完了している場合はプレビューから板を追加
-        // 4点選択が完了している場合は、その4点でプレビューが表示されているはず
-        if (window.previewBoardJ4 && window.previewBoardJ4.length === 4) {
-          // プレビューから板を追加（ドラッグ判定はmouseupで行う）
-          // ここでは処理をマークするだけ
-          window.__CR_BOARD_PENDING_ADD__ = true;
-          window.__CR_BOARD_MOUSE_DOWN_POS__ = { x: e.clientX, y: e.clientY };
-          console.log("[board] mousedown: __CR_BOARD_PENDING_ADD__ = true", {
-            previewJ4: window.previewBoardJ4,
-            hasPreview: !!window.previewBoardMesh
-          });
         }
 
         // ★板モード中は「通常のジョイント選択/生成」へ流さない
@@ -4425,6 +4797,11 @@ if (!m) {
 });
 
       if (window.isConnectModeOn) {
+        if (window.v3ConnectPanel && typeof window.v3ConnectPanel.isJoinActive === "function" && window.v3ConnectPanel.isJoinActive()) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
         e.preventDefault();
         e.stopPropagation();
 
@@ -4441,7 +4818,7 @@ if (!m) {
             ? jointPickTargets
             : (Array.isArray(jointMeshes) ? jointMeshes.filter(Boolean) : []);
 
-        const hitJ = raycaster.intersectObjects(jointTargets, true);
+        const hitJ = raycaster.intersectObjects(jointTargets.filter((m) => m && m.visible), true);
 
         let jIdx = -1;
         if (hitJ.length > 0) {
@@ -4569,8 +4946,22 @@ if (jointIndex !== -1) {
   // ★MoveModeのON/OFFに関係なく「回転対象」を記録
   window.__CR_ACTIVE_JOINT_INDEX__ = jointIndex;
 
-  // ★MoveMode ON のときだけクラスタドラッグ開始
+  // ★MoveMode ON のときはギズモ対象を選ぶ（旧クラスタドラッグは開始しない）
   if (!!window.isMoveModeOn) {
+    if (window.v3MovePanel && typeof window.v3MovePanel.blocksGizmo === "function" && window.v3MovePanel.blocksGizmo()) {
+      e.preventDefault();
+      return;
+    }
+    if (window.v3MovePanel && typeof window.v3MovePanel.onJointPicked === "function") {
+      window.v3MovePanel.onJointPicked(jointIndex);
+      e.preventDefault();
+      return;
+    }
+    if (window.v3MoveGizmo && typeof window.v3MoveGizmo.selectJoint === "function") {
+      window.v3MoveGizmo.selectJoint(jointIndex);
+      e.preventDefault();
+      return;
+    }
     const clusterId = jointClusterId?.[jointIndex];
     const cluster =
       clusterId != null && jointClusters?.[clusterId]
@@ -4623,6 +5014,13 @@ canvas.addEventListener(
   (e) => {
     updateRayFromClientXY(e.clientX, e.clientY);
 
+    if (window.isRotateModeOn || window.isDeleteModeOn || window.isDuplicateModeOn || window.isMeasureModeOn) {
+      hidePreview?.();
+      hideLegPreview?.();
+      hideBoardPreview?.();
+      return;
+    }
+
     // 接続モード：プレビュー停止（見た目の混乱防止）
     if (window.isConnectModeOn) {
       hidePreview?.();
@@ -4646,6 +5044,11 @@ canvas.addEventListener(
 
       // 4点選択中は自動プレビューを無効化（4点選択完了時にプレビューが表示される）
       const selectedJoints4 = window.selectedJoints4 || [];
+      const placeMode = (typeof window.getBoardPlaceMode === "function" && window.getBoardPlaceMode() === "pick4") ? "pick4" : "auto";
+      if (placeMode === "pick4") {
+        if (selectedJoints4.length < 4) hideBoardPreview?.();
+        return;
+      }
       if (selectedJoints4.length > 0 && selectedJoints4.length < 4) {
         // 4点未満の選択中は自動プレビューを非表示
         hideBoardPreview?.();
@@ -4657,19 +5060,26 @@ canvas.addEventListener(
         return;
       }
 
+      const boardScreen = {
+        clientX: e.clientX,
+        clientY: e.clientY,
+        project: projectWorldToClient,
+        cameraPos: camera && camera.position,
+      };
+
       // マウス位置からワールド座標を取得
       const hit = raycaster.intersectObjects(
         [
           ...beams.map((b) => b.mesh),
           ...poles.map((p) => p.mesh),
-        ].filter(Boolean),
+        ].filter((m) => m && m.visible),
         false
       );
 
       if (hit.length > 0) {
         const worldPos = hit[0].point;
         if (typeof window.showBoardPreview === "function") {
-          window.showBoardPreview(worldPos);
+          window.showBoardPreview(worldPos, boardScreen);
         }
       } else {
         // 線分フォールバック：THREE.Ray#distanceSqToSegment でレイ-線分の最短距離の2乗と線分上最近傍点Qを取得。
@@ -4686,6 +5096,7 @@ canvas.addEventListener(
         let best = { distSq: Infinity, bestQ: null };
         for (const c of conns) {
           if (!c || c.a == null || c.b == null) continue;
+          if (c.mesh && c.mesh.visible === false) continue;
           const pa = jList[c.a];
           const pb = jList[c.b];
           if (!pa || !pb) continue;
@@ -4698,19 +5109,13 @@ canvas.addEventListener(
         }
         if (best.bestQ) {
           if (typeof window.showBoardPreview === "function") {
-            window.showBoardPreview(best.bestQ);
+            window.showBoardPreview(best.bestQ, boardScreen);
           }
+        } else if (typeof window.showBoardPreview === "function") {
+          // 壁板は面の内部に Beam/Pole が無い。画面投影で閉じた区画を拾う。
+          window.showBoardPreview(null, boardScreen);
         } else {
-          // 地面との交点を計算（水平面）
-          const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-          const intersectPoint = new THREE.Vector3();
-          if (raycaster.ray.intersectPlane(plane, intersectPoint)) {
-            if (typeof window.showBoardPreview === "function") {
-              window.showBoardPreview(intersectPoint);
-            }
-          } else {
-            hideBoardPreview?.();
-          }
+          hideBoardPreview?.();
         }
       }
       return;
@@ -4729,7 +5134,7 @@ canvas.addEventListener(
         ...beams.map((b) => b.mesh),
         ...poles.map((p) => p.mesh),
         ...jointMeshes,
-      ].filter(Boolean);
+      ].filter((m) => m && m.visible);
 
       const hit = raycaster.intersectObjects(targets, false);
       if (hit.length > 0) setHighlight?.(hit[0].object);
@@ -4763,7 +5168,6 @@ canvas.addEventListener(
       }
     }
 
-    resetHighlight?.();
     hideLegPreview?.();
     hideBoardPreview?.();
     updatePreviewWithMouse?.(e.clientX, e.clientY);
@@ -4792,6 +5196,7 @@ canvas.addEventListener(
           console.log("[board] drag detected, cancel", moveDist);
           window.__CR_BOARD_PENDING_ADD__ = false;
           window.__CR_BOARD_MOUSE_DOWN_POS__ = null;
+          window.__CR_BOARD_PENDING_J4__ = null;
           return;
         }
       }
@@ -4801,9 +5206,11 @@ canvas.addEventListener(
         console.log("[board] adding board from preview");
         window.__CR_BOARD_PENDING_ADD__ = false;
         window.__CR_BOARD_MOUSE_DOWN_POS__ = null;
+        const pendingJ4 = window.__CR_BOARD_PENDING_J4__;
+        window.__CR_BOARD_PENDING_J4__ = null;
         
         if (typeof window.addBoardFromPreview === "function") {
-          window.addBoardFromPreview();
+          window.addBoardFromPreview(pendingJ4);
         } else {
           console.warn("[board] addBoardFromPreview not found");
         }
@@ -4858,7 +5265,7 @@ window.setDeleteMode = function (on) {
   }
 
   if (window.isDeleteModeOn) {
-    el.textContent = "削除モード：削除したいラックのジョイントをクリック（ESCで終了）";
+    el.textContent = "削除モード：棚板・壁板をクリックして削除／ラックはジョイントをクリック（ESCで終了）";
     el.style.display = "block";
   } else {
     el.style.display = "none";
@@ -5041,7 +5448,11 @@ window.addEventListener("keydown", (e) => {
   btnRot.addEventListener("click", (ev) => {
     ev.preventDefault();
     ev.stopPropagation();
-    window.rotateActiveCluster90?.(+90);
+    if (window.isRotateModeOn && window.v3RotateMode && window.v3RotateMode.getAxis() >= 0) {
+      window.v3RotateMode.rotateBy(+90);
+    } else {
+      window.setRotateMode?.(true);
+    }
   });
 
   // 3) Rotate -90 (PNG)
@@ -5056,7 +5467,11 @@ window.addEventListener("keydown", (e) => {
   btnRotNeg.addEventListener("click", (ev) => {
     ev.preventDefault();
     ev.stopPropagation();
-    window.rotateActiveCluster90?.(-90);
+    if (window.isRotateModeOn && window.v3RotateMode && window.v3RotateMode.getAxis() >= 0) {
+      window.v3RotateMode.rotateBy(-90);
+    } else {
+      window.setRotateMode?.(true);
+    }
   });
 
   // =========================================================
@@ -5087,6 +5502,7 @@ if (typeof window.isDeleteModeOn === "undefined") window.isDeleteModeOn = false;
 if (!window.__CR_DELHL__) {
   window.__CR_DELHL__ = {
     activeJoint: -1,
+    activeBoard: "",
     joints: new Map(),      // idx -> { colorHex, scale:{x,y,z} }
     conn: new Set(),        // mesh set
   };
@@ -5127,6 +5543,54 @@ function __crDelRestoreHighlight() {
   st.conn.clear();
 
   st.activeJoint = -1;
+  st.activeBoard = "";
+  try { window.v3MultiSelect?.reapplyBoards?.(); } catch (e) {}
+}
+
+function __crDelMarkMesh(mesh) {
+  const st = window.__CR_DELHL__;
+  if (!mesh) return;
+  try {
+    if (mesh.children && mesh.children.length) {
+      mesh.children.slice().forEach((child) => {
+        if (!child || child.name !== "__v3SelOutline") return;
+        mesh.remove(child);
+        try {
+          if (child.geometry && child.geometry !== mesh.geometry) child.geometry.dispose();
+        } catch (e) {}
+        try {
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          mats.forEach((mat) => { try { mat && mat.dispose && mat.dispose(); } catch (e2) {} });
+        } catch (e) {}
+      });
+    }
+    if (!mesh.userData) mesh.userData = {};
+    if (!mesh.userData._crDelBak) {
+      mesh.userData._crDelBak = {
+        colorHex: (mesh.material?.color ? mesh.material.color.getHex() : null),
+        emissiveHex: (mesh.material?.emissive ? mesh.material.emissive.getHex() : null),
+      };
+    }
+    if (mesh.material?.color) mesh.material.color.setHex(0xef4444);
+    if (mesh.material?.emissive) {
+      mesh.material.emissive.setHex(0xef4444);
+      mesh.material.emissiveIntensity = 1.2;
+    }
+    st.conn.add(mesh);
+  } catch (e) {}
+}
+
+function __crDelApplyHighlightForBoard(hit) {
+  const st = window.__CR_DELHL__;
+  if (!hit || !hit.mesh) {
+    __crDelRestoreHighlight();
+    return;
+  }
+  const key = hit.kind + ":" + hit.index;
+  if (st.activeBoard === key && st.conn.has(hit.mesh)) return;
+  __crDelRestoreHighlight();
+  st.activeBoard = key;
+  __crDelMarkMesh(hit.mesh);
 }
 
 function __crDelApplyHighlightForJoint(j0) {
@@ -5215,11 +5679,17 @@ function setDeleteMode(on) {
   }
 }
 
+const __crGuideDeleteMode = window.setDeleteMode;
+window.setDeleteMode = function (on) {
+  setDeleteMode(on);
+  if (typeof __crGuideDeleteMode === "function") __crGuideDeleteMode(on);
+};
+
 // ゴミ箱ボタン：ON/OFFだけ（確認なし）
 btnDel.addEventListener("click", (ev) => {
   ev.preventDefault();
   ev.stopPropagation();
-  setDeleteMode(!window.isDeleteModeOn);
+  window.setDeleteMode(!window.isDeleteModeOn);
 });
 
 // Escでキャンセル
@@ -5252,6 +5722,12 @@ if (!window.__CR_DELETE_PICK_BOUND__) {
       e.preventDefault();
       e.stopPropagation();
 
+      const hitDel = window.v3CadOps && window.v3CadOps.pickAt(e.clientX, e.clientY, { preferBoard: true });
+      if (hitDel && (hitDel.kind === "shelf" || hitDel.kind === "panel")) {
+        __crDelApplyHighlightForBoard(hitDel);
+        return;
+      }
+
       const j = pickJointIndexByClientPos?.(e.clientX, e.clientY, 24);
       if (typeof j === "number" && j >= 0) __crDelApplyHighlightForJoint(j);
       else __crDelRestoreHighlight();
@@ -5268,6 +5744,23 @@ if (!window.__CR_DELETE_PICK_BOUND__) {
 
       e.preventDefault();
       e.stopPropagation();
+
+      if (window.v3RackDelete) return;
+      const hitDel = window.v3CadOps && window.v3CadOps.pickAt(e.clientX, e.clientY, { preferBoard: true });
+      if (hitDel && (hitDel.kind === "shelf" || hitDel.kind === "panel")) {
+        const kind = hitDel.kind === "shelf" ? "shelf" : "panel";
+        if (window.v3CadOps && typeof window.v3CadOps.withSingleHistory === "function") {
+          window.v3CadOps.withSingleHistory("delete " + kind, function () {
+            window.deleteBoard?.(kind, hitDel.index);
+          });
+        } else {
+          window.deleteBoard?.(kind, hitDel.index);
+          window.saveHistory?.("delete " + kind);
+        }
+        window.requestEstimateRender?.("delete " + kind);
+        __crDelRestoreHighlight();
+        return;
+      }
 
       const j = pickJointIndexByClientPos?.(e.clientX, e.clientY, 24);
       if (!(typeof j === "number" && j >= 0)) return;
@@ -5346,21 +5839,14 @@ function applyAutoLayoutFlatFromExternal(data) {
 // lengthMm が無い古いデータでも集計できるようにする
 // =========================================
 function getBeamLengthMmSafe(beam) {
-  if (beam.lengthMm && beam.lengthMm > 0) {
-    return beam.lengthMm;
-  }
-
   const ja = joints[beam.a];
   const jb = joints[beam.b];
-  if (!ja || !jb) return 0;
-
-  const dx = ja.x - jb.x;
-  const dy = ja.y - jb.y;
-  const dz = ja.z - jb.z;
-
-  // ワールド単位＝mm なのでそのまま
-  const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
-  return Math.round(len);
+  if (ja && jb) {
+    if (typeof window.actualJointDistanceMm === "function") return window.actualJointDistanceMm(ja, jb);
+    return Math.hypot(ja.x - jb.x, ja.y - jb.y, ja.z - jb.z);
+  }
+  if (beam.lengthMm && beam.lengthMm > 0) return beam.lengthMm;
+  return 0;
 }
 
 // 見積関連の関数は js/features/estimate.js に移動済み
@@ -5376,6 +5862,22 @@ window.addEventListener("keydown", (e) => {
 
   // Ctrl+Z → Undo（js/features/history.js で処理）
   // Ctrl+Y → Redo（js/features/history.js で処理）
+
+  if (e.key === "Delete" || e.key === "Backspace") {
+    const ae = document.activeElement;
+    const tag = ae && ae.tagName ? ae.tagName.toLowerCase() : "";
+    const typing = tag === "input" || tag === "textarea" || tag === "select" || !!(ae && ae.isContentEditable);
+    const targetTyping = !!(e.target && e.target.closest && e.target.closest("input, textarea, select, [contenteditable='true']"));
+    if (typing || targetTyping) return;
+    // 複数選択中は HUD と同じ一括削除。Ctrl を押したままでも実行する。
+    if (window.v3MultiSelect && typeof window.v3MultiSelect.get === "function" && window.v3MultiSelect.get().length) {
+      e.preventDefault();
+      if (typeof window.v3MultiSelect.deleteSelected === "function") {
+        window.v3MultiSelect.deleteSelected({ confirm: false });
+      }
+      return;
+    }
+  }
 
   // Delete → 選択中ジョイント削除
   if (e.key === "Delete" && selectedJointIndex !== null) {
@@ -5400,84 +5902,90 @@ window.addEventListener("keyup", (e) => {
 
 // Undo/Redoボタンのイベントリスナーは js/features/history.js で設定済み
 
+function clearPlacedBoards() {
+  function wipe(list) {
+    if (!Array.isArray(list)) return;
+    list.forEach((item) => {
+      if (!item || !item.mesh) return;
+      const mesh = item.mesh;
+      if (mesh.parent) mesh.parent.remove(mesh);
+      try { mesh.geometry?.dispose?.(); } catch (e) {}
+      const mat = mesh.material;
+      if (Array.isArray(mat)) {
+        mat.forEach((x) => { try { x?.dispose?.(); } catch (e2) {} });
+      } else {
+        try { mat?.dispose?.(); } catch (e3) {}
+      }
+      item.mesh = null;
+    });
+    list.length = 0;
+  }
+  wipe(window.shelves);
+  wipe(window.panels);
+}
+
+function resetUndoHistoryToCurrent() {
+  const snap = typeof window.createSnapshot === "function" ? window.createSnapshot() : null;
+  window.history = snap ? [snap] : [];
+  window.historyIndex = snap ? 0 : -1;
+}
+
+function performNewDesign() {
+  if (window.v3WorkLayers && typeof window.v3WorkLayers.hasProtectedRack === "function" && window.v3WorkLayers.hasProtectedRack()) {
+    console.warn("[work-layers] refused reset");
+    return false;
+  }
+
+  try { hidePreview?.(); } catch (e) {}
+  try { hideLegPreview?.(); } catch (e) {}
+  try { hideBoardPreview?.(); } catch (e) {}
+  try { window.clearBoardSelection?.(); } catch (e) {}
+  try { window.v3PlacePick?.clearCandidate?.(); } catch (e) {}
+  try { window.__CR_setSelectedConnectorHighlight?.(null); } catch (e) {}
+  try {
+    window.selectedConnector = null;
+    selectedConnector = null;
+  } catch (e) {}
+
+  if (typeof clearAllDesign === "function") clearAllDesign();
+  clearPlacedBoards();
+
+  try { window.v3Measure?.loadFromSnapshot?.({ measures: [], measureUi: {} }); } catch (e) {}
+  try { window.v3WorkLayers?.loadFromSnapshot?.({}); } catch (e) {}
+
+  const idx = createJoint({ x: 0, y: 0, z: 0 });
+  setSelectedJoint(idx);
+  addLegIfNeeded(idx);
+  syncLegCountInput();
+
+  if (window.v3InstancePool && typeof window.v3InstancePool.sync === "function") {
+    window.v3InstancePool.sync(true);
+  }
+
+  resetUndoHistoryToCurrent();
+  if (typeof window.clearDesignFileState === "function") window.clearDesignFileState();
+  try { window.resetEstimatePriceMode?.(); } catch (e) {}
+  if (!window.__buildingAutoLayout) {
+    window.requestEstimateRender?.("after new design");
+  }
+  return true;
+}
+
+window.clearPlacedBoards = clearPlacedBoards;
+window.performNewDesign = performNewDesign;
+
 const resetBtn = document.getElementById("reset-btn");
 
 if (resetBtn) {
   resetBtn.addEventListener("click", () => {
-    if (!confirm("すべてのパーツを削除して初期状態に戻します。よろしいですか？")) {
+    if (window.isDirty) {
+      if (!confirm("未保存の変更があります。保存せずに新規作成すると現在のデザインは失われます。よろしいですか？")) {
+        return;
+      }
+    } else if (!confirm("すべてのパーツを削除して初期状態に戻します。よろしいですか？")) {
       return;
     }
-
-    if (window.callIfExists) window.callIfExists("saveHistory");
-
-    // ★ ここを修正：scene.remove → rackGroup.remove（or 親から外す）
-    jointMeshes.forEach((m) => {
-      if (!m) return;
-      const parent = m.parent;
-      if (parent) parent.remove(m);
-    });
-
-    beams.forEach((b) => {
-      if (!b.mesh) return;
-      const parent = b.mesh.parent;
-      if (parent) parent.remove(b.mesh);
-      b.mesh = null;
-    });
-
-    poles.forEach((p) => {
-      if (!p.mesh) return;
-      const parent = p.mesh.parent;
-      if (parent) parent.remove(p.mesh);
-      p.mesh = null;
-    });
-
-    legs.forEach((l) => disposeLegMesh(l));
-
-    // 棚板・壁板のメッシュ削除とデータクリア（ラックと同様にデータ＋メッシュ両方を消す）
-    if (window.shelves) {
-      window.shelves.forEach((s) => {
-        if (s && s.mesh) {
-          const par = s.mesh.parent;
-          if (par) par.remove(s.mesh);
-          s.mesh.geometry?.dispose?.();
-          const m = s.mesh.material;
-          if (Array.isArray(m)) m.forEach(x => x?.dispose?.());
-          else m?.dispose?.();
-          s.mesh = null;
-        }
-      });
-      window.shelves.length = 0;
-    }
-    if (window.panels) {
-      window.panels.forEach((p) => {
-        if (p && p.mesh) {
-          const par = p.mesh.parent;
-          if (par) par.remove(p.mesh);
-          p.mesh.geometry?.dispose?.();
-          const m = p.mesh.material;
-          if (Array.isArray(m)) m.forEach(x => x?.dispose?.());
-          else m?.dispose?.();
-          p.mesh = null;
-        }
-      });
-      window.panels.length = 0;
-    }
-
-    joints.length = 0;
-    jointMeshes.length = 0;
-    beams.length = 0;
-    poles.length = 0;
-    legs.length = 0;
-
-    const idx = createJoint({ x: 0, y: 0, z: 0 });
-    setSelectedJoint(idx);
-    addLegIfNeeded(idx);
-    syncLegCountInput();
-    if (!window.__buildingAutoLayout) {
-  window.requestEstimateRender?.("after autolayout");
-}
-
-    if (window.callIfExists) window.callIfExists("saveHistory");
+    performNewDesign();
   });
 }
 
@@ -5511,28 +6019,29 @@ function getBeamLength(b) {
   const a = joints[b.a];
   const c = joints[b.b];
   if (!a || !c) return 0;
-
-  return Math.round(
-    new THREE.Vector3(a.x, a.y, a.z).distanceTo(
-      new THREE.Vector3(c.x, c.y, c.z)
-    )
-  );
+  if (typeof window.actualJointDistanceMm === "function") return window.actualJointDistanceMm(a, c);
+  return Math.hypot(c.x - a.x, c.y - a.y, c.z - a.z);
 }
 
 function getPoleLength(p) {
   const a = joints[p.a];
   const c = joints[p.b];
   if (!a || !c) return 0;
-
-  return Math.round(
-    new THREE.Vector3(a.x, a.y, a.z).distanceTo(
-      new THREE.Vector3(c.x, c.y, c.z)
-    )
-  );
+  if (typeof window.actualJointDistanceMm === "function") return window.actualJointDistanceMm(a, c);
+  return Math.hypot(c.x - a.x, c.y - a.y, c.z - a.z);
 }
 
 function getLengthColor(lengthMm) {
-  return LENGTH_COLOR_MAP[lengthMm] || LENGTH_COLOR_MAP.order;
+  const n = Number(lengthMm);
+  if (!Number.isFinite(n) || !LENGTH_COLOR_MAP) return (LENGTH_COLOR_MAP && LENGTH_COLOR_MAP.order) || "#7c3aed";
+  const eps = window.PRESET_LENGTH_EPS_MM || 1e-6;
+  const keys = Object.keys(LENGTH_COLOR_MAP);
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    if (key === "order") continue;
+    if (Math.abs(Number(key) - n) <= eps) return LENGTH_COLOR_MAP[key];
+  }
+  return LENGTH_COLOR_MAP.order;
 }
 
 // 長さごとの色マップ（正本）
@@ -5821,6 +6330,11 @@ function applyLengthColoring() {
       mat.needsUpdate = true;
     }
   });
+
+  if (window.v3InstancePool) {
+    if (typeof window.v3InstancePool.note === "function") window.v3InstancePool.note();
+    if (typeof window.v3InstancePool.sync === "function") window.v3InstancePool.sync(true);
+  }
 
   // ===== ★ここが「末尾」：色が維持されているかの最終確認 =====
   setTimeout(() => {
@@ -6157,6 +6671,7 @@ function setCameraPresetView(mode) {
   controls.target.copy(target);
   controls.update();
 }
+window.setCameraPresetView = setCameraPresetView;
 
 // ビューブロックのアクティブ面を更新
 function updateViewCubeActive(mode) {
@@ -6207,21 +6722,36 @@ if (window.history.length === 0 && window.historyIndex < 0) {
   if (window.callIfExists) window.callIfExists("saveHistory");
 }
 
+let _v3LastCamX = NaN;
+let _v3LastCamY = NaN;
+let _v3LastCamZ = NaN;
+let _v3LastCamQx = NaN;
+
 function animate() {
   requestAnimationFrame(animate);
 
   controls.update();
 
-  // ★ 背景写真時の目線固定補正
-  if (typeof window.correctBackgroundEyeLevel === "function") {
-    window.correctBackgroundEyeLevel();
+  const camMoved =
+    camera.position.x !== _v3LastCamX ||
+    camera.position.y !== _v3LastCamY ||
+    camera.position.z !== _v3LastCamZ ||
+    camera.quaternion.x !== _v3LastCamQx;
+  if (camMoved) {
+    _v3LastCamX = camera.position.x;
+    _v3LastCamY = camera.position.y;
+    _v3LastCamZ = camera.position.z;
+    _v3LastCamQx = camera.quaternion.x;
+    if (typeof window.correctBackgroundEyeLevel === "function") {
+      window.correctBackgroundEyeLevel();
+    }
+    syncViewCubeWithCamera();
+    updateGridVisibilityByDistance();
   }
 
-  // ★ カメラの向きとキューブを同期
-  syncViewCubeWithCamera();
-
-  // ★ カメラ距離に応じてグリッドを自動切り替え
-  updateGridVisibilityByDistance();
+  if (window.v3InstancePool && typeof window.v3InstancePool.sync === "function") {
+    window.v3InstancePool.sync(true);
+  }
 
   renderer.render(scene, camera);
 }
@@ -6245,6 +6775,17 @@ window.addEventListener("resize", () => {
 
 // 既存デザインを全部消す
 function clearAllDesign() {
+  if (window.v3WorkLayers && typeof window.v3WorkLayers.hasProtectedRack === "function" && window.v3WorkLayers.hasProtectedRack()) {
+    console.warn("[work-layers] refused clear");
+    return;
+  }
+  try { window.clearBoardSelection?.(); } catch (e) {}
+  try {
+    const n = Array.isArray(joints) ? joints.length : 0;
+    window.remapBoardsForJointIndexMap?.(new Array(Math.max(n, 1)).fill(-1));
+  } catch (e) {
+    console.warn("[clearAllDesign] board j4 drop failed", e);
+  }
   jointMeshes.forEach((m, idx) => {
     if (!m) return;
     disposeJointMeshByIndex(idx);
@@ -6258,7 +6799,11 @@ function clearAllDesign() {
   beams.length       = 0;
   poles.length       = 0;
   legs.length        = 0;
+  if (window.v3InstancePool && typeof window.v3InstancePool.clear === "function") {
+    window.v3InstancePool.clear();
+  }
 }
+window.clearAllDesign = clearAllDesign;
 
 
 // 自動レイアウト関連の関数は js/features/autolayout.js に移動済み
@@ -6408,9 +6953,19 @@ function getSelectedConnectorInfo() {
 }
 
 function applyMaterialToConnector(type, index, mat) {
-  const m = typeof window.coerceSelectableMaterial === "function"
-    ? window.coerceSelectableMaterial(mat || "IRON")
+  if (window.v3WorkLayers && typeof window.v3WorkLayers.canEditItem === "function" && !window.v3WorkLayers.canEditItem(type, index)) {
+    console.warn("[work-layers] refused material edit");
+    return false;
+  }
+  const m = typeof window.normalizeMaterial === "function"
+    ? window.normalizeMaterial(mat || "IRON")
     : normalizeMaterial(mat || "IRON");
+  if (window.v3BsStock && typeof window.v3BsStock.gateConvertItems === "function") {
+    const list = type === "beam" ? window.beams : type === "pole" ? window.poles : null;
+    const item = list && list[index];
+    const gate = window.v3BsStock.gateConvertItems(type, item ? [item] : [], m);
+    if (!gate || gate.ok === false) return false;
+  }
 
   if (type === "beam") {
     const b = window.beams?.[index];
@@ -6432,9 +6987,22 @@ function applyMaterialToConnector(type, index, mat) {
 }
 
 function applyMaterialToAllOfType(type, mat) {
-  const m = typeof window.coerceSelectableMaterial === "function"
-    ? window.coerceSelectableMaterial(mat || "IRON")
+  const list = type === "beam" ? window.beams : type === "pole" ? window.poles : null;
+  if (list && window.v3WorkLayers && typeof window.v3WorkLayers.canEditItem === "function") {
+    for (let i = 0; i < list.length; i++) {
+      if (list[i] && !window.v3WorkLayers.canEditItem(type, i)) {
+        console.warn("[work-layers] refused material edit");
+        return false;
+      }
+    }
+  }
+  const m = typeof window.normalizeMaterial === "function"
+    ? window.normalizeMaterial(mat || "IRON")
     : normalizeMaterial(mat || "IRON");
+  if (window.v3BsStock && typeof window.v3BsStock.gateConvertItems === "function") {
+    const gate = window.v3BsStock.gateConvertItems(type, list || [], m);
+    if (!gate || gate.ok === false) return false;
+  }
 
   if (type === "beam" && Array.isArray(window.beams)) {
     for (const b of window.beams) {
@@ -6461,6 +7029,7 @@ function afterMaterialChange(reason) {
   // 見積・3D見た目を最終状態へ（D1）
   try { calcAndRenderEstimate?.(); } catch (_) {}
   try { window.reapplyConnectorVisuals?.(reason || "material change"); } catch (_) {}
+  try { window.v3BsStock?.refreshUi?.(); } catch (_) {}
 }
 
 function initMaterialApplyButtonsUI() {
@@ -6477,8 +7046,8 @@ function initMaterialApplyButtonsUI() {
 
   function currentMatFromUI() {
     const raw = selMat.value || window.__CR_CURRENT_MATERIAL__ || "IRON";
-    return typeof window.coerceSelectableMaterial === "function"
-      ? window.coerceSelectableMaterial(raw)
+    return typeof window.normalizeMaterial === "function"
+      ? window.normalizeMaterial(raw)
       : normalizeMaterial(raw);
   }
 
@@ -6582,7 +7151,7 @@ function initMaterialApplyButtonsUI() {
   const hint = document.getElementById("drawing-hint");
   if (!btn) return;
 
-  const DRAWING_URL = "./drawing.html";
+  const DRAWING_URL = "./drawing.html?v=20261023-dw21";
 
   let drawingWin = null;
   let drawingReady = false;
@@ -6596,7 +7165,9 @@ function initMaterialApplyButtonsUI() {
   function buildDrawingPayload() {
     function toPlainJoint(j) {
       if (!j) return null;
-      return { x: Number(j.x) || 0, y: Number(j.y) || 0, z: Number(j.z) || 0 };
+      const out = { x: Number(j.x) || 0, y: Number(j.y) || 0, z: Number(j.z) || 0 };
+      if (j.material) out.material = j.material;
+      return out;
     }
 
     // Beam と Pole は同じ構造なので統合
@@ -6608,9 +7179,17 @@ function initMaterialApplyButtonsUI() {
 
       const out = { a: A, b: B };
       if (typeof c.lengthMm === "number") out.lengthMm = c.lengthMm;
+      const lenFn = c.type === "pole" || (window.poles && window.poles.indexOf(c) >= 0)
+        ? window.getPoleLength
+        : window.getBeamLength;
+      if (typeof lenFn === "function") {
+        const colorLen = lenFn(c);
+        if (Number.isFinite(colorLen) && colorLen > 0) out.colorLengthMm = colorLen;
+      }
       if (typeof c.axis === "string") out.axis = c.axis;
       if (typeof c.isOrder === "boolean") out.isOrder = c.isOrder;
       if (typeof c.isCustom === "boolean") out.isCustom = c.isCustom;
+      if (c.material) out.material = c.material;
       return out;
     }
 
@@ -6638,6 +7217,7 @@ function initMaterialApplyButtonsUI() {
         0;
 
       if (len > 0) out.lengthMm = len;
+      if (lg.material) out.material = lg.material;
       return out;
     }
 
@@ -6646,12 +7226,26 @@ function initMaterialApplyButtonsUI() {
     const srcPoles  = (typeof poles  !== "undefined" ? poles  : (window.poles  || []));
     const srcLegs   = (typeof legs   !== "undefined" ? legs   : (window.legs   || []));
 
-    return {
+    const base = {
       joints: Array.isArray(srcJoints) ? srcJoints.map(toPlainJoint) : [],
       beams:  Array.isArray(srcBeams)  ? srcBeams.map(toPlainConnector).filter(Boolean) : [],
       poles:  Array.isArray(srcPoles)  ? srcPoles.map(toPlainConnector).filter(Boolean) : [],
       legs:   Array.isArray(srcLegs)   ? srcLegs.map(toPlainLeg).filter(Boolean)  : [],
     };
+    try {
+      if (typeof window.v3BuildDrawingExtras === "function") {
+        const extra = window.v3BuildDrawingExtras();
+        if (extra && typeof extra === "object") {
+          Object.keys(extra).forEach(function (k) { base[k] = extra[k]; });
+        }
+      }
+    } catch (err) {
+      console.warn("[drawing] extras failed", err);
+    }
+    if (window.v3DrawingDocumentCache && typeof window.v3DrawingDocumentCache === "object") {
+      base.drawingDocument = window.v3DrawingDocumentCache;
+    }
+    return base;
   }
 
   // グローバルに公開
@@ -6692,6 +7286,9 @@ function initMaterialApplyButtonsUI() {
     lastSentHash = h;
 
     try {
+      localStorage.setItem("__cr_drawing_payload", JSON.stringify(payload));
+    } catch (e) {}
+    try {
       drawingWin.postMessage({ type: "CUBERACK_DRAWING_DATA", payload }, "*");
       setHint("図面に送信しました。");
     } catch {
@@ -6717,6 +7314,12 @@ function initMaterialApplyButtonsUI() {
     const timer = setInterval(() => {
       if (!drawingWin || drawingWin.closed) { clearInterval(timer); return; }
       if (drawingReady) {
+        sendToDrawing(true);
+        clearInterval(timer);
+        return;
+      }
+      if (Date.now() - t0 > 800) {
+        drawingReady = true;
         sendToDrawing(true);
         clearInterval(timer);
         return;

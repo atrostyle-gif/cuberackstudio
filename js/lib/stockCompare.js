@@ -49,7 +49,7 @@
     var u = m.toUpperCase();
     if (u === "STEEL" || u === "SS400" || u === "IRON") return "IRON";
     if (u === "STAINLESS" || u === "SUS304" || u === "SUS316" || u === "SUS") return "SUS";
-    if (u === "BRASS" || u === "BR") return "BR";
+    if (u === "BRASS" || u === "BR" || u === "BS") return "BR";
     return u || "IRON";
   }
 

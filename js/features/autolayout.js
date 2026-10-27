@@ -2,6 +2,63 @@
 // 自動レイアウト機能
 // =========================================================
 
+const RAISE_BOTTOM_POLE_MM = 100;
+
+function poleStagePitchMm(nominal) {
+  if (typeof window.getPoleCenterPitchMm === "function") {
+    const n = window.getPoleCenterPitchMm(nominal);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  const raw = Number(nominal);
+  return Number.isFinite(raw) && raw > 0 ? raw : 0;
+}
+
+// cfg.raiseBottom / cfg.bottomBeams を正規化する。
+// 下部Beam は値が無いとき従来どおり「あり」。立ち上げOFFなら床ビームは常に生成する。
+function resolveRaiseBottomOptions(cfg) {
+  const src = cfg && typeof cfg === "object" ? cfg : {};
+  const raiseRaw = src.raiseBottom;
+  const raiseBottom = raiseRaw === true || raiseRaw === 1 || raiseRaw === "on" || raiseRaw === "true";
+
+  let bottomBeams = true;
+  const beamRaw = src.bottomBeams;
+  if (beamRaw === false || beamRaw === 0 || beamRaw === "off" || beamRaw === "none" || beamRaw === "なし") {
+    bottomBeams = false;
+  }
+  if (src.omitBottomBeams === true || src.omitBottomBeams === 1 || src.omitBottomBeams === "on") {
+    bottomBeams = false;
+  }
+  if (beamRaw === true || beamRaw === 1 || beamRaw === "on" || beamRaw === "あり") {
+    bottomBeams = true;
+  }
+
+  const h = Number(src.raiseHeightMm);
+  const raiseHeightMm = Number.isFinite(h) && h > 0 ? h : RAISE_BOTTOM_POLE_MM;
+
+  return {
+    raiseBottom,
+    bottomBeams,
+    raiseHeightMm,
+  };
+}
+
+function applySelectModeAfterAutolayout() {
+  try {
+    if (window.v3CadToolbar && typeof window.v3CadToolbar.runCommand === "function") {
+      window.v3CadToolbar.runCommand("select");
+      return;
+    }
+    if (typeof window.v3SetToolMode === "function") {
+      window.v3SetToolMode("select");
+      return;
+    }
+    window.__V3_TOOL_MODE__ = "select";
+  } catch (e) {
+    console.warn("[autolayout] failed to switch to select", e);
+    window.__V3_TOOL_MODE__ = "select";
+  }
+}
+
 // 軸判定（X/Y/Zのみ）と「同じ列・行」抽出
 function getAlignedJointIndices(axis, baseJoint) {
   if (!axis || !baseJoint || !Array.isArray(joints)) return [];
@@ -72,9 +129,27 @@ function shiftClusterJointsOnSide(aIndex, bIndex, axis, delta, limitClusterId = 
   }
 }
 
+// 全置換で消える Joint を参照する棚板・壁板を、データとメッシュから捨てる。
+// remapBoardsForJointIndexMap を1回だけ使い、全要素 -1（残す Joint なし）にする。
+// 新しい Joint を作ったあとに呼ぶと、古い j4 が新インデックスへ誤結線するので、必ずクリア前に呼ぶ。
+function dropBoardsForReplacedJoints() {
+  try { window.clearBoardSelection?.(); } catch (e) {}
+  const n = Array.isArray(joints) ? joints.length : 0;
+  const indexMap = new Array(Math.max(n, 1)).fill(-1);
+  try {
+    window.remapBoardsForJointIndexMap?.(indexMap);
+  } catch (e) {
+    console.warn("[autolayout] board j4 drop failed", e);
+  }
+}
+
 // 指定のマトリクス設定からラックを自動生成（多段対応版）
 function buildAutoLayoutFromMatrix(cfg, mode = "replace") {
   if (!cfg) return;
+  if (window.v3WorkLayers && typeof window.v3WorkLayers.hasProtectedRack === "function" && window.v3WorkLayers.hasProtectedRack()) {
+    console.warn("[work-layers] refused autolayout");
+    return;
+  }
 
   // ★ 自動レイアウト開始：見積もり抑制ON
   window.__buildingAutoLayout = true;
@@ -172,6 +247,9 @@ function buildAutoLayoutFromMatrix(cfg, mode = "replace") {
   if (mode === "replace") {
     if (typeof saveHistory === "function") saveHistory();
 
+    // Joint 配列を空にする前に、古い棚板・壁板を破棄する（j4 の誤結線防止）
+    dropBoardsForReplacedJoints();
+
     // メッシュ削除
     jointMeshes.forEach((m, idx) => {
       if (!m) return;
@@ -219,6 +297,11 @@ function buildAutoLayoutFromMatrix(cfg, mode = "replace") {
   });
 
   const baseY = 0;
+  const raiseOpts = resolveRaiseBottomOptions(cfg);
+  const raiseBottom = !!raiseOpts.raiseBottom;
+  const bottomBeams = raiseOpts.bottomBeams !== false;
+  const raiseHeightMm = raiseOpts.raiseHeightMm; // SKU（既定 100）
+  const raiseY = baseY + poleStagePitchMm(raiseHeightMm);
 
   // ---- 3) どの交点にジョイントが必要かマークする（床レベル） ----
   // jointIndexGrid[zi][xi] = その位置の床ジョイントindex or null
@@ -265,27 +348,76 @@ function buildAutoLayoutFromMatrix(cfg, mode = "replace") {
     jointIndexGrid.push(row);
   }
 
-  // ---- 5) 床レベルのマスごとにビームを張る（ONマスだけ） ----
-  for (let zr = 0; zr < depthCount; zr++) {
-    for (let xc = 0; xc < widthCount; xc++) {
-      const rowFlags = enabledMatrix[zr] || [];
-      const isOn = rowFlags[xc];
-      if (!isOn) continue;
+  // ---- 5) 床レベル（LEG直上）のマスごとにビームを張る（ONマスだけ） ----
+  // 立ち上げ＋下部Beamなしのときだけ、この y=baseY のビームを省略する。
+  // JointBall / LEG / POLE100 / 上段ビームは省略しない。
+  if (!raiseBottom || bottomBeams) {
+    for (let zr = 0; zr < depthCount; zr++) {
+      for (let xc = 0; xc < widthCount; xc++) {
+        const rowFlags = enabledMatrix[zr] || [];
+        const isOn = rowFlags[xc];
+        if (!isOn) continue;
 
-      const j00 = jointIndexGrid[zr][xc];         // 手前・左
-      const j10 = jointIndexGrid[zr][xc + 1];     // 手前・右
-      const j01 = jointIndexGrid[zr + 1][xc];     // 奥・左
-      const j11 = jointIndexGrid[zr + 1][xc + 1]; // 奥・右
+        const j00 = jointIndexGrid[zr][xc];         // 手前・左
+        const j10 = jointIndexGrid[zr][xc + 1];     // 手前・右
+        const j01 = jointIndexGrid[zr + 1][xc];     // 奥・左
+        const j11 = jointIndexGrid[zr + 1][xc + 1]; // 奥・右
 
-      if (j00 == null || j10 == null || j01 == null || j11 == null) continue;
+        if (j00 == null || j10 == null || j01 == null || j11 == null) continue;
 
-      // 四辺にビームを張る（重複追加は local set で抑制）
-      connectBeam(j00, j10); // 手前横
-      connectBeam(j01, j11); // 奥横
-      connectBeam(j00, j01); // 左縦
-      connectBeam(j10, j11); // 右縦
+        // 四辺にビームを張る（重複追加は local set で抑制）
+        connectBeam(j00, j10); // 手前横
+        connectBeam(j01, j11); // 奥横
+        connectBeam(j00, j01); // 左縦
+        connectBeam(j10, j11); // 右縦
+      }
     }
   }
+
+  // ---- 5.5) 最下段立ち上げ：LEG直上ジョイント → POLE100 → 上端ジョイント ----
+  const raiseJointIndexGrid = [];
+  if (raiseBottom) {
+    for (let zi = 0; zi <= depthCount; zi++) {
+      const row = [];
+      for (let xi = 0; xi <= widthCount; xi++) {
+        if (usedJoint[zi][xi]) {
+          const floorIdx = jointIndexGrid[zi][xi];
+          const idx = getOrCreateJointAt({
+            x: xPos[xi] + baseOffsetX,
+            y: raiseY,
+            z: zPos[zi],
+          });
+          row.push(idx);
+          if (floorIdx != null) connectPole(floorIdx, idx);
+        } else {
+          row.push(null);
+        }
+      }
+      raiseJointIndexGrid.push(row);
+    }
+
+    // POLE100 上端側のビーム（下部Beam省略の対象外）
+    for (let zr = 0; zr < depthCount; zr++) {
+      for (let xc = 0; xc < widthCount; xc++) {
+        const rowFlags = enabledMatrix[zr] || [];
+        if (!rowFlags[xc]) continue;
+
+        const j00 = raiseJointIndexGrid[zr][xc];
+        const j10 = raiseJointIndexGrid[zr][xc + 1];
+        const j01 = raiseJointIndexGrid[zr + 1][xc];
+        const j11 = raiseJointIndexGrid[zr + 1][xc + 1];
+        if (j00 == null || j10 == null || j01 == null || j11 == null) continue;
+
+        connectBeam(j00, j10);
+        connectBeam(j01, j11);
+        connectBeam(j00, j01);
+        connectBeam(j10, j11);
+      }
+    }
+  }
+
+  const stageBaseY = raiseBottom ? raiseY : baseY;
+  const stageBaseGrid = raiseBottom ? raiseJointIndexGrid : jointIndexGrid;
 
   // ---- 6) 段設定から上方向にフレームを積み上げる（各段の「高さ＝ピッチ」として扱う） ----
   // 仕様維持のため「ポールの繋ぎ方（prev→next）」はセル単位で従来どおり。
@@ -337,9 +469,9 @@ function buildAutoLayoutFromMatrix(cfg, mode = "replace") {
         const v01 = vertexKey(xc, zr + 1);
         const v11 = vertexKey(xc + 1, zr + 1);
 
-        let accumulatedY = baseY; // 0
+        let accumulatedY = stageBaseY;
         for (let i = 0; i < pitchList.length; i++) {
-          accumulatedY += pitchList[i];
+          accumulatedY += poleStagePitchMm(pitchList[i]);
           const y = accumulatedY;
 
           addVertexAtY(y, v00);
@@ -399,11 +531,11 @@ function buildAutoLayoutFromMatrix(cfg, mode = "replace") {
         const pitchList = info?.heights;
         if (!Array.isArray(pitchList) || pitchList.length === 0) continue;
 
-        // 床の4隅（ポールを立てる起点）
-        const baseJ00 = jointIndexGrid[zr][xc];
-        const baseJ10 = jointIndexGrid[zr][xc + 1];
-        const baseJ01 = jointIndexGrid[zr + 1][xc];
-        const baseJ11 = jointIndexGrid[zr + 1][xc + 1];
+        // 段積みの起点（立ち上げ時は POLE100 上端）
+        const baseJ00 = stageBaseGrid[zr][xc];
+        const baseJ10 = stageBaseGrid[zr][xc + 1];
+        const baseJ01 = stageBaseGrid[zr + 1][xc];
+        const baseJ11 = stageBaseGrid[zr + 1][xc + 1];
         if (
           baseJ00 == null ||
           baseJ10 == null ||
@@ -418,14 +550,14 @@ function buildAutoLayoutFromMatrix(cfg, mode = "replace") {
         const v01 = vertexKey(xc, zr + 1);
         const v11 = vertexKey(xc + 1, zr + 1);
 
-        let accumulatedY = baseY; // 0
+        let accumulatedY = stageBaseY;
         let prevJ00 = baseJ00;
         let prevJ10 = baseJ10;
         let prevJ01 = baseJ01;
         let prevJ11 = baseJ11;
 
         for (let i = 0; i < pitchList.length; i++) {
-          accumulatedY += pitchList[i];
+          accumulatedY += poleStagePitchMm(pitchList[i]);
           const y = accumulatedY;
 
           const j00 = getJointIndexAtVertexY(v00, y);
@@ -468,6 +600,10 @@ function buildAutoLayoutFromMatrix(cfg, mode = "replace") {
 
    if (typeof window.setSelectedJoint === "function") window.setSelectedJoint(firstJointIndex);
 
+   window.__cubeRackHeightModel = (typeof window.getHeightModelVersion === "function")
+     ? window.getHeightModelVersion()
+     : "v31-h1";
+
    // ★ 自動レイアウト完了：見積もり抑制解除
    window.__buildingAutoLayout = false;
 
@@ -482,10 +618,16 @@ function buildAutoLayoutFromMatrix(cfg, mode = "replace") {
    }
 
    if (typeof saveHistory === "function") saveHistory();
+
+   applySelectModeAfterAutolayout();
 }
 
 // 外部（別ウィンドウ）からも呼べる 3D 自動レイアウト本体
 function autoGenerateModulesFromConfig(cfg) {
+  if (window.v3WorkLayers && typeof window.v3WorkLayers.hasProtectedRack === "function" && window.v3WorkLayers.hasProtectedRack()) {
+    console.warn("[work-layers] refused autolayout");
+    return;
+  }
   const nx = Math.max(1, cfg.nx | 0 || 1);
   const nz = Math.max(1, cfg.nz | 0 || 1);
   const ny = Math.max(1, cfg.ny | 0 || 1);
@@ -497,7 +639,7 @@ function autoGenerateModulesFromConfig(cfg) {
   // 履歴に現在状態を保存
   if (typeof saveHistory === "function") saveHistory();
 
-  // いったん全部クリア
+  // いったん全部クリア（clearAllDesign 内で棚板・壁板の j4 も破棄）
   if (typeof clearAllDesign === "function") clearAllDesign();
 
   // === グリッド座標を作る ===
@@ -577,6 +719,7 @@ function autoGenerateModulesFromConfig(cfg) {
 
   // ★ クラスター再構築
   rebuildJointClusters();
+  applySelectModeAfterAutolayout();
 }
 
 // joints / beams / poles から「ラックの島」を再計算する
@@ -837,6 +980,11 @@ function initAutoLayoutToolButton() {
   btn.__autoLayoutBound = true;
 
   btn.addEventListener("click", () => {
+    if (window.v3AutoLayoutPanel && typeof window.v3AutoLayoutPanel.open === "function") {
+      window.v3AutoLayoutPanel.open();
+      return;
+    }
+
     if (autoLayoutWindow && !autoLayoutWindow.closed) {
       autoLayoutWindow.focus();
       return;
@@ -855,6 +1003,8 @@ function initAutoLayoutToolButton() {
 }
 
 // グローバルに公開
+window.RAISE_BOTTOM_POLE_MM = RAISE_BOTTOM_POLE_MM;
+window.resolveRaiseBottomOptions = resolveRaiseBottomOptions;
 window.getAlignedJointIndices = getAlignedJointIndices;
 window.shiftClusterJointsOnSide = shiftClusterJointsOnSide;
 window.buildAutoLayoutFromMatrix = buildAutoLayoutFromMatrix;

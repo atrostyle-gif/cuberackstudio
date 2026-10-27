@@ -64,7 +64,7 @@ window.isOrderModeOn = false;
 window.currentPartType = currentPartType; // ★追加
 
 // 長さプリセット
-const BEAM_LENGTH_OPTIONS = [25, 50, 100, 150, 200, 300, 400, 600, 800];
+const BEAM_LENGTH_OPTIONS = [25, 50, 100, 150, 200, 300, 400, 500, 600, 800];
 const POLE_LENGTH_OPTIONS = [50, 100, 200, 300, 400, 500, 600, 800];
 
 function getCurrentLengthList() {
@@ -254,6 +254,13 @@ const _viewCubeQuat = new THREE.Quaternion();
   def("beams",  () => beams);
   def("poles",  () => poles);
 })();
+
+Object.defineProperty(window, "selectedJointIndex", {
+  configurable: true,
+  enumerable: true,
+  get: () => selectedJointIndex,
+  set: (v) => { selectedJointIndex = v; },
+});
 
 // グローバルに公開する関数と定数
 window.getCurrentLengthList = getCurrentLengthList;

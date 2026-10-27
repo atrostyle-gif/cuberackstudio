@@ -313,6 +313,23 @@
       background: #1f2937;
     }
 
+    .print-button button:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+
+    .unregistered-price {
+      color: #dc2626;
+      font-weight: 700;
+    }
+
+    #subtotalDisplay.is-unavailable,
+    #grandTotalDisplay.is-unavailable,
+    #subtotalCell.is-unavailable {
+      color: #dc2626;
+    }
+
     /* =========================
        印刷時（おまけ：影を消す）
     ========================= */
@@ -442,7 +459,7 @@
 
     <!-- 印刷ボタン -->
     <div class="print-button">
-      <button onclick="window.print()">印刷</button>
+      <button id="estimatePrintBtn" type="button" onclick="window.print()">印刷</button>
     </div>
   </div>
   
@@ -452,6 +469,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
   <script src="js/config/pricing-config.js"></script>
   <script src="js/data/parts-catalog.js"></script>
+  <script src="js/app/order-pricing.js"></script>
   <script src="js/data/price-loader.js"></script>
 
   <script>
@@ -465,11 +483,97 @@ const warningEl = document.getElementById("warning");
 const subtotalDisplay = document.getElementById("subtotalDisplay");
 const grandTotalDisplay = document.getElementById("grandTotalDisplay");
 const grandWeightDisplay = document.getElementById("grandWeightDisplay");
+let estimatePriceMode = "retail";
+
+function getPrintButton() {
+  return document.getElementById("estimatePrintBtn") || document.querySelector(".print-button button");
+}
+
+function setPrintEnabled(on) {
+  const btn = getPrintButton();
+  if (!btn) return;
+  btn.disabled = !on;
+  btn.title = on ? "" : "部材単価が登録されていません";
+}
+
+(function wrapPrint() {
+  const orig = window.print;
+  if (typeof orig !== "function" || orig.__estimateGuarded) return;
+  function guardedPrint() {
+    const btn = getPrintButton();
+    if (btn && btn.disabled) return;
+    return orig.apply(window, arguments);
+  }
+  guardedPrint.__estimateGuarded = true;
+  window.print = guardedPrint;
+})();
+
+function markUnregistered(tr, unregistered) {
+  if (!tr) return;
+  tr.dataset.unregistered = unregistered ? "1" : "0";
+  const unitInput = tr.querySelector(".cell-unit");
+  const tdUnit = unitInput ? unitInput.parentElement : null;
+  const subCell = tr.querySelector(".cell-subtotal");
+  let mark = tdUnit ? tdUnit.querySelector(".unregistered-price") : null;
+  if (unregistered) {
+    if (unitInput) {
+      unitInput.style.display = "none";
+      unitInput.value = "";
+    }
+    if (tdUnit && !mark) {
+      mark = document.createElement("span");
+      mark.className = "unregistered-price";
+      mark.textContent = "未登録";
+      tdUnit.appendChild(mark);
+    }
+    if (subCell) subCell.textContent = "—";
+  } else {
+    if (unitInput) unitInput.style.display = "";
+    if (mark) mark.remove();
+  }
+}
+
+function setIncompleteTotals(totalWeight) {
+  if (subtotalCell) {
+    subtotalCell.textContent = "—";
+    subtotalCell.classList.add("is-unavailable");
+  }
+  if (subtotalDisplay) {
+    subtotalDisplay.textContent = "算出不可";
+    subtotalDisplay.classList.add("is-unavailable");
+  }
+  if (grandTotalDisplay) {
+    grandTotalDisplay.textContent = "算出不可";
+    grandTotalDisplay.classList.add("is-unavailable");
+  }
+  if (grandWeightDisplay) grandWeightDisplay.textContent = formatWeight(totalWeight);
+  if (weightTotalCell) weightTotalCell.textContent = (Number(totalWeight) || 0).toLocaleString();
+  setPrintEnabled(false);
+}
+
+function setCompleteTotals(subtotal, totalWeight) {
+  if (subtotalCell) {
+    subtotalCell.textContent = subtotal.toLocaleString();
+    subtotalCell.classList.remove("is-unavailable");
+  }
+  if (subtotalDisplay) {
+    subtotalDisplay.textContent = `${subtotal.toLocaleString()} 円`;
+    subtotalDisplay.classList.remove("is-unavailable");
+  }
+  if (grandTotalDisplay) {
+    grandTotalDisplay.textContent = `${subtotal.toLocaleString()} 円（税込）`;
+    grandTotalDisplay.classList.remove("is-unavailable");
+  }
+  if (grandWeightDisplay) grandWeightDisplay.textContent = formatWeight(totalWeight);
+  if (weightTotalCell) weightTotalCell.textContent = (Number(totalWeight) || 0).toLocaleString();
+  setPrintEnabled(true);
+}
 
 // ★行の入力を全部見て再計算（値引きなし）
 function recalcTotals(expectedTotal) {
   let subtotal = 0;
   let totalWeight = 0;
+  let incomplete = false;
 
   tbody.querySelectorAll("tr").forEach((tr) => {
     const qtyInput  = tr.querySelector(".cell-qty");
@@ -477,32 +581,72 @@ function recalcTotals(expectedTotal) {
     const subCell   = tr.querySelector(".cell-subtotal");
     const unitWCell = tr.querySelector(".cell-unitweight");
     const rowWCell  = tr.querySelector(".cell-rowweight");
+    const matSelect = tr.querySelector(".cell-material");
 
     const qty = Number(qtyInput?.value) || 0;
-    const unitPrice = Number(unitInput?.value) || 0;
     const unitWeight = Number(unitWCell?.dataset?.weight) || 0;
+    let unitPrice = Number(unitInput?.value);
+    if (!Number.isFinite(unitPrice)) unitPrice = 0;
+    let sub = qty * unitPrice;
+    let registered = true;
 
-    const sub = qty * unitPrice;
+    const orderKey = tr.dataset.orderKey;
+    const partKey = tr.dataset.partKey;
+    let mat = tr.dataset.orderMaterial || tr.dataset.partMaterial || "IRON";
+    if (matSelect) mat = matSelect.value;
+    if (orderKey && typeof window.priceOrderLineFromKey === "function") {
+      try {
+        const result = window.priceOrderLineFromKey(orderKey, mat, qty);
+        if (result) {
+          unitPrice = result.unitRef || 0;
+          sub = result.total;
+          if (unitInput) unitInput.value = unitPrice;
+          tr.dataset.orderSetup = String(result.setupFee);
+          tr.dataset.orderMode = result.mode;
+        }
+      } catch (e) {
+        console.warn("[estimate] order recalc failed", e);
+      }
+      markUnregistered(tr, false);
+    } else if (partKey && typeof window.pricePartForEstimate === "function") {
+      const priced = window.pricePartForEstimate(partKey, mat, qty, estimatePriceMode);
+      if (priced && priced.registered === false) {
+        registered = false;
+        incomplete = true;
+        sub = null;
+        markUnregistered(tr, true);
+      } else if (estimatePriceMode === "wholesale" && priced && priced.registered) {
+        unitPrice = Number(priced.unitPrice);
+        sub = Number(priced.sub);
+        if (!Number.isFinite(unitPrice)) unitPrice = 0;
+        if (!Number.isFinite(sub)) sub = 0;
+        if (unitInput) unitInput.value = unitPrice;
+        markUnregistered(tr, false);
+      } else {
+        markUnregistered(tr, false);
+      }
+    } else {
+      markUnregistered(tr, false);
+    }
+
     const rowWeight = qty * unitWeight;
 
-    if (subCell) subCell.textContent = sub.toLocaleString();
+    if (subCell && registered) subCell.textContent = Number(sub).toLocaleString();
     if (rowWCell) rowWCell.textContent = formatWeight(rowWeight);
 
-    subtotal += sub;
+    if (registered && Number.isFinite(Number(sub))) subtotal += Number(sub);
     totalWeight += rowWeight;
   });
 
-  if (subtotalCell) subtotalCell.textContent = subtotal.toLocaleString();
-  if (weightTotalCell) weightTotalCell.textContent = totalWeight.toLocaleString();
-
-  // 値引き無し：grand = subtotal
-  if (subtotalDisplay) subtotalDisplay.textContent = `${subtotal.toLocaleString()} 円`;
-  if (grandTotalDisplay) grandTotalDisplay.textContent = `${subtotal.toLocaleString()} 円（税込）`;
-  if (grandWeightDisplay) grandWeightDisplay.textContent = formatWeight(totalWeight);
+  if (incomplete) {
+    setIncompleteTotals(totalWeight);
+  } else {
+    setCompleteTotals(subtotal, totalWeight);
+  }
 
   // expectedTotal は「互換で残す」だけ（警告ロジックは任意）
   if (warningEl) {
-    if (typeof expectedTotal === "number" && expectedTotal > 0 && Math.abs(expectedTotal - subtotal) > 1) {
+    if (!incomplete && typeof expectedTotal === "number" && expectedTotal > 0 && Math.abs(expectedTotal - subtotal) > 1) {
       warningEl.style.display = "block";
     } else {
       warningEl.style.display = "none";
@@ -518,42 +662,10 @@ function formatWeight(g) {
   return val.toLocaleString() + " g";
 }
 
-function parseCustomLen(key, prefix) {
-  // prefix例: "beam_custom_" / "pole_custom_"
-  if (!key || !key.startsWith(prefix)) return null;
-  const n = parseInt(key.slice(prefix.length), 10);
-  return Number.isFinite(n) ? n : null;
-}
-
-function ceilTo(n, step) {
-  if (!step || step <= 1) return n;
-  return Math.ceil(n / step) * step;
-}
-
-function calcOrderUnitPrice(kind, lengthMm) {
-  const rule = window.ORDER_RULES?.[kind];
-  if (!rule) return 0;
-
-  const mm0 = Math.max(rule.minMm || 1, Number(lengthMm) || 0);
-  const mm = ceilTo(mm0, rule.roundToMm || 1);
-
-  const price = (rule.baseFee || 0) + (rule.perMm || 0) * mm;
-  // 円なので整数に
-  return Math.round(price);
-}
-
 // =========================================================
 // Part Catalog helper（estimate.html 側）
-// - 正本: window.PARTS_CATALOG
-// - オーダー品: key から長さを抜いて「規格丸め + 按分5000円」を計算
+// オーダー品の金額は calcOrderTotal（CAD見積と同一）
 // =========================================================
-
-// オーダールール（固定）
-window.ORDER_MAX_MM = 1000;
-window.ORDER_FEE_TOTAL_YEN = 5000;
-
-// renderFromDraftEstimate() 内で計算して入れる（qty合計）
-window._orderSurchargePerPiece = 0;
 
 function _parseLenFromKey(key, prefix) {
   if (!key || !key.startsWith(prefix)) return null;
@@ -638,18 +750,9 @@ window.getPartInfo = function (partKey, material) {
         return;
       }
 
-      // --- オーダー基本価格（5000円をオーダー品の総本数で按分）---
-const orderQtyTotal = parts.reduce((sum, p) => {
-  const k = p?.key || "";
-  const q = Number(p?.qty) || 0;
-  if (k.startsWith("beam_custom_") || k.startsWith("pole_custom_")) {
-    return sum + q; // 本数は qty 合計
-  }
-  return sum;
-}, 0);
-
-window._orderSurchargePerPiece =
-  orderQtyTotal > 0 ? (window.ORDER_FEE_TOTAL_YEN / orderQtyTotal) : 0;
+      estimatePriceMode = data.priceMode === "wholesale" ? "wholesale" : "retail";
+      window.__ESTIMATE_PRINT_PRICE_MODE__ = estimatePriceMode;
+      if (data.incomplete) setPrintEnabled(false);
 
       tbody.innerHTML = "";
 
@@ -672,10 +775,33 @@ window._orderSurchargePerPiece =
         // nameが存在する場合はそれを優先（3D側で設定された部材名）、なければgetPartInfoのlabel、それもなければpartKey
         const name = p.name || info?.label || partKey;
         const qty = Number(p.qty) || 0;
-        const unitPrice = Number(info?.unitPrice) || 0;
         const unitWeight = Number(info?.unitWeightG) || 0;
+        let unitPrice = Number(info?.unitPrice) || 0;
+        let unregistered = false;
+        const isOrderPart = !!(window.parseOrderPartKey && window.parseOrderPartKey(partKey));
+        if (typeof window.pricePartForEstimate === "function") {
+          const priced = window.pricePartForEstimate(partKey, mat, qty, isOrderPart ? "retail" : estimatePriceMode);
+          if (priced && priced.registered) unitPrice = Number(priced.unitPrice);
+          else if (!isOrderPart) {
+            unregistered = true;
+            unitPrice = null;
+          }
+        } else if (isOrderPart && typeof window.priceOrderLineFromKey === "function") {
+          try {
+            const orderResult = window.priceOrderLineFromKey(partKey, mat, qty);
+            if (orderResult) unitPrice = orderResult.unitRef || 0;
+          } catch (e) {
+            console.warn("[estimate] order price failed", e);
+          }
+        }
 
         const tr = document.createElement("tr");
+        tr.dataset.partKey = partKey;
+        tr.dataset.partMaterial = mat;
+        if (isOrderPart) {
+          tr.dataset.orderKey = partKey;
+          tr.dataset.orderMaterial = mat;
+        }
 
         const tdNo = document.createElement("td");
         tdNo.textContent = index + 1;
@@ -762,7 +888,7 @@ window._orderSurchargePerPiece =
         unitInput.min = "0";
         unitInput.step = "10";
         unitInput.className = "cell-unit";
-        unitInput.value = unitPrice;
+        if (!unregistered) unitInput.value = unitPrice;
         tdUnit.appendChild(unitInput);
 
         const tdSub = document.createElement("td");
@@ -788,6 +914,7 @@ window._orderSurchargePerPiece =
         tr.appendChild(tdRowW);
 
         tbody.appendChild(tr);
+        if (unregistered) markUnregistered(tr, true);
 
         // 入力イベントで再計算
         qtyInput.addEventListener("input", () => recalcTotals(data.total));
@@ -815,8 +942,30 @@ window._orderSurchargePerPiece =
             }
             
             const newInfo = window.getPartInfo ? window.getPartInfo(partKey, matForGetPartInfo) : null;
-            const newUnitPrice = Number(newInfo?.unitPrice) || 0;
-            unitInput.value = newUnitPrice;
+            tr.dataset.orderMaterial = matForGetPartInfo;
+            tr.dataset.partMaterial = matForGetPartInfo;
+            if (tr.dataset.orderKey && typeof window.priceOrderLineFromKey === "function") {
+              try {
+                const orderResult = window.priceOrderLineFromKey(
+                  partKey,
+                  matForGetPartInfo,
+                  Number(qtyInput.value) || 0
+                );
+                if (orderResult) unitInput.value = orderResult.unitRef || 0;
+              } catch (e) {
+                console.warn("[estimate] order price failed", e);
+              }
+            } else if (estimatePriceMode === "wholesale" && typeof window.pricePartForEstimate === "function") {
+              const priced = window.pricePartForEstimate(partKey, matForGetPartInfo, Number(qtyInput.value) || 0, "wholesale");
+              if (priced && priced.registered) {
+                markUnregistered(tr, false);
+                unitInput.value = Number(priced.unitPrice);
+              } else {
+                markUnregistered(tr, true);
+              }
+            } else {
+              unitInput.value = Number(newInfo?.unitPrice) || 0;
+            }
             
             // 単重も更新（もし材質によって変わる場合）
             const newUnitWeight = Number(newInfo?.unitWeightG) || 0;
@@ -915,6 +1064,9 @@ window._orderSurchargePerPiece =
         renderFromDraftEstimate();
       }
     })();
+    window.addEventListener("cuberack:prices-loaded", function () {
+      if (typeof renderFromDraftEstimate === "function") renderFromDraftEstimate();
+    });
   </script>
 
   <div id="admin-menu-overlay" class="admin-menu-overlay hidden" aria-hidden="true">

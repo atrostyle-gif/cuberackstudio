@@ -8,7 +8,7 @@
     "jointBall", "jointCap", "topCap", "sideCap", "legBoss", "leg",
     "m5Screw", "beamNut",
     "beam_25", "beam_50", "beam_100", "beam_150", "beam_200",
-    "beam_300", "beam_400", "beam_600", "beam_800",
+    "beam_300", "beam_400", "beam_500", "beam_600", "beam_800",
     "pole_50", "pole_100", "pole_200", "pole_300", "pole_400",
     "pole_500", "pole_600", "pole_800",
   ];
@@ -107,6 +107,10 @@
       "partPriceByMaterial",
       "scaffoldBoardPrices",
       "scaffoldPanelPrices",
+      "partsWholesale",
+      "partWholesaleByMaterial",
+      "scaffoldBoardWholesalePrices",
+      "scaffoldPanelWholesalePrices",
       "orderRules",
       "orderPricing",
     ];
@@ -127,6 +131,7 @@
       }
     }
     if (!hasCatalogPayload(catalog)) return null;
+    unifyIronPrices(catalog);
     catalog.updatedAt = catalog.updatedAt || row.updated_at || null;
     catalog._source = "remote";
     return catalog;
@@ -162,8 +167,84 @@
     } catch (_) {}
   }
 
+  const SIZE_TABLE_ONLY_KEYS = { shelfBoard: true, wallPanel: true };
+
+  function isPricedCatalogKey(key, item) {
+    if (!key || SIZE_TABLE_ONLY_KEYS[key]) return false;
+    return !!(item && typeof item.unitPrice === "number" && Number.isFinite(item.unitPrice));
+  }
+
+  /**
+   * 旧 partsCatalog.unitPrice を IRON へ初回だけ引き継ぐ。
+   * ironPriceUnified 付きの JSON では unitPrice で IRON を上書きしない。
+   */
+  function unifyIronPrices(catalog) {
+    if (!isPlainObject(catalog)) return catalog;
+
+    const parts = isPlainObject(catalog.partsCatalog) ? catalog.partsCatalog : {};
+    if (!isPlainObject(catalog.partPriceByMaterial)) catalog.partPriceByMaterial = {};
+    const byMat = catalog.partPriceByMaterial;
+    const partsWs = isPlainObject(catalog.partsWholesale) ? catalog.partsWholesale : {};
+    let matWs = isPlainObject(catalog.partWholesaleByMaterial) ? catalog.partWholesaleByMaterial : null;
+    const already = catalog.ironPriceUnified === true;
+
+    const keys = new Set(Object.keys(parts).concat(Object.keys(byMat), Object.keys(partsWs)));
+    keys.forEach((key) => {
+      if (SIZE_TABLE_ONLY_KEYS[key]) return;
+      const item = parts[key];
+      const unitPrice = isPricedCatalogKey(key, item) ? item.unitPrice : null;
+      if (!already) {
+        if (unitPrice === null && !isPlainObject(byMat[key]) && !Object.prototype.hasOwnProperty.call(partsWs, key)) return;
+        if (unitPrice !== null || isPlainObject(byMat[key])) {
+          if (!isPlainObject(byMat[key])) byMat[key] = {};
+          if (unitPrice !== null) {
+            byMat[key].IRON = unitPrice;
+          }
+        }
+        if (Object.prototype.hasOwnProperty.call(partsWs, key)) {
+          if (!matWs) {
+            catalog.partWholesaleByMaterial = {};
+            matWs = catalog.partWholesaleByMaterial;
+          }
+          if (!isPlainObject(matWs[key])) matWs[key] = {};
+          if (!Object.prototype.hasOwnProperty.call(matWs[key], "IRON")) {
+            const n = Number(partsWs[key]);
+            if (Number.isFinite(n) && n >= 0) matWs[key].IRON = Math.round(n);
+          }
+        }
+      }
+      if (item && isPlainObject(byMat[key]) && typeof byMat[key].IRON === "number") {
+        item.unitPrice = byMat[key].IRON;
+      }
+    });
+
+    catalog.ironPriceUnified = true;
+    return catalog;
+  }
+
+  function syncUnitPriceFromIron(partsCatalog, partPriceByMaterial) {
+    if (!isPlainObject(partsCatalog) || !isPlainObject(partPriceByMaterial)) return;
+    Object.keys(partPriceByMaterial).forEach((key) => {
+      if (SIZE_TABLE_ONLY_KEYS[key]) return;
+      const row = partPriceByMaterial[key];
+      const item = partsCatalog[key];
+      if (item && isPlainObject(row) && typeof row.IRON === "number") {
+        item.unitPrice = row.IRON;
+      }
+    });
+  }
+
   function applyPriceCatalog(payload) {
     if (!payload || typeof payload !== "object") return false;
+
+    const hadPartsWholesale = Object.prototype.hasOwnProperty.call(payload, "partsWholesale");
+    const hadMatWholesale = Object.prototype.hasOwnProperty.call(payload, "partWholesaleByMaterial");
+    const hadBoardWholesale = Object.prototype.hasOwnProperty.call(payload, "scaffoldBoardWholesalePrices");
+    const hadPanelWholesale = Object.prototype.hasOwnProperty.call(payload, "scaffoldPanelWholesalePrices");
+
+    if (payload.partsCatalog || payload.partPriceByMaterial || payload.ironPriceUnified) {
+      unifyIronPrices(payload);
+    }
 
     if (payload.partsCatalog && window.PARTS_CATALOG) {
       mergeCatalogEntries(window.PARTS_CATALOG, payload.partsCatalog);
@@ -192,6 +273,34 @@
     if (payload.orderPricing && typeof window.applyOrderPricingOverrides === "function") {
       window.applyOrderPricingOverrides(payload.orderPricing);
     }
+    if (hadPartsWholesale) {
+      window.PARTS_WHOLESALE = isPlainObject(payload.partsWholesale)
+        ? JSON.parse(JSON.stringify(payload.partsWholesale))
+        : {};
+    }
+    if (hadMatWholesale) {
+      window.PART_WHOLESALE_BY_MATERIAL = isPlainObject(payload.partWholesaleByMaterial)
+        ? JSON.parse(JSON.stringify(payload.partWholesaleByMaterial))
+        : {};
+    } else if (isPlainObject(payload.partWholesaleByMaterial) && Object.keys(payload.partWholesaleByMaterial).length) {
+      window.PART_WHOLESALE_BY_MATERIAL = deepMerge(
+        window.PART_WHOLESALE_BY_MATERIAL || {},
+        payload.partWholesaleByMaterial
+      );
+    }
+    if (hadBoardWholesale) {
+      window.SCAFFOLD_BOARD_WHOLESALE_TABLE = isPlainObject(payload.scaffoldBoardWholesalePrices)
+        ? JSON.parse(JSON.stringify(payload.scaffoldBoardWholesalePrices))
+        : {};
+    }
+    if (hadPanelWholesale) {
+      window.SCAFFOLD_PANEL_WHOLESALE_TABLE = isPlainObject(payload.scaffoldPanelWholesalePrices)
+        ? JSON.parse(JSON.stringify(payload.scaffoldPanelWholesalePrices))
+        : {};
+    }
+
+    syncUnitPriceFromIron(window.PARTS_CATALOG, window.PART_PRICE_BY_MATERIAL);
+    window.__IRON_PRICE_UNIFIED__ = true;
 
     window.__PRICE_CATALOG_META__ = {
       version: payload.version ?? null,
@@ -209,9 +318,19 @@
   }
 
   function exportPriceCatalogSnapshot() {
+    unifyIronPrices({
+      partsCatalog: window.PARTS_CATALOG || {},
+      partPriceByMaterial: window.PART_PRICE_BY_MATERIAL || {},
+      partsWholesale: window.PARTS_WHOLESALE || {},
+      partWholesaleByMaterial: window.PART_WHOLESALE_BY_MATERIAL || {},
+      ironPriceUnified: window.__IRON_PRICE_UNIFIED__ === true,
+    });
+    window.__IRON_PRICE_UNIFIED__ = true;
+    syncUnitPriceFromIron(window.PARTS_CATALOG, window.PART_PRICE_BY_MATERIAL);
     return {
       version: 1,
       updatedAt: new Date().toISOString(),
+      ironPriceUnified: true,
       partsCatalog: JSON.parse(JSON.stringify(window.PARTS_CATALOG || {})),
       partPriceByMaterial: JSON.parse(
         JSON.stringify(window.PART_PRICE_BY_MATERIAL || {})
@@ -227,7 +346,36 @@
         typeof window.exportOrderPricingSnapshot === "function"
           ? window.exportOrderPricingSnapshot()
           : undefined,
+      partsWholesale: JSON.parse(JSON.stringify(window.PARTS_WHOLESALE || {})),
+      partWholesaleByMaterial: JSON.parse(
+        JSON.stringify(window.PART_WHOLESALE_BY_MATERIAL || {})
+      ),
+      scaffoldBoardWholesalePrices: JSON.parse(
+        JSON.stringify(window.SCAFFOLD_BOARD_WHOLESALE_TABLE || {})
+      ),
+      scaffoldPanelWholesalePrices: JSON.parse(
+        JSON.stringify(window.SCAFFOLD_PANEL_WHOLESALE_TABLE || {})
+      ),
     };
+  }
+
+  /**
+   * 卸価格入力。空欄は未登録、0 は有効。負数・非数は不正。
+   */
+  function parseWholesaleInput(raw) {
+    if (raw === null || raw === undefined) {
+      return { ok: true, registered: false, value: null };
+    }
+    const s = String(raw).trim();
+    if (s === "") return { ok: true, registered: false, value: null };
+    const n = Number(s);
+    if (!Number.isFinite(n)) {
+      return { ok: false, registered: false, value: null, error: "数値ではありません" };
+    }
+    if (n < 0) {
+      return { ok: false, registered: false, value: null, error: "0以上である必要があります" };
+    }
+    return { ok: true, registered: true, value: Math.round(n) };
   }
 
   /**
@@ -287,6 +435,31 @@
       }
     }
 
+    function checkWholesaleMap(map, field) {
+      if (!isPlainObject(map)) return;
+      for (const k of Object.keys(map)) {
+        const v = map[k];
+        if (isPlainObject(v)) {
+          for (const mat of Object.keys(v)) {
+            const n = v[mat];
+            if (typeof n !== "number" || !Number.isFinite(n) || n < 0) {
+              issue(k, field + "/" + mat, "卸価格が不正です");
+            } else {
+              checked++;
+            }
+          }
+        } else if (typeof v !== "number" || !Number.isFinite(v) || v < 0) {
+          issue(k, field, "卸価格が不正です");
+        } else {
+          checked++;
+        }
+      }
+    }
+    checkWholesaleMap(catalog.partsWholesale, "卸");
+    checkWholesaleMap(catalog.partWholesaleByMaterial, "材種別卸");
+    checkWholesaleMap(catalog.scaffoldBoardWholesalePrices, "棚板卸");
+    checkWholesaleMap(catalog.scaffoldPanelWholesalePrices, "壁板卸");
+
     return {
       ok: issues.length === 0,
       issues,
@@ -309,26 +482,55 @@
   }
 
   let loadPromise = null;
+  let forcePromise = null;
+
+  function emitPricesError(error, source) {
+    const message = (error && error.message) ? String(error.message) : String(error || "価格の取得に失敗しました");
+    window.__PRICE_CATALOG_META__ = {
+      source: source || "error",
+      error: message,
+      staleApplied: false,
+    };
+    try {
+      window.dispatchEvent(new CustomEvent("cuberack:prices-error", {
+        detail: { source: source || "error", error: message },
+      }));
+    } catch (_) {}
+  }
+
+  async function fetchRemoteCatalogLive() {
+    const fn = window.fetchRemoteCatalog;
+    if (typeof fn === "function") return fn();
+    return fetchRemoteCatalog();
+  }
 
   async function loadPriceCatalog(options = {}) {
-    if (loadPromise && !options.force) return loadPromise;
+    const force = !!options.force;
+    const skipCache = !!options.skipCache;
+    const allowStale = options.allowStale !== false;
 
-    loadPromise = (async () => {
+    if (force) {
+      if (forcePromise) return forcePromise;
+    } else if (loadPromise) {
+      return loadPromise;
+    }
+
+    const task = (async () => {
       if (!isRemoteConfigured()) {
         window.__PRICE_CATALOG_META__ = { source: "bundled" };
-        return { source: "bundled" };
+        return { ok: true, source: "bundled" };
       }
 
       const applyBundled = () => {
         window.__PRICE_CATALOG_META__ = { source: "bundled" };
-        return { source: "bundled" };
+        return { ok: true, source: "bundled" };
       };
 
-      if (!options.skipCache) {
+      if (!skipCache) {
         const cached = readCache();
         if (cached && hasCatalogPayload(cached)) {
           applyPriceCatalog({ ...cached, _source: "cache" });
-          fetchRemoteCatalog()
+          fetchRemoteCatalogLive()
             .then((fresh) => {
               if (!fresh) return;
               writeCache(fresh);
@@ -337,24 +539,33 @@
             .catch((e) =>
               console.warn("[price-loader] background refresh failed", e)
             );
-          return { source: "cache", data: cached };
+          return { ok: true, source: "cache", data: cached };
         }
       }
 
       try {
-        const remote = await fetchRemoteCatalog();
+        const remote = await fetchRemoteCatalogLive();
         if (remote) {
           writeCache(remote);
           applyPriceCatalog(remote);
-          return { source: "remote", data: remote };
+          return { ok: true, source: "remote", data: remote };
+        }
+        if (!allowStale) {
+          emitPricesError(new Error("最新の価格を取得できませんでした"), "empty");
+          return { ok: false, source: "empty" };
         }
         return applyBundled();
       } catch (e) {
+        if (!allowStale) {
+          console.warn("[price-loader] remote load failed, stale not applied", e);
+          emitPricesError(e, "error");
+          return { ok: false, source: "error", error: e };
+        }
         const stale = readCache();
         if (stale && hasCatalogPayload(stale)) {
           console.warn("[price-loader] remote failed, using stale cache", e);
           applyPriceCatalog({ ...stale, _source: "stale-cache" });
-          return { source: "stale-cache", data: stale, error: e };
+          return { ok: true, source: "stale-cache", data: stale, error: e };
         }
         console.warn(
           "[price-loader] remote load failed, using parts-catalog fallback",
@@ -364,7 +575,26 @@
       }
     })();
 
-    return loadPromise;
+    if (force) {
+      forcePromise = task;
+      try {
+        return await task;
+      } finally {
+        if (forcePromise === task) forcePromise = null;
+        loadPromise = null;
+      }
+    }
+
+    loadPromise = task;
+    return task;
+  }
+
+  function refreshPriceCatalog(options) {
+    return loadPriceCatalog(Object.assign({
+      force: true,
+      skipCache: true,
+      allowStale: false,
+    }, options || {}));
   }
 
   async function savePriceCatalog(payload, options = {}) {
@@ -405,5 +635,19 @@
   window.fetchRemoteCatalog = fetchRemoteCatalog;
   window.fetchSupabaseCatalog = fetchRemoteCatalog;
   window.loadPriceCatalog = loadPriceCatalog;
+  window.refreshPriceCatalog = refreshPriceCatalog;
   window.savePriceCatalog = savePriceCatalog;
+  window.parseWholesaleInput = parseWholesaleInput;
+  window.unifyIronPrices = unifyIronPrices;
+
+  if (window.PARTS_CATALOG && window.PART_PRICE_BY_MATERIAL) {
+    unifyIronPrices({
+      partsCatalog: window.PARTS_CATALOG,
+      partPriceByMaterial: window.PART_PRICE_BY_MATERIAL,
+      partsWholesale: window.PARTS_WHOLESALE || {},
+      partWholesaleByMaterial: window.PART_WHOLESALE_BY_MATERIAL || {},
+      ironPriceUnified: false,
+    });
+    window.__IRON_PRICE_UNIFIED__ = true;
+  }
 })();

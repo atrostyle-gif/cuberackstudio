@@ -1,0 +1,10 @@
+.git
+.github
+.netlify
+_drawing_samples
+_v3_phase11_test_data
+__LATEST__README.txt
+tests
+*.BACKUP.js
+*.md
+!netlify.toml

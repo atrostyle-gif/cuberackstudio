@@ -20,13 +20,15 @@ const camera = new THREE.PerspectiveCamera(
   45,
   viewWidth / viewHeight,
   1,
-  40000
+  500000
 );
 camera.position.set(1800, 1200, 1800);
 camera.lookAt(0, 0, 0);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+renderer.setPixelRatio(1);
 renderer.setSize(viewWidth, viewHeight);
+renderer.sortObjects = false;
 viewEl.appendChild(renderer.domElement);
 
 const controls = new THREE.OrbitControls(camera, renderer.domElement);

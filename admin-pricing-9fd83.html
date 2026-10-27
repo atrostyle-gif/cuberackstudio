@@ -33,7 +33,7 @@
     }
 
     .page {
-      max-width: 720px;
+      max-width: 920px;
       margin: 0 auto;
       padding: 48px 24px 80px;
     }
@@ -204,10 +204,158 @@
       background: var(--bg);
     }
 
+    td input[type="number"].input-wholesale {
+      width: 88px;
+    }
+
+    #tab-material {
+      overflow-x: auto;
+    }
+
+    #tab-material table {
+      width: 100%;
+      table-layout: fixed;
+      border-collapse: collapse;
+    }
+
+    #tab-material th,
+    #tab-material td {
+      padding: 8px 6px;
+      vertical-align: middle;
+    }
+
+    #tab-material th {
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 11px;
+    }
+
+    #tab-material th.mat-head {
+      text-align: center;
+      font-size: 12px;
+    }
+
+    #tab-material th.price-sub {
+      text-align: center;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    #tab-material .col-name {
+      width: 22%;
+    }
+
+    #tab-material td.col-name {
+      font-size: 12px;
+      line-height: 1.3;
+    }
+
+    #tab-material .mat-g {
+      border-left: 1px solid rgba(60, 60, 67, 0.22);
+    }
+
+    #tab-material input[type="number"],
+    #tab-board input[type="number"],
+    #tab-panel input[type="number"] {
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      height: 32px;
+      padding: 6px 8px 6px 4px;
+      font-size: 13px;
+      text-align: right;
+    }
+
+    #tab-material input[type="number"].input-wholesale,
+    #tab-board input[type="number"].input-wholesale,
+    #tab-panel input[type="number"].input-wholesale {
+      width: 100%;
+    }
+
+    #tab-board td,
+    #tab-panel td {
+      vertical-align: middle;
+    }
+
+    @media (max-width: 720px) {
+      #tab-material table {
+        min-width: 680px;
+      }
+      #tab-material input[type="number"] {
+        min-width: 64px;
+      }
+    }
+
+    .order-coeff {
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .order-note {
+      margin: 4px 20px 12px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
     td input[type="number"]:focus {
       outline: none;
       border-color: var(--accent);
-      background: #fff;
+    }
+
+    .order-setup {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      padding: 16px 20px 8px;
+    }
+    .order-setup label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .order-setup input,
+    .order-preview select,
+    .order-preview input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      background: var(--bg);
+    }
+    .order-preview {
+      margin: 8px 20px 16px;
+      padding: 16px;
+      background: var(--bg);
+      border-radius: 12px;
+    }
+    .order-preview h3 {
+      margin: 0 0 12px;
+      font-size: 14px;
+    }
+    .order-preview-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr auto;
+      gap: 8px;
+      align-items: end;
+    }
+    .order-preview-grid label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .order-preview-result {
+      margin-top: 12px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .order-preview-error { color: var(--danger); }
+    @media (max-width: 720px) {
+      .order-setup,
+      .order-preview-grid { grid-template-columns: 1fr 1fr; }
     }
 
     .hidden { display: none !important; }
@@ -288,6 +436,9 @@
       <div style="margin-top:20px;">
         <button type="button" class="btn btn-primary" id="btnLogin" style="width:100%;">ログイン</button>
       </div>
+      <div style="margin-top:12px;">
+        <button type="button" class="btn btn-secondary" id="btnBackCadLogin" style="width:100%;">CADに戻る</button>
+      </div>
       <div id="loginError" class="login-error"></div>
     </div>
   </div>
@@ -299,6 +450,7 @@
       <div class="toolbar">
         <button type="button" class="btn btn-primary" id="btnSave" disabled>💾 保存</button>
         <button type="button" class="btn btn-secondary" id="btnManage">⚙ 管理</button>
+        <button type="button" class="btn btn-secondary" id="btnBackCad">CADに戻る</button>
       </div>
       <div id="editState" class="edit-state is-saved">✔ 保存済み</div>
     </div>
@@ -307,15 +459,15 @@
 
     <div class="card card--flush">
       <div class="tabs">
-        <button type="button" class="tab active" data-tab="basic">基本パーツ</button>
-        <button type="button" class="tab" data-tab="material">材種別</button>
+        <button type="button" class="tab active" data-tab="material">材種別</button>
         <button type="button" class="tab" data-tab="board">棚板</button>
         <button type="button" class="tab" data-tab="panel">壁板</button>
+        <button type="button" class="tab" data-tab="order">オーダー計算</button>
       </div>
-      <div class="tab-panel" id="tab-basic"></div>
-      <div class="tab-panel hidden" id="tab-material"></div>
+      <div class="tab-panel" id="tab-material"></div>
       <div class="tab-panel hidden" id="tab-board"></div>
       <div class="tab-panel hidden" id="tab-panel"></div>
+      <div class="tab-panel hidden" id="tab-order"></div>
     </div>
   </div>
 
@@ -348,7 +500,16 @@
     const manageSheet = document.getElementById("manageSheet");
     const integrityPanel = document.getElementById("integrityPanel");
 
-    let catalog = { partsCatalog: {}, partPriceByMaterial: {}, scaffoldBoardPrices: {}, scaffoldPanelPrices: {} };
+    let catalog = {
+      partsCatalog: {},
+      partPriceByMaterial: {},
+      scaffoldBoardPrices: {},
+      scaffoldPanelPrices: {},
+      partsWholesale: {},
+      partWholesaleByMaterial: {},
+      scaffoldBoardWholesalePrices: {},
+      scaffoldPanelWholesalePrices: {},
+    };
     let savedSnapshot = "";
     let sessionPassword = "";
     let isSaving = false;
@@ -406,21 +567,88 @@
       return (window.PRICING_CONFIG && window.PRICING_CONFIG.adminPassword) || "";
     }
 
+    function parseWholesaleCell(raw) {
+      if (typeof window.parseWholesaleInput === "function") {
+        return window.parseWholesaleInput(raw);
+      }
+      if (raw === null || raw === undefined || String(raw).trim() === "") {
+        return { ok: true, registered: false, value: null };
+      }
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n < 0) return { ok: false, registered: false, value: null };
+      return { ok: true, registered: true, value: Math.round(n) };
+    }
+
+    function wholesaleDisplay(value) {
+      if (value === 0) return "0";
+      if (value === undefined || value === null || value === "") return "";
+      return String(value);
+    }
+
+    function deleteIfEmptyObject(obj, key) {
+      if (obj && obj[key] && typeof obj[key] === "object" && Object.keys(obj[key]).length === 0) {
+        delete obj[key];
+      }
+    }
+
+    function applyMaterialWholesaleInput(key, mat, raw) {
+      const parsed = parseWholesaleCell(raw);
+      if (!parsed.ok || !mat) return;
+      if (!catalog.partWholesaleByMaterial[key]) catalog.partWholesaleByMaterial[key] = {};
+      if (parsed.registered) {
+        catalog.partWholesaleByMaterial[key][mat] = parsed.value;
+      } else {
+        delete catalog.partWholesaleByMaterial[key][mat];
+        deleteIfEmptyObject(catalog.partWholesaleByMaterial, key);
+      }
+    }
+
+    function applySizeWholesaleInput(group, key, raw) {
+      const parsed = parseWholesaleCell(raw);
+      if (!parsed.ok) return;
+      if (!catalog[group]) catalog[group] = {};
+      if (parsed.registered) {
+        catalog[group][key] = parsed.value;
+      } else {
+        delete catalog[group][key];
+      }
+    }
+
+    function readWholesaleFromDom() {
+      const errors = [];
+      function check(raw, label) {
+        const parsed = parseWholesaleCell(raw);
+        if (!parsed.ok) errors.push(label + " の卸価格が不正です");
+        return parsed;
+      }
+      document.querySelectorAll("tr[data-group]").forEach((tr) => {
+        const group = tr.dataset.group;
+        const key = tr.dataset.key;
+        if (!group || !key) return;
+        if (group === "partPriceByMaterial") {
+          tr.querySelectorAll("input[data-wholesale-mat]").forEach((inp) => {
+            check(inp.value, key + " " + inp.dataset.wholesaleMat);
+          });
+        } else if (group === "scaffoldBoardPrices" || group === "scaffoldPanelPrices") {
+          const kind = group === "scaffoldBoardPrices" ? "棚板" : "壁板";
+          check(tr.querySelector('input[data-field="wholesale"]')?.value, kind + " " + key);
+        }
+      });
+      return { ok: errors.length === 0, errors };
+    }
+
     function collectFromDom() {
+      if (!catalog.partsWholesale) catalog.partsWholesale = {};
+      if (!catalog.partWholesaleByMaterial) catalog.partWholesaleByMaterial = {};
+      if (!catalog.scaffoldBoardWholesalePrices) catalog.scaffoldBoardWholesalePrices = {};
+      if (!catalog.scaffoldPanelWholesalePrices) catalog.scaffoldPanelWholesalePrices = {};
+
       document.querySelectorAll("tr[data-group]").forEach((tr) => {
         const group = tr.dataset.group;
         const key = tr.dataset.key;
         if (!group || !key) return;
 
-        if (group === "partsCatalog") {
-          const input = tr.querySelector('input[data-field="unitPrice"]');
-          const price = Number(input?.value) || 0;
-          if (!catalog.partsCatalog[key]) catalog.partsCatalog[key] = {};
-          catalog.partsCatalog[key].unitPrice = price;
-          if (catalog.partPriceByMaterial[key]) {
-            catalog.partPriceByMaterial[key].IRON = price;
-          }
-        } else if (group === "partPriceByMaterial") {
+        if (group === "partPriceByMaterial") {
           if (!catalog.partPriceByMaterial[key]) catalog.partPriceByMaterial[key] = {};
           tr.querySelectorAll("input[data-mat]").forEach((inp) => {
             const mat = inp.dataset.mat;
@@ -428,11 +656,29 @@
             if (v === "") return;
             catalog.partPriceByMaterial[key][mat] = Number(v) || 0;
           });
+          const iron = catalog.partPriceByMaterial[key].IRON;
+          if (typeof iron === "number" && catalog.partsCatalog[key]) {
+            catalog.partsCatalog[key].unitPrice = iron;
+          }
+          tr.querySelectorAll("input[data-wholesale-mat]").forEach((inp) => {
+            applyMaterialWholesaleInput(key, inp.dataset.wholesaleMat, inp.value);
+          });
         } else if (group === "scaffoldBoardPrices" || group === "scaffoldPanelPrices") {
-          const input = tr.querySelector("input");
+          const input = tr.querySelector('input[data-field="unitPrice"]');
           catalog[group][key] = Number(input?.value) || 0;
+          const wsGroup = group === "scaffoldBoardPrices"
+            ? "scaffoldBoardWholesalePrices"
+            : "scaffoldPanelWholesalePrices";
+          applySizeWholesaleInput(wsGroup, key, tr.querySelector('input[data-field="wholesale"]')?.value);
         }
       });
+      if (document.getElementById("tab-order")) {
+        const read = readOrderPricingFromDom();
+        if (read.ok) {
+          const prev = catalog.orderPricing || {};
+          catalog.orderPricing = Object.assign({}, prev, read.data);
+        }
+      }
     }
 
     function bindTableInputs() {
@@ -448,57 +694,270 @@
         : keys.slice().sort();
     }
 
-    function renderBasicTable() {
-      const el = document.getElementById("tab-basic");
-      const keys = sortKeys(
-        Object.keys(catalog.partsCatalog || {}).filter((k) => {
-          const v = catalog.partsCatalog[k];
-          return v && typeof v.unitPrice === "number";
-        })
-      );
-      el.innerHTML = `<table><thead><tr><th>キー</th><th>名称</th><th>単価</th></tr></thead><tbody>${
-        keys.map((k) => {
-          const item = catalog.partsCatalog[k];
-          return `<tr data-group="partsCatalog" data-key="${k}">
-            <td>${k}</td><td>${item.label || ""}</td>
-            <td><input type="number" min="0" step="1" value="${item.unitPrice || 0}" data-field="unitPrice" /></td>
-          </tr>`;
-        }).join("")
-      }</tbody></table>`;
+    function materialPriceKeys() {
+      const keys = new Set(Object.keys(catalog.partPriceByMaterial || {}));
+      Object.keys(catalog.partsCatalog || {}).forEach((k) => {
+        if (k === "shelfBoard" || k === "wallPanel") return;
+        const v = catalog.partsCatalog[k];
+        if (v && typeof v.unitPrice === "number") keys.add(k);
+      });
+      return sortKeys([...keys]);
     }
 
     function renderMaterialTable() {
       const el = document.getElementById("tab-material");
       const map = catalog.partPriceByMaterial || {};
-      const keys = sortKeys(Object.keys(map));
-      el.innerHTML = `<table><thead><tr><th>キー</th><th>IRON</th><th>BS</th><th>SUS</th></tr></thead><tbody>${
+      const wsMap = catalog.partWholesaleByMaterial || {};
+      const keys = materialPriceKeys();
+      el.innerHTML = `<table>
+        <colgroup>
+          <col class="col-name" />
+          <col /><col /><col /><col /><col /><col />
+        </colgroup>
+        <thead>
+          <tr>
+            <th rowspan="2" class="col-name">部材名</th>
+            <th colspan="2" class="mat-head mat-g">IRON</th>
+            <th colspan="2" class="mat-head mat-g">BS</th>
+            <th colspan="2" class="mat-head mat-g">SUS</th>
+          </tr>
+          <tr>
+            <th class="price-sub mat-g">小売価格</th>
+            <th class="price-sub">卸価格</th>
+            <th class="price-sub mat-g">小売価格</th>
+            <th class="price-sub">卸価格</th>
+            <th class="price-sub mat-g">小売価格</th>
+            <th class="price-sub">卸価格</th>
+          </tr>
+        </thead>
+        <tbody>${
         keys.map((k) => {
           const row = map[k] || {};
+          const ws = wsMap[k] || {};
+          const label = (catalog.partsCatalog[k] && catalog.partsCatalog[k].label) || k;
           return `<tr data-group="partPriceByMaterial" data-key="${k}">
-            <td>${k}</td>
-            <td><input type="number" min="0" step="1" value="${row.IRON ?? ""}" data-mat="IRON" /></td>
-            <td><input type="number" min="0" step="1" value="${row.BS ?? ""}" data-mat="BS" /></td>
-            <td><input type="number" min="0" step="1" value="${row.SUS ?? ""}" data-mat="SUS" /></td>
+            <td class="col-name">${label}</td>
+            <td class="mat-g"><input type="number" min="0" step="1" value="${row.IRON ?? ""}" data-mat="IRON" /></td>
+            <td><input type="number" min="0" step="1" class="input-wholesale" value="${wholesaleDisplay(ws.IRON)}" data-wholesale-mat="IRON" /></td>
+            <td class="mat-g"><input type="number" min="0" step="1" value="${row.BS ?? ""}" data-mat="BS" /></td>
+            <td><input type="number" min="0" step="1" class="input-wholesale" value="${wholesaleDisplay(ws.BS)}" data-wholesale-mat="BS" /></td>
+            <td class="mat-g"><input type="number" min="0" step="1" value="${row.SUS ?? ""}" data-mat="SUS" /></td>
+            <td><input type="number" min="0" step="1" class="input-wholesale" value="${wholesaleDisplay(ws.SUS)}" data-wholesale-mat="SUS" /></td>
           </tr>`;
         }).join("")
       }</tbody></table>`;
     }
 
-    function renderSizeTable(targetId, groupName, tableObj) {
+    function renderSizeTable(targetId, groupName, tableObj, wholesaleObj) {
       const el = document.getElementById(targetId);
       const keys = Object.keys(tableObj || {}).sort();
-      el.innerHTML = `<table><thead><tr><th>サイズ</th><th>単価</th></tr></thead><tbody>${
+      const ws = wholesaleObj || {};
+      el.innerHTML = `<table><thead><tr><th>サイズ</th><th>通常価格</th><th>卸価格</th></tr></thead><tbody>${
         keys.map((k) => `<tr data-group="${groupName}" data-key="${k}">
-          <td>${k}</td><td><input type="number" min="0" step="1" value="${tableObj[k] || 0}" /></td>
+          <td>${k}</td>
+          <td><input type="number" min="0" step="1" value="${tableObj[k] || 0}" data-field="unitPrice" /></td>
+          <td><input type="number" min="0" step="1" class="input-wholesale" value="${wholesaleDisplay(ws[k])}" data-field="wholesale" /></td>
         </tr>`).join("")
       }</tbody></table>`;
     }
 
+    const ORDER_GROUPS = [
+      ["IRON", "BEAM"], ["IRON", "POLE"],
+      ["BS", "BEAM"], ["BS", "POLE"],
+      ["SUS", "BEAM"], ["SUS", "POLE"],
+    ];
+
+    function defaultOrderPricing() {
+      if (typeof window.exportOrderPricingSnapshot === "function") {
+        return window.exportOrderPricingSnapshot();
+      }
+      return { params: {}, setupFeeCut: 3000, setupFeeBuild: 6000 };
+    }
+
+    function currentOrderPricing() {
+      const base = defaultOrderPricing();
+      const saved = catalog.orderPricing || {};
+      return {
+        params: window.deepMergePriceCatalog
+          ? window.deepMergePriceCatalog(base.params || {}, saved.params || {})
+          : Object.assign({}, base.params, saved.params),
+        setupFeeCut: saved.setupFeeCut !== undefined ? saved.setupFeeCut : base.setupFeeCut,
+        setupFeeBuild: saved.setupFeeBuild !== undefined ? saved.setupFeeBuild : base.setupFeeBuild,
+        stockPrice: saved.stockPrice || base.stockPrice,
+      };
+    }
+
+    function renderOrderTab() {
+      const el = document.getElementById("tab-order");
+      const op = currentOrderPricing();
+      const rows = ORDER_GROUPS.map(([mat, type]) => {
+        const g = (op.params && op.params[mat] && op.params[mat][type]) || {};
+        return `<tr data-order-mat="${mat}" data-order-type="${type}">
+          <td>${mat}</td><td>${type === "BEAM" ? "Beam" : "Pole"}</td>
+          <td class="order-coeff">${g.A ?? ""}</td>
+          <td class="order-coeff">${g.B ?? ""}</td>
+          <td><input type="number" step="0.01" data-order-field="k_cut" value="${g.k_cut ?? ""}" /></td>
+          <td><input type="number" step="0.01" data-order-field="k_build" value="${g.k_build ?? ""}" /></td>
+        </tr>`;
+      }).join("");
+      el.innerHTML = `
+        <div class="order-setup">
+          <div>
+            <label for="order-setup-cut">800mm以下 セットアップ費（円）</label>
+            <input id="order-setup-cut" type="number" min="0" step="1" value="${op.setupFeeCut}" />
+          </div>
+          <div>
+            <label for="order-setup-build">801mm以上 セットアップ費（円）</label>
+            <input id="order-setup-build" type="number" min="0" step="1" value="${op.setupFeeBuild}" />
+          </div>
+        </div>
+        <p class="order-note">基本価格係数（A）と長さ係数（B）は表示のみです。保存時も既存値を維持します。オーダー Beam／Pole に卸価格はありません。</p>
+        <table>
+          <thead><tr><th>材質</th><th>種類</th><th>基本価格係数（A）</th><th>長さ係数（B）</th><th>800mm以下 倍率</th><th>801mm以上 倍率</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div class="order-preview">
+          <h3>計算プレビュー</h3>
+          <div class="order-preview-grid">
+            <div><label>種類</label><select id="order-preview-type"><option value="BEAM">Beam</option><option value="POLE">Pole</option></select></div>
+            <div><label>材質</label><select id="order-preview-mat"><option>IRON</option><option>BS</option><option>SUS</option></select></div>
+            <div><label>長さ mm</label><input id="order-preview-len" type="number" min="1" step="1" value="450" /></div>
+            <div><label>数量</label><input id="order-preview-qty" type="number" min="1" step="1" value="2" /></div>
+            <div><button type="button" class="btn btn-secondary" id="order-preview-btn">再計算</button></div>
+          </div>
+          <div class="order-preview-result" id="order-preview-result"></div>
+        </div>`;
+      bindOrderPreview();
+      runOrderPreview();
+    }
+
+    function readOrderPricingFromDom() {
+      const setupCutRaw = document.getElementById("order-setup-cut")?.value;
+      const setupBuildRaw = document.getElementById("order-setup-build")?.value;
+      const params = { IRON: { BEAM: {}, POLE: {} }, BS: { BEAM: {}, POLE: {} }, SUS: { BEAM: {}, POLE: {} } };
+      const errors = [];
+      function needNumber(raw, label, allowZero) {
+        if (raw === undefined || raw === null || String(raw).trim() === "") {
+          errors.push(label + " が未入力です");
+          return null;
+        }
+        const n = Number(raw);
+        if (!Number.isFinite(n)) {
+          errors.push(label + " が数値ではありません");
+          return null;
+        }
+        if (!allowZero && n <= 0) {
+          errors.push(label + " は 0 より大きい必要があります");
+          return null;
+        }
+        if (allowZero && n < 0) {
+          errors.push(label + " は 0 以上である必要があります");
+          return null;
+        }
+        return n;
+      }
+      const setupFeeCut = needNumber(setupCutRaw, "800mm以下 セットアップ費", true);
+      const setupFeeBuild = needNumber(setupBuildRaw, "801mm以上 セットアップ費", true);
+      const defaultParams = defaultOrderPricing().params || {};
+      const prevParams = (catalog.orderPricing && catalog.orderPricing.params) || {};
+      document.querySelectorAll("#tab-order tr[data-order-mat]").forEach((tr) => {
+        const mat = tr.dataset.orderMat;
+        const type = tr.dataset.orderType;
+        const label = mat + " " + type;
+        const get = (field) => tr.querySelector('[data-order-field="' + field + '"]')?.value;
+        const prevG = Object.assign(
+          {},
+          (defaultParams[mat] && defaultParams[mat][type]) || {},
+          (prevParams[mat] && prevParams[mat][type]) || {}
+        );
+        const k_cut = needNumber(get("k_cut"), label + " の 800mm以下 倍率", false);
+        const k_build = needNumber(get("k_build"), label + " の 801mm以上 倍率", false);
+        if (k_cut !== null && k_build !== null) {
+          params[mat][type] = {
+            A: prevG.A,
+            B: prevG.B,
+            k_cut,
+            k_build,
+          };
+        }
+      });
+      return {
+        ok: errors.length === 0,
+        errors,
+        data: {
+          params,
+          setupFeeCut: setupFeeCut === null ? undefined : Math.round(setupFeeCut),
+          setupFeeBuild: setupFeeBuild === null ? undefined : Math.round(setupFeeBuild),
+        },
+      };
+    }
+
+    function applyOrderPricingFromDom() {
+      const read = readOrderPricingFromDom();
+      if (!read.ok) return read;
+      const prev = catalog.orderPricing || {};
+      catalog.orderPricing = Object.assign({}, prev, read.data);
+      if (prev.stockPrice && !catalog.orderPricing.stockPrice) {
+        catalog.orderPricing.stockPrice = prev.stockPrice;
+      }
+      if (typeof window.applyOrderPricingOverrides === "function") {
+        window.applyOrderPricingOverrides(catalog.orderPricing);
+      }
+      return read;
+    }
+
+    function runOrderPreview() {
+      const out = document.getElementById("order-preview-result");
+      if (!out) return;
+      const read = applyOrderPricingFromDom();
+      if (!read.ok) {
+        out.innerHTML = '<div class="order-preview-error">' + read.errors[0] + "</div>";
+        return;
+      }
+      if (typeof window.calcOrderTotal !== "function") {
+        out.textContent = "計算エンジンが読み込まれていません";
+        return;
+      }
+      const type = document.getElementById("order-preview-type")?.value || "BEAM";
+      const material = document.getElementById("order-preview-mat")?.value || "IRON";
+      const lengthMm = Number(document.getElementById("order-preview-len")?.value);
+      const qty = Number(document.getElementById("order-preview-qty")?.value);
+      try {
+        const r = window.calcOrderTotal({ type, material, lengthMm, qty });
+        const modeLabel = r.mode === "BUILD" ? "801mm以上" : "800mm以下";
+        out.innerHTML =
+          "適用区分: <strong>" + modeLabel + "</strong>　" +
+          "セットアップ費: " + Number(r.setupFee).toLocaleString() + " 円<br>" +
+          "変動単価: " + Number(r.variableEach).toLocaleString() + " 円　" +
+          "合計: <strong>" + Number(r.total).toLocaleString() + " 円</strong>　" +
+          "参考単価: " + Number(r.unitRef).toLocaleString() + " 円";
+      } catch (e) {
+        out.innerHTML = '<div class="order-preview-error">' + (e && e.message ? e.message : "計算に失敗しました") + "</div>";
+      }
+    }
+
+    function bindOrderPreview() {
+      const btn = document.getElementById("order-preview-btn");
+      if (btn) btn.addEventListener("click", runOrderPreview);
+      ["order-preview-type", "order-preview-mat", "order-preview-len", "order-preview-qty"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener("input", runOrderPreview);
+        if (el) el.addEventListener("change", runOrderPreview);
+      });
+      document.querySelectorAll("#tab-order input").forEach((inp) => {
+        inp.addEventListener("input", () => {
+          onCatalogEdited();
+          runOrderPreview();
+        });
+        inp.addEventListener("change", onCatalogEdited);
+      });
+    }
+
     function renderAll() {
-      renderBasicTable();
       renderMaterialTable();
-      renderSizeTable("tab-board", "scaffoldBoardPrices", catalog.scaffoldBoardPrices);
-      renderSizeTable("tab-panel", "scaffoldPanelPrices", catalog.scaffoldPanelPrices);
+      renderSizeTable("tab-board", "scaffoldBoardPrices", catalog.scaffoldBoardPrices, catalog.scaffoldBoardWholesalePrices);
+      renderSizeTable("tab-panel", "scaffoldPanelPrices", catalog.scaffoldPanelPrices, catalog.scaffoldPanelWholesalePrices);
+      renderOrderTab();
       bindTableInputs();
     }
 
@@ -512,6 +971,9 @@
         catalog = cloneCatalog(remote);
       } else if (typeof window.exportPriceCatalogSnapshot === "function") {
         catalog = window.exportPriceCatalogSnapshot();
+      }
+      if (typeof window.unifyIronPrices === "function") {
+        window.unifyIronPrices(catalog);
       }
       renderAll();
       markSavedBaseline();
@@ -626,6 +1088,20 @@
 
     btnSave.addEventListener("click", async () => {
       if (isSaving || !isDirty()) return;
+      const orderCheck = readOrderPricingFromDom();
+      if (document.getElementById("tab-order") && !orderCheck.ok) {
+        setEditState("error");
+        editStateEl.textContent = orderCheck.errors[0] || "オーダー計算の値が不正です";
+        editStateEl.className = "edit-state is-error";
+        return;
+      }
+      const wholesaleCheck = readWholesaleFromDom();
+      if (!wholesaleCheck.ok) {
+        setEditState("error");
+        editStateEl.textContent = wholesaleCheck.errors[0] || "卸価格の値が不正です";
+        editStateEl.className = "edit-state is-error";
+        return;
+      }
       collectFromDom();
       if (!sessionPassword) {
         showLogin();
@@ -635,9 +1111,11 @@
       setEditState("saving");
       try {
         catalog.updatedAt = new Date().toISOString();
+        catalog.ironPriceUnified = true;
         await window.savePriceCatalog(catalog, { adminPassword: sessionPassword });
         isSaving = false;
         markSavedBaseline();
+        notifyCad("cuberack:prices-saved");
       } catch (_) {
         isSaving = false;
         setEditState("error");
@@ -661,6 +1139,48 @@
       a.click();
       URL.revokeObjectURL(a.href);
       closeManageSheet();
+    });
+
+    function notifyCad(type) {
+      try {
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage({ type: type }, window.location.origin);
+        }
+      } catch (_) {}
+    }
+
+    function returnToCad() {
+      if (typeof isDirty === "function" && isDirty()) {
+        const ok = window.confirm("未保存の価格変更があります。破棄してCADに戻りますか？");
+        if (!ok) return;
+      }
+      notifyCad("cuberack:price-admin-closed");
+      if (window.opener && !window.opener.closed) {
+        try { window.opener.focus(); } catch (_) {}
+        window.close();
+        return;
+      }
+      if (window.history.length > 1) {
+        window.history.back();
+        return;
+      }
+      window.open("index.html", "cuberack-cad");
+    }
+
+    const btnBackCad = document.getElementById("btnBackCad");
+    const btnBackCadLogin = document.getElementById("btnBackCadLogin");
+    if (btnBackCad) btnBackCad.addEventListener("click", returnToCad);
+    if (btnBackCadLogin) btnBackCadLogin.addEventListener("click", returnToCad);
+
+    window.addEventListener("beforeunload", (e) => {
+      if (!isSaving && typeof isDirty === "function" && isDirty()) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    });
+
+    window.addEventListener("pagehide", () => {
+      notifyCad("cuberack:price-admin-closed");
     });
 
     if ((sessionStorage.getItem(AUTH_KEY) === "1" || sessionStorage.getItem(STAFF_AUTH_KEY) === "1") && getExpectedPassword()) {

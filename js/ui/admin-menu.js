@@ -41,7 +41,23 @@
 
     if (pricingLink) {
       pricingLink.href = pricingUrl;
-      pricingLink.target = "_self";
+      pricingLink.target = "cuberack-price-admin";
+      pricingLink.rel = "opener";
+      pricingLink.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        global.__PRICE_REFRESH_ARMED__ = true;
+        const win = global.open(pricingUrl, "cuberack-price-admin");
+        if (win) {
+          try { win.opener = global; } catch (_) {}
+          try { win.focus(); } catch (_) {}
+          return;
+        }
+        if (global.isDirty) {
+          global.alert("ポップアップがブロックされたため、未保存のデザインを残したまま価格管理を開けません。保存するか、ポップアップを許可してください。");
+          return;
+        }
+        global.location.assign(pricingUrl);
+      });
     }
 
     function showHome() {
@@ -130,6 +146,7 @@
         if (typeof global.closeStaffCollaboration === "function") global.closeStaffCollaboration();
         global.sessionStorage.removeItem(STAFF_AUTH_KEY);
         global.sessionStorage.removeItem("cuberack_price_admin_auth");
+        global.document.dispatchEvent(new CustomEvent("cuberack:staff-mode-disabled"));
         showLogin();
       });
     }
