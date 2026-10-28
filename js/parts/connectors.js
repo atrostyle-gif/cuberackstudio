@@ -52,6 +52,12 @@ function syncDesignLengthFromJoints() {
   const polePresets = window.POLE_LENGTH_OPTIONS || [50, 100, 200, 300, 400, 500, 600, 800];
   function one(item, presets, asPole) {
     if (!item) return;
+    if (asPole && item.isCustom) return;
+    const stored = Number(item.lengthMm);
+    if (asPole && stored > 0 && typeof window.isPresetLengthMm === "function"
+        && window.isPresetLengthMm(stored, presets)) {
+      return;
+    }
     const dist = getDistanceMmBetweenJoints(item.a, item.b);
     if (!(dist > 0)) return;
     const sku = asPole ? poleSkuFromCad(dist) : dist;

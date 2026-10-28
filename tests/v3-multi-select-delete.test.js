@@ -313,7 +313,7 @@ const src = fs.readFileSync(path.join(root, "js/ui/v3-multi-select.js"), "utf8")
 const indexSrc = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const mainSrc = fs.readFileSync(path.join(root, "main.js"), "utf8");
 
-ok("キャッシュ更新", indexSrc.indexOf("v3-multi-select.js?v=20261027-msdel1") >= 0 && indexSrc.indexOf("main.js?v=20261027-h1") >= 0);
+ok("キャッシュ更新", indexSrc.indexOf("v3-multi-select.js?v=20261027-msdel1") >= 0 && indexSrc.indexOf("main.js?v=20261028-sku1") >= 0);
 ok("Ctrl 押しっぱなしでも Delete する", src.indexOf("if (ev.ctrlKey || ev.metaKey || ev.altKey) return;") < 0);
 ok("メッシュ参照で Beam/Pole を消す", src.indexOf("meshesOfKind") >= 0 && src.indexOf("deleteConnectorByMesh") >= 0);
 ok("履歴は withSingleHistory", src.indexOf('withSingleHistory("multi delete"') >= 0);

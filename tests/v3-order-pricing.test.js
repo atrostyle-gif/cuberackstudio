@@ -42,7 +42,7 @@ ok("プレビュー入力がある", adminHtml.indexOf("order-preview-len") >= 0
 ok("保存は既存RPC", adminHtml.indexOf("savePriceCatalog") >= 0 && loaderSrc.indexOf("save_price_catalog") >= 0);
 ok("export に setupFee を含める", loaderSrc.indexOf("exportOrderPricingSnapshot") >= 0 && orderSrc.indexOf("setupFeeCut: SETUP_FEE_CUT") >= 0);
 ok("規格長さ配列は維持", orderSrc.indexOf("25, 50, 100, 150, 200, 300, 400, 500, 600, 800") >= 0);
-ok("キャッシュ更新", indexSrc.indexOf("order-pricing.js?v=20261027-order1") >= 0 && indexSrc.indexOf("estimate.js?v=20261027-sku1") >= 0);
+ok("キャッシュ更新", indexSrc.indexOf("order-pricing.js?v=20261027-order1") >= 0 && indexSrc.indexOf("estimate.js?v=20261028-est1") >= 0);
 ok("オーダー計算エンジンに卸価格を持たせない", orderSrc.indexOf("wholesale") < 0);
 
 const windowObj = {

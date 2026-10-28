@@ -103,7 +103,7 @@ ok("背面・左・下面の投影", drawingSrc.indexOf('mode === "back"') >= 0 
 ok("寸法は図形に追従", drawingSrc.indexOf("offMm") >= 0 && drawingSrc.indexOf("camZoom") >= 0);
 ok("寸法は設計実寸", drawingSrc.indexOf("payload.overall") >= 0 && drawingSrc.indexOf("見積の整数丸めは使わない") >= 0);
 ok("印刷前に高品質キャプチャ", sheetSrc.indexOf("captureHighForPrint") >= 0);
-ok("カラーチャートはCAD長さ色", poolSrc.indexOf("getLengthColor") >= 0 && poolSrc.indexOf("convertLinearToSRGB") >= 0);
+ok("カラーチャートはSKU長さ色", poolSrc.indexOf("getPoleColorLengthMm") >= 0 && poolSrc.indexOf("getLengthColor") >= 0 && poolSrc.indexOf("convertLinearToSRGB") >= 0);
 ok("図面プレビューは凡例と一致する材質", previewSrc.indexOf("MeshBasicMaterial") >= 0 && previewSrc.indexOf("NoToneMapping") >= 0);
 ok("カラーOFFはStandard材質", previewSrc.indexOf("MeshStandardMaterial") >= 0 && previewSrc.indexOf("finishes") >= 0);
 ok("HQキャプチャはカラー時トーンマップなし", captureSrc.indexOf("NoToneMapping") >= 0);

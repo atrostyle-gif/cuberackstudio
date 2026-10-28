@@ -331,8 +331,14 @@
     for (let i = 0; i < list.length; i++) {
       const item = list[i];
       if (!item || item.mesh !== handle) continue;
-      const lenFn = kind === "pole" ? window.getPoleLength : window.getBeamLength;
-      const len = typeof lenFn === "function" ? lenFn(item) : item.lengthMm;
+      let len;
+      if (kind === "pole") {
+        const cad = typeof window.getPoleLength === "function" ? window.getPoleLength(item) : Number(item.lengthMm);
+        if (typeof window.getPoleColorLengthMm === "function") len = window.getPoleColorLengthMm(item, cad);
+        else len = Number(item.lengthMm) > 0 ? Number(item.lengthMm) : cad;
+      } else {
+        len = typeof window.getBeamLength === "function" ? window.getBeamLength(item) : item.lengthMm;
+      }
       const hex = typeof window.getLengthColor === "function" ? window.getLengthColor(len) : null;
       return hexToSrgb01(hex);
     }

@@ -203,16 +203,32 @@
     if (W == null && spanX) W = spanX + JOINT_BALL_MM + 2 * SIDE_CAP_MM;
     if (D == null && spanZ) D = spanZ + JOINT_BALL_MM + 2 * SIDE_CAP_MM;
     let H = null;
+    let Htext = null;
     const g = (typeof window !== "undefined") ? window : root;
-    if (g && typeof g.calcFrameOuterHeightMm === "function" && spanY >= 0 && joints.length) {
-      H = g.calcFrameOuterHeightMm(spanY, h.hasLeg !== false, true);
-    } else if (yNom.length && typeof h.poleOuter === "function") {
-      H = h.poleOuter(yNom);
-      if (h.hasLeg === false && typeof h.legMm === "number") H -= h.legMm;
-    } else if (spanY) {
-      H = spanY;
+    if (g && typeof g.summarizeRackProductHeightMm === "function"
+        && typeof g.collectVerticalPoleSkuColumns === "function") {
+      const sum = g.summarizeRackProductHeightMm(
+        g.collectVerticalPoleSkuColumns(joints, p.poles),
+        h.hasLeg !== false,
+        true
+      );
+      if (sum && sum.unique && Number.isFinite(sum.value)) {
+        H = sum.value;
+      } else if (sum && !sum.unique && sum.text) {
+        Htext = sum.text;
+      }
     }
-    return { W: W, D: D, H: H };
+    if (H == null && Htext == null) {
+      if (yNom.length && typeof h.poleOuter === "function") {
+        H = h.poleOuter(yNom);
+        if (h.hasLeg === false && typeof h.legMm === "number") H -= h.legMm;
+      } else if (g && typeof g.calcFrameOuterHeightMm === "function" && spanY >= 0 && joints.length) {
+        H = g.calcFrameOuterHeightMm(spanY, h.hasLeg !== false, true);
+      } else if (spanY) {
+        H = spanY;
+      }
+    }
+    return { W: W, D: D, H: H, Htext: Htext };
   }
 
   const api = {

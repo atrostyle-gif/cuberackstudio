@@ -32,7 +32,7 @@ ok("cad-ops が LEG を分類する", cadOpsSrc.indexOf("function findLegIndex")
 ok("通常 pick は LEG を混ぜない", cadOpsSrc.indexOf("opts.includeLeg") >= 0 || cadOpsSrc.indexOf("opts && opts.includeLeg") >= 0);
 ok("測定ピックは近い Pole より JB を優先できる", cadOpsSrc.indexOf("function pickFromHits") >= 0 && cadOpsSrc.indexOf("function jointNearClick") >= 0);
 ok("LEG 実形状の境界を公開", legsSrc.indexOf("function getLegMeshBounds") >= 0);
-ok("キャッシュ更新", indexSrc.indexOf("v3-measure.js?v=20261027-h1") >= 0 && indexSrc.indexOf("v3-cad-ops.js?v=20261027-meas3") >= 0 && indexSrc.indexOf("legs.js?v=20261027-h1") >= 0);
+ok("キャッシュ更新", indexSrc.indexOf("v3-measure.js?v=20261027-m109") >= 0 && indexSrc.indexOf("v3-cad-ops.js?v=20261027-meas3") >= 0 && indexSrc.indexOf("legs.js?v=20261027-h1") >= 0);
 
 function vec(x, y, z) {
   return { x: x, y: y, z: z, clone: function () { return vec(this.x, this.y, this.z); } };

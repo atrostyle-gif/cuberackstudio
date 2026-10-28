@@ -60,8 +60,16 @@ function sku(pole, cad) {
 ok("SKUヘルパがある", typeof W.resolvePoleSkuForEstimate === "function");
 ok("POLE600 CAD654.7 + lengthMm600 → 規格100なしで 600", sku({ lengthMm: 600 }, 654.7).skuMm === 600 && sku({ lengthMm: 600 }, 654.7).custom === false);
 ok("POLE100 CAD108.8 + lengthMm100 → 100", sku({ lengthMm: 100 }, 108.8).skuMm === 100 && sku({ lengthMm: 100 }, 108.8).custom === false);
+ok("POLE600 CAD654 + lengthMm600 → 600", sku({ lengthMm: 600 }, 654).skuMm === 600 && sku({ lengthMm: 600 }, 654).custom === false);
 ok("lengthMm無しでも CAD654.7 → 600", sku({}, 654.7).skuMm === 600 && sku({}, 654.7).custom === false);
 ok("lengthMm無しでも CAD108.8 → 100", sku({}, 108.8).skuMm === 100 && sku({}, 108.8).custom === false);
+ok("lengthMm無しでも CAD654 → 600", sku({}, 654).skuMm === 600 && sku({}, 654).custom === false);
+ok("lengthMm無しでも CAD218 → 200", sku({}, 218).skuMm === 200 && sku({}, 218).custom === false);
+ok("lengthMm無しでも CAD109 → 100", sku({}, 109).skuMm === 100 && sku({}, 109).custom === false);
+ok("POLE50 CAD54.5 + lengthMm50 → 50", sku({ lengthMm: 50 }, 54.5).skuMm === 50 && sku({ lengthMm: 50 }, 54.5).custom === false);
+ok("lengthMm無しでも CAD54.5 → 50", sku({}, 54.5).skuMm === 50 && sku({}, 54.5).custom === false);
+ok("実測CAD54.3 → 50", sku({}, 54.3).skuMm === 50 && sku({}, 54.3).custom === false);
+ok("旧CAD50 → 50", sku({}, 50).skuMm === 50 && sku({}, 50).custom === false);
 ok("旧CAD600はSKU600のまま", sku({}, 600).skuMm === 600 && sku({}, 600).custom === false);
 ok("旧CAD100はSKU100のまま", sku({}, 100).skuMm === 100 && sku({}, 100).custom === false);
 ok("誤って入った lengthMm654.7 も CAD から 600 に戻す", sku({ lengthMm: 654.7 }, 654.7).skuMm === 600 && sku({ lengthMm: 654.7 }, 654.7).custom === false);
@@ -112,12 +120,13 @@ const html = fs.readFileSync(path.join(root, "estimate.html"), "utf8");
 ok("見積画面も未登録をモード不問で見る", html.indexOf("else if (!isOrderPart)") >= 0 && html.indexOf("priced.registered === false") >= 0);
 
 const indexSrc = fs.readFileSync(path.join(root, "index.html"), "utf8");
-ok("キャッシュ sku1", indexSrc.indexOf("estimate.js?v=20261027-sku1") >= 0 && indexSrc.indexOf("dimension-utils.js?v=20261027-sku1") >= 0 && indexSrc.indexOf("file.js?v=20261027-sku1") >= 0 && indexSrc.indexOf("parts-catalog.js?v=20261027-sku1") >= 0);
+ok("キャッシュ m109", indexSrc.indexOf("estimate.js?v=20261028-est1") >= 0 && indexSrc.indexOf("dimension-utils.js?v=20261028-sku1") >= 0 && indexSrc.indexOf("file.js?v=20261027-sku1") >= 0 && indexSrc.indexOf("parts-catalog.js?v=20261027-sku1") >= 0);
 
-const outer4 = W.calcFrameOuterHeightMm(4 * 654.7, true, true);
-const outerRaise = W.calcFrameOuterHeightMm(108.8 + 4 * 654.7, true, true);
+const outer4 = W.calcPoleOuterHeightMm([600, 600, 600, 600]);
+const outerRaise = W.calcPoleOuterHeightMm([100, 600, 600, 600, 600]);
 ok("高さ 2652.1 は維持", Math.abs(outer4 - 2652.1) < 1e-9, String(outer4));
 ok("高さ 2760.9 は維持", Math.abs(outerRaise - 2760.9) < 1e-9, String(outerRaise));
+ok("旧CAD外々 2652.1 も維持", Math.abs(W.calcFrameOuterHeightMm(4 * 654.7, true, true) - 2652.1) < 1e-9);
 
 console.log("");
 console.log("passed=" + passed + " failed=" + failed.length);

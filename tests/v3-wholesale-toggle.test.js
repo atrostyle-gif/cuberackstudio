@@ -33,7 +33,7 @@ ok("一般モードはスイッチ非表示", panelSrc.indexOf("isCubeRackStaffM
 ok("STAFFは通常価格／卸価格スイッチ", panelSrc.indexOf('"通常価格"') >= 0 && panelSrc.indexOf('"卸価格"') >= 0 && panelSrc.indexOf("v3-est-price-switch") >= 0);
 ok("適用ボタンを置かない", panelSrc.indexOf("卸価格適用") < 0 && panelSrc.indexOf("通常価格に戻す") < 0);
 ok("未登録警告は指定文のみ", panelSrc.indexOf("部材単価が登録されていません") >= 0 && panelSrc.indexOf("以下の部材に卸価格が登録されていません。") < 0);
-ok("未登録単価は赤表示", panelSrc.indexOf('td("未登録", "num is-unregistered")') >= 0 && panelSrc.indexOf('td("—", "num")') >= 0);
+ok("未登録単価は赤表示", panelSrc.indexOf("is-unregistered") >= 0 && panelSrc.indexOf('td("未登録"') >= 0 && panelSrc.indexOf('td("—", "num col-sub")') >= 0);
 ok("未登録時の合計は算出不可", panelSrc.indexOf("算出不可") >= 0 && estSrc.indexOf("合計：算出不可") >= 0);
 ok("不完全合計を金額として持たない", estSrc.indexOf("currentEstimateIncomplete") >= 0 && estSrc.indexOf("currentEstimateTotal = incomplete ? null") >= 0);
 ok("未登録でも切替可", estSrc.indexOf('reason: "unregistered"') < 0 && /function setEstimatePriceMode[\s\S]{0,600}__ESTIMATE_PRICE_MODE__ = next/.test(estSrc));
@@ -50,7 +50,7 @@ ok("価格入力は右揃え", adminHtml.indexOf("text-align: right") >= 0);
 ok("2段見出しを維持", adminHtml.indexOf('colspan="2" class="mat-head mat-g">IRON') >= 0);
 ok("保存RPCは従来", adminHtml.indexOf("savePriceCatalog") >= 0);
 ok("CADヘッダーも算出不可", fs.readFileSync(path.join(root, "js/ui/v3-north.js"), "utf8").indexOf("合計 算出不可") >= 0);
-ok("キャッシュバンプ", indexSrc.indexOf("estimate.js?v=20261027-sku1") >= 0 && indexSrc.indexOf("v3-estimate-panel.js?v=20261027-sku1") >= 0);
+ok("キャッシュバンプ", indexSrc.indexOf("estimate.js?v=20261028-est1") >= 0 && indexSrc.indexOf("v3-estimate-panel.js?v=20261028-est1") >= 0);
 
 class CustomEvent {
   constructor(name, init) {

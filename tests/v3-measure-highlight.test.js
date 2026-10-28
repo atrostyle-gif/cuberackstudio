@@ -30,7 +30,7 @@ ok("Esc は選択解除", measureSrc.indexOf('ev.key !== "Escape"') >= 0 && meas
 ok("モード終了でハイライト解除", measureSrc.indexOf("clearPickHighlight()") >= 0);
 ok("InstancedMesh は _v3MeasHL を読む", poolSrc.indexOf("_v3MeasHL") >= 0);
 ok("複数選択の HIGHLIGHT 定数を変えない", multiSrc.indexOf("const HIGHLIGHT = 0x38bdf8") >= 0);
-ok("キャッシュ更新", indexSrc.indexOf("v3-measure.js?v=20261027-h1") >= 0 && indexSrc.indexOf("v3-instance-pool.js?v=20261027-h1") >= 0);
+ok("キャッシュ更新", indexSrc.indexOf("v3-measure.js?v=20261027-m109") >= 0 && indexSrc.indexOf("v3-instance-pool.js?v=20261028-sku1") >= 0);
 
 function makeMat(hex) {
   return {

@@ -421,6 +421,49 @@
     return null;
   }
 
+  function poleProductBetweenJoints(liveA, liveB, kindName, threeAxis) {
+    if (kindName !== "芯々" || threeAxis !== "y") return null;
+    if (!liveA || !liveB || liveA.kind !== "joint" || liveB.kind !== "joint") return null;
+    const ia = liveA.index;
+    const ib = liveB.index;
+    if (!Number.isFinite(ia) || !Number.isFinite(ib)) return null;
+    const ps = window.poles || [];
+    for (let i = 0; i < ps.length; i++) {
+      const p = ps[i];
+      if (!p) continue;
+      if (!((p.a === ia && p.b === ib) || (p.a === ib && p.b === ia))) continue;
+      if (p.isCustom) return null;
+      const ja = (window.joints || [])[p.a];
+      const jb = (window.joints || [])[p.b];
+      const cad = (ja && jb)
+        ? Math.hypot(
+          (Number(jb.x) || 0) - (Number(ja.x) || 0),
+          (Number(jb.y) || 0) - (Number(ja.y) || 0),
+          (Number(jb.z) || 0) - (Number(ja.z) || 0)
+        )
+        : null;
+      const resolved = (typeof window.resolvePoleSkuForEstimate === "function")
+        ? window.resolvePoleSkuForEstimate(p, cad)
+        : { skuMm: Number(p.lengthMm), custom: false };
+      if (!resolved || resolved.custom) return null;
+      const prod = (typeof window.getPoleProductLengthMm === "function")
+        ? window.getPoleProductLengthMm(resolved.skuMm)
+        : resolved.skuMm;
+      return prod > 0 ? prod : null;
+    }
+    return null;
+  }
+
+  function measureMmText(dim, mm) {
+    const cad = Math.round(mm || (dim && dim.mm) || 0);
+    if (dim && dim.productMm != null) {
+      const prod = Number(dim.productMm);
+      const prodStr = Number.isInteger(prod) ? String(prod) : prod.toFixed(1);
+      return prodStr + " mm · 製品 / 配置 " + cad;
+    }
+    return cad + " mm";
+  }
+
   function makeDim(kindName, threeAxis, refA, refB, savedFlag) {
     const liveA = resolveRef(refA);
     const liveB = resolveRef(refB);
@@ -452,6 +495,7 @@
       return dim;
     }
     dim.mm = val.mm;
+    dim.productMm = poleProductBetweenJoints(liveA, liveB, kindName, threeAxis);
     dim.startFace = val.startFace || null;
     dim.endFace = val.endFace || null;
     return dim;
@@ -468,6 +512,7 @@
       dim.invalid = true;
       dim.reason = "参照部材が見つかりません";
       dim.mm = null;
+      dim.productMm = null;
       dim.startFace = null;
       dim.endFace = null;
       return dim;
@@ -477,6 +522,7 @@
       dim.invalid = true;
       dim.reason = val.reason;
       dim.mm = null;
+      dim.productMm = null;
       dim.startFace = null;
       dim.endFace = null;
       return dim;
@@ -484,6 +530,7 @@
     dim.invalid = false;
     dim.reason = null;
     dim.mm = val.mm;
+    dim.productMm = poleProductBetweenJoints(liveA, liveB, dim.kind, dim.threeAxis);
     dim.startFace = val.startFace || null;
     dim.endFace = val.endFace || null;
     return dim;
@@ -945,9 +992,10 @@
     layouts.forEach(function (item, i) {
       const el = labelMarks[i];
       if (!el) return;
-      const caption = Math.round(item.mm) + " mm|" + (item.user || "") + "|" + (item.css || "");
+      const mmText = measureMmText(item.dim || item, item.mm);
+      const caption = mmText + "|" + (item.user || "") + "|" + (item.css || "");
       if (el.getAttribute("data-caption") !== caption) {
-        el.innerHTML = '<span class="v3-measure-mm">' + Math.round(item.mm) + " mm</span>"
+        el.innerHTML = '<span class="v3-measure-mm">' + mmText + "</span>"
           + '<span class="v3-measure-ax" style="background:' + item.css + '">' + item.user + "</span>";
         el.setAttribute("data-caption", caption);
         el.setAttribute("data-user-axis", item.user || "");
@@ -1032,6 +1080,8 @@
       const layout = layoutLine(item.liveA, item.liveB, axis, item.dim.mm, item.dim.kind, slot, box);
       if (!layout) return;
       layout.id = item.dim.id;
+      layout.dim = item.dim;
+      layout.productMm = item.dim.productMm;
       drawDim(overlay, layout);
       layouts.push(layout);
     });
@@ -1231,7 +1281,7 @@
     chip.title = style ? (style.user + "＝" + style.meaning) : "";
     const main = document.createElement("div");
     main.className = "v3-meas-item-main";
-    main.textContent = dim.invalid ? "無効" : (Math.round(dim.mm || 0) + " mm · " + dim.kind);
+    main.textContent = dim.invalid ? "無効" : (measureMmText(dim, dim.mm) + " · " + dim.kind);
     const sub = document.createElement("div");
     sub.className = "v3-meas-item-sub";
     const racks = (dim.rackIds || []).map(function (id) {

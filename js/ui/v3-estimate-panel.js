@@ -34,6 +34,7 @@
   }
 
   function stockLabel(row) {
+    if (!isStaff()) return "";
     const mat = String(row && row.material || "").toUpperCase();
     if (mat !== "BS" || !window.v3BsStock || typeof window.v3BsStock.lookup !== "function") return "—";
     const result = window.v3BsStock.lookup(row.key, "BS", Number(row.qty) || 0);
@@ -45,39 +46,6 @@
     return "—";
   }
 
-  function classify(key) {
-    const k = String(key || "");
-    if (k === "jointBall") return { kind: "Joint", size: "—" };
-    if (k === "jointCap" || k === "topCap" || k === "sideCap") return { kind: "Joint", size: "—" };
-    if (k === "leg" || k === "legBoss") return { kind: "Leg", size: "—" };
-    if (k === "beamNut" || k === "m5Screw") return { kind: "金物", size: "—" };
-    if (k.startsWith("beam_")) {
-      const m = k.match(/(\d+)\s*$/);
-      return { kind: "Beam", size: m ? m[1] + " mm" : "—" };
-    }
-    if (k.startsWith("pole_")) {
-      const m = k.match(/(\d+)\s*$/);
-      return { kind: "Pole", size: m ? m[1] + " mm" : "—" };
-    }
-    if (k.startsWith("shelfBoard_")) {
-      const m = k.match(/(\d+)x(\d+)/);
-      return { kind: "棚板", size: m ? m[1] + " × " + m[2] + " mm" : "—" };
-    }
-    if (k.startsWith("wallPanel_")) {
-      const m = k.match(/(\d+)x(\d+)/);
-      return { kind: "壁板", size: m ? m[1] + " × " + m[2] + " mm" : "—" };
-    }
-    if (k.startsWith("shelfBracket_")) {
-      const m = k.match(/shelfBracket_(\d+)/);
-      return { kind: "棚受金物", size: m ? m[1] + " mm" : "—" };
-    }
-    if (k.startsWith("wallBracket_")) {
-      const m = k.match(/wallBracket_(\d+)/);
-      return { kind: "壁板金物", size: m ? m[1] + " mm" : "—" };
-    }
-    return { kind: "部材", size: "—" };
-  }
-
   function lines() {
     return Array.isArray(window.currentEstimateLines) ? window.currentEstimateLines : [];
   }
@@ -86,7 +54,9 @@
     if (!root) return;
     const wrap = root.querySelector(".v3-est-table-wrap");
     const scroll = wrap ? wrap.scrollTop : 0;
+    const staff = isStaff();
     root.innerHTML = "";
+    root.classList.toggle("is-staff", staff);
 
     const rows = lines();
     if (!rows.length) {
@@ -98,16 +68,16 @@
       const scroller = document.createElement("div");
       scroller.className = "v3-est-table-wrap";
       const table = document.createElement("table");
-      table.className = "v3-est-table";
+      table.className = "v3-est-table" + (staff ? " is-staff" : " is-general");
       table.innerHTML =
         "<thead><tr>" +
-        "<th>部材名</th><th>種類</th><th class=\"num\">寸法</th><th>材質</th>" +
-        "<th class=\"num\">数量</th><th class=\"num\">在庫</th>" +
-        "<th class=\"num\">単価</th><th class=\"num\">小計</th>" +
+        "<th class=\"col-name\">部材名</th><th class=\"col-mat\">材質</th>" +
+        "<th class=\"num col-qty\">数量</th>" +
+        (staff ? "<th class=\"num col-stock\">在庫</th>" : "") +
+        "<th class=\"num col-unit\">単価</th><th class=\"num col-sub\">小計</th>" +
         "</tr></thead>";
       const tbody = document.createElement("tbody");
       rows.forEach(function (row) {
-        const info = classify(row.key);
         const tr = document.createElement("tr");
         function td(text, cls) {
           const el = document.createElement("td");
@@ -115,18 +85,16 @@
           el.textContent = text;
           tr.appendChild(el);
         }
-        td(row.name || row.key || "");
-        td(info.kind);
-        td(info.size, "num");
-        td(row.material || "—");
-        td(String(row.qty || 0), "num");
-        td(stockLabel(row), "num");
+        td(row.name || row.key || "", "col-name");
+        td(row.material || "—", "col-mat");
+        td(String(row.qty || 0), "num col-qty");
+        if (staff) td(stockLabel(row), "num col-stock");
         if (row.registered === false) {
-          td("未登録", "num is-unregistered");
-          td("—", "num");
+          td("未登録", "num col-unit is-unregistered");
+          td("—", "num col-sub");
         } else {
-          td(yen(row.unitPrice), "num");
-          td(yen(row.sub), "num");
+          td(yen(row.unitPrice), "num col-unit");
+          td(yen(row.sub), "num col-sub");
         }
         tbody.appendChild(tr);
       });
@@ -248,5 +216,9 @@
     open: open,
     refresh: refresh,
     isOpen: isOpen,
+    stockLabel: stockLabel,
   };
+
+  document.addEventListener("cuberack:staff-mode-enabled", refresh);
+  document.addEventListener("cuberack:staff-mode-disabled", refresh);
 })();

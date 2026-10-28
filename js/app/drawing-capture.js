@@ -598,7 +598,13 @@
       used[key] = hex || map[key] || map.order;
     }
     (window.beams || []).forEach(function (b) { addItem(b, window.getBeamLength); });
-    (window.poles || []).forEach(function (p) { addItem(p, window.getPoleLength); });
+    (window.poles || []).forEach(function (p) {
+      addItem(p, function (item) {
+        const cad = typeof window.getPoleLength === "function" ? window.getPoleLength(item) : Number(item && item.lengthMm);
+        if (typeof window.getPoleColorLengthMm === "function") return window.getPoleColorLengthMm(item, cad);
+        return Number(item && item.lengthMm) > 0 ? Number(item.lengthMm) : cad;
+      });
+    });
     const order = [25, 50, 100, 150, 200, 300, 400, 500, 600, 800].map(String);
     const rows = [];
     order.forEach(function (k) {
@@ -675,6 +681,7 @@
         if (computed.W != null) overall.W = computed.W;
         if (computed.D != null) overall.D = computed.D;
         if (computed.H != null) overall.H = computed.H;
+        if (computed.Htext) overall.Htext = computed.Htext;
       }
     } catch (e) {}
     return { dims: dims, overall: overall };

@@ -48,7 +48,7 @@ ok("選択中は青アクセント", /v3-len-board-seg \.v3-len-mode\.is-on\{[\s
 ok("Beam/Pole ラベルは未変更", /\.v3-len-kind\{[\s\S]{0,80}font-size:13px/.test(indexSrc));
 ok("Beam/Pole ボタン高さは未変更", /\.v3-len-mode\{[\s\S]{0,80}height:28px/.test(indexSrc));
 ok("狭幅の縦並びは板セグメントのみ", indexSrc.indexOf(".v3-len-kinds, .v3-len-modes{ flex-direction:column; }") < 0);
-ok("キャッシュ更新", indexSrc.indexOf("boards.js?v=20261026-board1") >= 0 && indexSrc.indexOf("v3-cad-toolbar.js?v=20261027-pub3") >= 0 && indexSrc.indexOf("main.js?v=20261027-h1") >= 0);
+ok("キャッシュ更新", indexSrc.indexOf("boards.js?v=20261026-board1") >= 0 && indexSrc.indexOf("v3-cad-toolbar.js?v=20261027-pub3") >= 0 && indexSrc.indexOf("main.js?v=20261028-sku1") >= 0);
 ok("図面モジュールは未変更パス", drawingJs.indexOf("FIXED_SLOTS") >= 0 || drawingJs.indexOf("drawingDocument") >= 0);
 ok("instanceColor 初期化修正を維持", poolSrc.indexOf("function allocInstanceColor") >= 0 && colorSrc.indexOf("allocInstanceColor") >= 0);
 ok("JB 赤い選択ハイライトを維持", highlightSrc.indexOf("restoreSelectedJointVisual") >= 0);

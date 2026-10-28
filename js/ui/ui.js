@@ -229,6 +229,14 @@ function getSelectedConnectorLengthMm() {
           : Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
       }
     }
+    const stored = Number(p.lengthMm);
+    if (stored > 0 && !p.isCustom) {
+      const presets = window.POLE_LENGTH_OPTIONS || [50, 100, 200, 300, 400, 500, 600, 800];
+      const isPreset = (typeof window.isPresetLengthMm === "function")
+        ? window.isPresetLengthMm(stored, presets)
+        : presets.indexOf(stored) >= 0;
+      if (isPreset) return stored;
+    }
     if (!(Number.isFinite(cad) && cad > 0)) return Number(p.lengthMm) || null;
     if (typeof window.getPoleSkuFromCadMm === "function") return window.getPoleSkuFromCadMm(cad);
     return cad;

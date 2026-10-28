@@ -180,6 +180,7 @@ function cellCfg(opts) {
     raiseBottom: opts.raiseBottom,
     bottomBeams: opts.bottomBeams,
     omitBottomBeams: opts.omitBottomBeams,
+    raiseHeightMm: opts.raiseHeightMm,
   };
 }
 
@@ -193,6 +194,10 @@ ok("resolve: bottomBeams なし文字列", flags({ bottomBeams: "なし" }).bott
 ok("resolve: omitBottomBeams", flags({ omitBottomBeams: true }).bottomBeams === false);
 ok("resolve: 明示ありが優先", flags({ omitBottomBeams: true, bottomBeams: true }).bottomBeams === true);
 ok("raise height 既定 100", flags({}).raiseHeightMm === 100);
+ok("raise height 50", flags({ raiseHeightMm: 50 }).raiseHeightMm === 50);
+ok("raise height 600", flags({ raiseHeightMm: 600 }).raiseHeightMm === 600);
+ok("raise height 不正は100", flags({ raiseHeightMm: 150 }).raiseHeightMm === 100);
+ok("立ち上げONの欠損下部Beamはなし", flags({ raiseBottom: true }).bottomBeams === false);
 
 const a0 = world.build(cellCfg({ cols: 1, rows: 1 }));
 ok("従来 1x1 Joint 8", a0.joints === 8);
@@ -228,7 +233,7 @@ const ignoreOff = world.build(cellCfg({ cols: 1, rows: 1, raiseBottom: false, bo
 ok("立ち上げOFFなら下部Beamなしを無視", ignoreOff.floorBeams === 4 && ignoreOff.joints === 8);
 
 const missing = world.build(cellCfg({ cols: 1, rows: 1, raiseBottom: true }));
-ok("bottomBeams欠損はあり扱い", missing.floorBeams === 4 && missing.raiseBeams === 4);
+ok("bottomBeams欠損はなし扱い", missing.floorBeams === 0 && missing.raiseBeams === 4);
 
 const two = world.build(cellCfg({ cols: 2, rows: 2, raiseBottom: true, bottomBeams: true }));
 const twoOff = world.build(cellCfg({ cols: 2, rows: 2, raiseBottom: true, bottomBeams: false }));
@@ -341,23 +346,50 @@ ok("panel が1段目=最下段", panelSrc.indexOf("1段目") >= 0 && panelSrc.in
 ok("panel が幅N列目表記", panelSrc.indexOf("幅") >= 0 && panelSrc.indexOf("列目") >= 0 && panelSrc.indexOf("W1 / D") < 0);
 ok("panel が寸法クリック", panelSrc.indexOf("data-al-h") >= 0);
 ok("panel が立ち上げUI", panelSrc.indexOf("最下段の立ち上げ") >= 0 && panelSrc.indexOf("下部Beam") >= 0);
-ok("立ち上げONの初期下部Beamはなし", panelSrc.indexOf("function setRaiseBottom") >= 0 && /if \(model\.raiseBottom\) model\.bottomBeams = false/.test(panelSrc));
+ok("立ち上げONの初期下部Beamはなし", panelSrc.indexOf("function setRaiseBottom") >= 0 && /if \(model\.raiseBottom\) \{[\s\S]*model\.bottomBeams = false/.test(panelSrc));
 ok("下部Beamありを手動選択できる", panelSrc.indexOf('data-al-bb="1"') >= 0 && panelSrc.indexOf('data-al-bb="0"') >= 0);
 ok("生成は既存関数へ委譲", panelSrc.indexOf("handleAutoLayoutFromTool") >= 0);
 ok("ツールバーは既存ボタン経由", autoSrc.indexOf("v3AutoLayoutPanel") >= 0);
 ok("床ビーム省略が条件付き", autoSrc.indexOf("if (!raiseBottom || bottomBeams)") >= 0);
 ok("POLE100 立ち上げブロック", autoSrc.indexOf("5.5") >= 0 && autoSrc.indexOf("connectPole(floorIdx, idx)") >= 0);
-ok("キャッシュ更新", indexSrc.indexOf("v3-autolayout-panel.js?v=20261027-al1") >= 0);
+ok("キャッシュ更新", indexSrc.indexOf("v3-autolayout-panel.js?v=20261028-raise6") >= 0 && indexSrc.indexOf("autolayout.js?v=20261028-raise2") >= 0);
+ok("立ち上げ長さドロップダウン", panelSrc.indexOf("立ち上げPOLEの長さ") >= 0 && panelSrc.indexOf("v3-al-raise-len") >= 0);
+ok("OFF時は長さ選択を出さない", /if \(!on\) return html;[\s\S]*v3-al-raise-len/.test(panelSrc));
+ok("高さ段数に立ち上げ行", panelSrc.indexOf("v3-al-hrow-raise") >= 0 && panelSrc.indexOf("<em>立ち上げ</em>") >= 0);
+ok("立ち上げ行はbulk一覧の最下行", /if \(prefix === \"bulk\"\) html \+= renderRaiseHeightRow/.test(panelSrc));
+ok("立ち上げは段数に含めない", panelSrc.indexOf("立ち上げは段数に含めず") >= 0);
+ok("立ち上げは段と同じ寸法ボタン", panelSrc.indexOf('data-al-h="raise"') >= 0 && panelSrc.indexOf("showLenPop(t, parseRaiseSku") >= 0);
+ok("外々高さは製品実寸", panelSrc.indexOf("外々高さ") >= 0 && panelSrc.indexOf("Leg下端〜TopCap頂点") >= 0 && panelSrc.indexOf("summarizeRackProductHeightMm") >= 0);
+ok("外々は最大値のみ表記", panelSrc.indexOf("formatOuterMm(max)") >= 0 && panelSrc.indexOf("柱構成により") < 0);
 
 const panelSandbox = {
   window: {
     localStorage: { getItem: function () { return null; }, setItem: function () {}, removeItem: function () {} },
   },
-  document: { getElementById: function () { return null; } },
+  document: {
+    getElementById: function () { return null; },
+    querySelector: function () { return null; },
+    querySelectorAll: function () { return []; },
+  },
   console: console,
+  Math: Math,
+  Number: Number,
+  String: String,
+  Object: Object,
+  Array: Array,
+  parseInt: parseInt,
+  parseFloat: parseFloat,
+  isNaN: isNaN,
+  Infinity: Infinity,
+  NaN: NaN,
 };
 panelSandbox.window.window = panelSandbox.window;
 panelSandbox.window.document = panelSandbox.document;
+vm.runInNewContext(
+  fs.readFileSync(path.join(root, "js/app/dimension-utils.js"), "utf8"),
+  panelSandbox,
+  { filename: "dimension-utils.js" }
+);
 vm.runInNewContext(panelSrc, panelSandbox);
 const alApi = panelSandbox.window.v3AutoLayoutPanel;
 ok("panel API が起動する", !!(alApi && typeof alApi.setRaiseBottom === "function" && typeof alApi.getRaiseOptions === "function"));
@@ -367,7 +399,184 @@ alApi.setRaiseBottom(true);
 const afterRaise = alApi.getRaiseOptions();
 ok("立ち上げONで下部Beam初期なし", afterRaise.raiseBottom === true && afterRaise.bottomBeams === false);
 ok("新規立ち上げの collectCfg もなし", alApi.collectCfg().raiseBottom === true && alApi.collectCfg().bottomBeams === false);
-ok("生成側の欠損は従来どおりあり", flags({ raiseBottom: true }).bottomBeams === true);
+ok("立ち上げ初期長さは100", afterRaise.raiseHeightMm === 100 && alApi.collectCfg().raiseHeightMm === 100);
+alApi.setRaiseHeightMm(600);
+ok("長さ変更がcfgに乗る", alApi.getRaiseOptions().raiseHeightMm === 600 && alApi.collectCfg().raiseHeightMm === 600);
+alApi.setRaiseHeightMm(150);
+ok("不正長さは100へ戻す", alApi.getRaiseOptions().raiseHeightMm === 100);
+ok("生成側の欠損はなし", flags({ raiseBottom: true }).bottomBeams === false);
+
+function fakeEl() {
+  return {
+    innerHTML: "",
+    value: "",
+    textContent: "",
+    hidden: false,
+    disabled: false,
+    classList: { contains: function () { return false; }, add: function () {}, remove: function () {}, toggle: function () {} },
+    querySelector: function () { return null; },
+    setAttribute: function () {},
+  };
+}
+const bulkEls = {};
+panelSandbox.document.getElementById = function (id) {
+  if (!bulkEls[id]) bulkEls[id] = fakeEl();
+  return bulkEls[id];
+};
+panelSandbox.document.querySelector = function () { return null; };
+panelSandbox.document.querySelectorAll = function () { return []; };
+function heightHtml() { return (bulkEls["v3-al-bulk-heights"] && bulkEls["v3-al-bulk-heights"].innerHTML) || ""; }
+function raiseRowHtml() {
+  const html = heightHtml();
+  const m = html.match(/v3-al-hrow-raise[\s\S]*?<\/div>/);
+  return m ? m[0] : "";
+}
+function raiseSelectVal() {
+  const box = bulkEls["v3-al-raise-box"];
+  const html = box && box.innerHTML || "";
+  const m = html.match(/<option value="(\d+)" selected/);
+  return m ? m[1] : "";
+}
+function outerHtml() {
+  const html = heightHtml();
+  const m = html.match(/v3-al-outer[\s\S]*$/);
+  return m ? m[0] : "";
+}
+alApi.setRaiseBottom(true);
+ok("ON初期は立ち上げ100表示", /立ち上げ/.test(raiseRowHtml()) && /data-al-h="raise"/.test(raiseRowHtml()) && />100</.test(raiseRowHtml()), raiseRowHtml());
+ok("立ち上げ行は1段目の下", /1段目[\s\S]*v3-al-hrow-raise/.test(heightHtml()));
+ok("ONでも全体段数は1", bulkEls["v3-al-bulk"].value === "1");
+ok("ON時も下部Beamなし", alApi.getRaiseOptions().bottomBeams === false);
+ok("寸法ボタンとドロップダウンが100で連動", raiseSelectVal() === "100");
+["50", "200", "600"].forEach(function (n) {
+  alApi.setRaiseHeightMm(n);
+  ok("高さ表示が" + n + "へ即時更新", raiseRowHtml().indexOf(">" + n + "<") >= 0 && raiseRowHtml().indexOf("109") < 0 && raiseRowHtml().indexOf("54.5") < 0, raiseRowHtml());
+  ok("ドロップダウンも" + n, raiseSelectVal() === n);
+});
+ok("長さ変更後も全体段数は1", bulkEls["v3-al-bulk"].value === "1");
+alApi.setRaiseBottom(false);
+ok("OFF時は立ち上げ行なし", raiseRowHtml() === "" && heightHtml().indexOf("v3-al-hrow-raise") < 0, heightHtml());
+ok("OFF後も選択長さ600を保持", alApi.getRaiseOptions().raiseHeightMm === 600);
+ok("OFF時も外々高さを表示", /外々高さ/.test(outerHtml()) && /TopCap頂点/.test(outerHtml()));
+alApi.setRaiseBottom(true);
+ok("ONに戻すと600を再表示", raiseRowHtml().indexOf(">600<") >= 0 && raiseSelectVal() === "600", raiseRowHtml());
+ok("再ONでも下部Beamなし", alApi.getRaiseOptions().bottomBeams === false);
+ok("再ONでも全体段数は1", bulkEls["v3-al-bulk"].value === "1");
+ok("個別セル一覧には立ち上げ行を足さない", panelSrc.indexOf('if (prefix === "bulk") html += renderRaiseHeightRow') >= 0);
+
+const DW = panelSandbox.window;
+function productToTopCap(skus) {
+  return DW.summarizeRackProductHeightMm([skus], true, true);
+}
+alApi.setRaiseBottom(false);
+const offOuter = alApi.getOuterHeightSummary();
+ok("OFF 外々は段300の実寸", offOuter.unique && Math.abs(offOuter.value - productToTopCap([300]).value) < 1e-9, JSON.stringify(offOuter));
+ok("OFF 外々はCAD327を出さない", offOuter.text.indexOf("327") < 0);
+alApi.setRaiseBottom(true);
+alApi.setRaiseHeightMm(100);
+const on100Outer = alApi.getOuterHeightSummary();
+ok("ON100 外々は100+300実寸", on100Outer.unique && Math.abs(on100Outer.value - productToTopCap([100, 300]).value) < 1e-9, JSON.stringify(on100Outer));
+ok("ON100 外々はCAD109を出さない", on100Outer.text.indexOf("109") < 0 && on100Outer.note.indexOf("TopCap頂点") >= 0);
+ok("外々テキストは範囲にしない", on100Outer.text.indexOf("〜") < 0, on100Outer.text);
+[50, 100, 200, 300, 400, 500, 600, 800].forEach(function (n) {
+  alApi.setRaiseHeightMm(n);
+  const got = alApi.getOuterHeightSummary();
+  const exp = productToTopCap([n, 300]);
+  ok("SKU" + n + " 外々即時", got.unique && Math.abs(got.value - exp.value) < 1e-9, JSON.stringify(got));
+});
+ok("APIに外々サマリ", typeof alApi.getOuterHeightSummary === "function");
+
+const cadWorld = makeWorld();
+vm.runInNewContext(
+  fs.readFileSync(path.join(root, "js/app/dimension-utils.js"), "utf8"),
+  cadWorld.sandbox,
+  { filename: "dimension-utils.js" }
+);
+const CAD = {
+  50: 54.5,
+  100: 109,
+  200: 218,
+  300: 327,
+  400: 436,
+  500: 545,
+  600: 654,
+  800: 872,
+};
+const STAGE200_CAD = 218;
+Object.keys(CAD).forEach(function (sku) {
+  const n = Number(sku);
+  const pitch = CAD[n];
+  const built = cadWorld.build(cellCfg({
+    cols: 1,
+    rows: 1,
+    heights: [200],
+    raiseBottom: true,
+    bottomBeams: false,
+    raiseHeightMm: n,
+  }));
+  const raisePoles = built.poleList.filter(function (p) {
+    const a = built.jointList[p.a];
+    const b = built.jointList[p.b];
+    const ymin = Math.min(a.y, b.y);
+    return Math.abs(ymin) < 1e-6 && Math.abs(hypot3(a, b) - pitch) < 1e-6;
+  });
+  const stageY = pitch + STAGE200_CAD;
+  ok("SKU" + n + " 立ち上げCAD " + pitch, raisePoles.length === 4, "got " + raisePoles.length);
+  ok("SKU" + n + " 上部段が " + stageY, beamsAtY(built.jointList, built.beamList, stageY).length === 4, JSON.stringify(built.ys));
+  ok("SKU" + n + " 下部Beamなし", built.floorBeams === 0);
+});
+
+const offCad = cadWorld.build(cellCfg({ cols: 1, rows: 1, heights: [200], raiseBottom: false, raiseHeightMm: 600 }));
+ok("立ち上げOFFは従来高さ", beamsAtY(offCad.jointList, offCad.beamList, STAGE200_CAD).length === 4 && offCad.floorBeams === 4);
+ok("OFF時は600を入れない", polesNearLen(offCad.jointList, offCad.poleList, 654).length === 0);
+
+const moved = cadWorld.build(cellCfg({ cols: 1, rows: 1, heights: [200], raiseBottom: true, bottomBeams: false, raiseHeightMm: 100 }));
+ok("100→上部は327", beamsAtY(moved.jointList, moved.beamList, 109 + STAGE200_CAD).length === 4, JSON.stringify(moved.ys));
+const movedCount = { poles: moved.poles, joints: moved.joints, beams: moved.beams };
+const moved2 = cadWorld.build(cellCfg({ cols: 1, rows: 1, heights: [200], raiseBottom: true, bottomBeams: false, raiseHeightMm: 600 }));
+ok("600→上部は872", beamsAtY(moved2.jointList, moved2.beamList, 654 + STAGE200_CAD).length === 4, JSON.stringify(moved2.ys));
+ok("長さ変更後も接続数は同じ", movedCount.poles === moved2.poles && movedCount.joints === moved2.joints && movedCount.beams === moved2.beams);
+
+function cadOuter(built) {
+  const cols = cadWorld.sandbox.collectVerticalPoleSkuColumns(built.jointList, built.poleList);
+  return cadWorld.sandbox.summarizeRackProductHeightMm(cols, true, true);
+}
+function previewFromCfg(cfg) {
+  const raiseOn = !!cfg.raiseBottom;
+  const raiseSku = cadWorld.sandbox.resolveRaiseBottomOptions(cfg).raiseHeightMm;
+  const columns = [];
+  (cfg.stageMatrix || []).forEach(function (row) {
+    (row || []).forEach(function (cell) {
+      if (!cell || !cell.heights) return;
+      const stack = raiseOn ? [raiseSku].concat(cell.heights) : cell.heights.slice();
+      columns.push(stack);
+    });
+  });
+  return cadWorld.sandbox.summarizeRackProductHeightMm(columns, true, true);
+}
+
+const twoStage = cadWorld.build(cellCfg({ cols: 1, rows: 1, heights: [200, 400], raiseBottom: false }));
+const twoPrev = previewFromCfg(cellCfg({ cols: 1, rows: 1, heights: [200, 400], raiseBottom: false }));
+const twoGot = cadOuter(twoStage);
+ok("2段 プレビューと生成後が一致", twoPrev.unique && twoGot.unique && Math.abs(twoPrev.value - twoGot.value) < 1e-9, JSON.stringify({ prev: twoPrev, got: twoGot }));
+ok("2段 外々はTopCapまで", Math.abs(twoGot.value - cadWorld.sandbox.calcPoleOuterHeightMm([200, 400])) < 1e-9);
+
+const raiseTwo = cellCfg({ cols: 1, rows: 1, heights: [300], raiseBottom: true, bottomBeams: false, raiseHeightMm: 100 });
+const raiseBuilt = cadWorld.build(raiseTwo);
+const raisePrev = previewFromCfg(raiseTwo);
+const raiseGot = cadOuter(raiseBuilt);
+ok("立ち上げあり プレビューと生成後が一致", raisePrev.unique && raiseGot.unique && Math.abs(raisePrev.value - raiseGot.value) < 1e-9, JSON.stringify({ prev: raisePrev, got: raiseGot }));
+
+const mixedCfg = cellCfg({ cols: 2, rows: 1, heights: [600], raiseBottom: false });
+mixedCfg.stageMatrix[0][0] = { stages: 1, heights: [600] };
+mixedCfg.stageMatrix[0][1] = { stages: 2, heights: [200, 400] };
+const mixedBuilt = cadWorld.build(mixedCfg);
+const mixedPrev = previewFromCfg(mixedCfg);
+const mixedGot = cadOuter(mixedBuilt);
+ok("共有柱の実寸は差がある", !mixedPrev.unique && Math.abs(mixedPrev.max - mixedPrev.min - 0.4) < 1e-9, JSON.stringify(mixedPrev));
+ok("共有柱 プレビュー最大と生成後が一致", Math.abs(mixedPrev.max - mixedGot.max) < 1e-9 && Math.abs(mixedPrev.min - mixedGot.min) < 1e-9, JSON.stringify({ prev: mixedPrev, got: mixedGot }));
+ok("共有柱の表示最大は688.0", Math.abs(mixedPrev.max - 688.0) < 1e-9);
+ok("600単体 外々は688.0", Math.abs(cadWorld.sandbox.calcPoleOuterHeightMm([600]) - 688.0) < 1e-9);
 
 console.log("");
 console.log("passed=" + passed + " failed=" + failed.length);

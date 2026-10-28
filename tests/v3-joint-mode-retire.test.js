@@ -37,7 +37,7 @@ ok("createJoint / deleteJoint は残る", jointsSrc.indexOf("function createJoin
 ok("保存形式に joints を含む", fileSrc.indexOf("joints") >= 0 && jointsSrc.indexOf("window.createJoint") >= 0);
 ok("4点選択は維持", boardSrc.indexOf("addJointToBoardSelection") >= 0 && pickSrc.indexOf("pick-joint") >= 0);
 ok("赤ハイライト経路は維持", jointsSrc.indexOf("0xef4444") >= 0 || mainSrc.indexOf("0xef4444") >= 0);
-ok("キャッシュ更新", indexSrc.indexOf("v3-cad-toolbar.js?v=20261027-pub3") >= 0 && indexSrc.indexOf("main.js?v=20261027-h1") >= 0);
+ok("キャッシュ更新", indexSrc.indexOf("v3-cad-toolbar.js?v=20261027-pub3") >= 0 && indexSrc.indexOf("main.js?v=20261028-sku1") >= 0);
 
 const mem = {};
 const ctx = {

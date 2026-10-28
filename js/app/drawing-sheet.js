@@ -395,8 +395,8 @@
     return {
       W: ov.W != null ? ov.W : dims.spanX,
       D: ov.D != null ? ov.D : dims.spanZ,
-      H: ov.H != null ? ov.H : dims.spanY,
-      outer: !!(ov.W || ov.D || ov.H),
+      H: ov.Htext ? ov.Htext : (ov.H != null ? ov.H : dims.spanY),
+      outer: !!(ov.W || ov.D || ov.H || ov.Htext),
     };
   }
 
@@ -404,7 +404,8 @@
     const fmt = math.formatDesignMm;
     const v = overallValues(payload);
     const prefix = v.outer ? "全体外形：" : "芯々：";
-    return prefix + "W " + fmt(v.W) + " × D " + fmt(v.D) + " × H " + fmt(v.H) + " mm";
+    const hStr = (typeof v.H === "string") ? v.H : fmt(v.H);
+    return prefix + "W " + fmt(v.W) + " × D " + fmt(v.D) + " × H " + hStr + " mm";
   }
 
   function dimLines(payload) {
@@ -543,7 +544,7 @@
         used.order = map.order || "#7c3aed";
         return;
       }
-      const len = item.colorLengthMm || item.lengthMm;
+      const len = Number(item.lengthMm) > 0 ? item.lengthMm : item.colorLengthMm;
       if (len == null) return;
       const keys = Object.keys(map);
       let key = "order";

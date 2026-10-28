@@ -42,7 +42,7 @@ ok("フッターは右寄せ", /is-estimate[\s\S]{0,180}justify-content:\s*flex-
 ok("ボタン間隔は8〜12px", /is-estimate[\s\S]{0,180}gap:\s*10px/.test(indexSrc));
 ok("ボタン高さを統一", /is-estimate[\s\S]{0,260}height:\s*32px/.test(indexSrc));
 ok("狭い画面でも stretch で左に飛ばさない", !/is-estimate[\s\S]{0,400}justify-content:\s*stretch/.test(indexSrc));
-ok("キャッシュ更新", indexSrc.indexOf("v3-workspace-ui.js?v=20261027-pub1") >= 0 && indexSrc.indexOf("v3-estimate-panel.js?v=20261027-sku1") >= 0);
+ok("キャッシュ更新", indexSrc.indexOf("v3-workspace-ui.js?v=20261027-pub1") >= 0 && indexSrc.indexOf("v3-estimate-panel.js?v=20261028-est1") >= 0);
 ok("fill() は合計と注記を描く", /function fill\([\s\S]*v3-est-total[\s\S]*v3-est-note[\s\S]*function render/.test(panelSrc) && panelSrc.indexOf("extraActions") < 0);
 ok("閉じる時に印刷を隠す", uiSrc.indexOf('el.classList.remove("is-estimate")') >= 0 && uiSrc.indexOf("printBtn.hidden = true") >= 0);
 

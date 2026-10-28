@@ -31,7 +31,7 @@ ok("選択時に instance pool を同期", /emissiveIntensity = 1\.2;[\s\S]{0,80
 ok("選択解除時も pool を同期", /選択中のジョイント: なし[\s\S]{0,120}v3InstancePool/.test(jointsSrc));
 ok("プレビュー確定経路は維持", mainSrc.indexOf("setSelectedJoint(targetIndex)") >= 0 && mainSrc.indexOf("hidePreview()") >= 0);
 ok("place-pick 判定は維持", pickSrc.indexOf("function decideAddClick") >= 0);
-ok("index が更新キャッシュを読む", indexSrc.indexOf("main.js?v=20261027-h1") >= 0 && indexSrc.indexOf("joints.js?v=20261027-msdel1") >= 0);
+ok("index が更新キャッシュを読む", indexSrc.indexOf("main.js?v=20261028-sku1") >= 0 && indexSrc.indexOf("joints.js?v=20261027-msdel1") >= 0);
 
 function makeMat(name) {
   return { name: name, emissive: 0, intensity: 0 };

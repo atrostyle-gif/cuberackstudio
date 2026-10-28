@@ -3,6 +3,7 @@
 // =========================================================
 
 const RAISE_BOTTOM_POLE_MM = 100;
+const RAISE_BOTTOM_POLE_OPTIONS = [50, 100, 200, 300, 400, 500, 600, 800];
 
 function poleStagePitchMm(nominal) {
   if (typeof window.getPoleCenterPitchMm === "function") {
@@ -13,14 +14,23 @@ function poleStagePitchMm(nominal) {
   return Number.isFinite(raw) && raw > 0 ? raw : 0;
 }
 
-// cfg.raiseBottom / cfg.bottomBeams を正規化する。
-// 下部Beam は値が無いとき従来どおり「あり」。立ち上げOFFなら床ビームは常に生成する。
+function resolveRaiseHeightMm(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return RAISE_BOTTOM_POLE_MM;
+  for (let i = 0; i < RAISE_BOTTOM_POLE_OPTIONS.length; i++) {
+    if (Math.abs(RAISE_BOTTOM_POLE_OPTIONS[i] - n) <= 1e-6) return RAISE_BOTTOM_POLE_OPTIONS[i];
+  }
+  return RAISE_BOTTOM_POLE_MM;
+}
+
+// cfg.raiseBottom / cfg.bottomBeams / cfg.raiseHeightMm を正規化する。
+// 立ち上げONで下部Beam未指定なら「なし」。立ち上げOFFなら床ビームは常に生成する。
 function resolveRaiseBottomOptions(cfg) {
   const src = cfg && typeof cfg === "object" ? cfg : {};
   const raiseRaw = src.raiseBottom;
   const raiseBottom = raiseRaw === true || raiseRaw === 1 || raiseRaw === "on" || raiseRaw === "true";
 
-  let bottomBeams = true;
+  let bottomBeams = raiseBottom ? false : true;
   const beamRaw = src.bottomBeams;
   if (beamRaw === false || beamRaw === 0 || beamRaw === "off" || beamRaw === "none" || beamRaw === "なし") {
     bottomBeams = false;
@@ -32,14 +42,196 @@ function resolveRaiseBottomOptions(cfg) {
     bottomBeams = true;
   }
 
-  const h = Number(src.raiseHeightMm);
-  const raiseHeightMm = Number.isFinite(h) && h > 0 ? h : RAISE_BOTTOM_POLE_MM;
-
   return {
     raiseBottom,
     bottomBeams,
-    raiseHeightMm,
+    raiseHeightMm: resolveRaiseHeightMm(src.raiseHeightMm),
   };
+}
+
+const SHARED_COLUMN_Y_EPS = 0.05;
+
+function uniqueSortedYs(ys, eps) {
+  const e = Number.isFinite(eps) ? eps : SHARED_COLUMN_Y_EPS;
+  const sorted = (Array.isArray(ys) ? ys : [])
+    .map(Number)
+    .filter((y) => Number.isFinite(y))
+    .sort((a, b) => a - b);
+  const out = [];
+  for (let i = 0; i < sorted.length; i++) {
+    const y = sorted[i];
+    if (!out.length || Math.abs(out[out.length - 1] - y) > e) out.push(y);
+  }
+  return out;
+}
+
+function ySetContains(fine, coarse, eps) {
+  const e = Number.isFinite(eps) ? eps : SHARED_COLUMN_Y_EPS;
+  if (!Array.isArray(fine) || !Array.isArray(coarse)) return false;
+  for (let i = 0; i < coarse.length; i++) {
+    const cy = coarse[i];
+    let found = false;
+    for (let j = 0; j < fine.length; j++) {
+      if (Math.abs(fine[j] - cy) <= e) {
+        found = true;
+        break;
+      }
+    }
+    if (!found) return false;
+  }
+  return true;
+}
+
+function cellStageYLevels(pitchList, stageBaseY) {
+  const ys = [Number(stageBaseY) || 0];
+  let y = ys[0];
+  const list = Array.isArray(pitchList) ? pitchList : [];
+  for (let i = 0; i < list.length; i++) {
+    const pitch = poleStagePitchMm(list[i]);
+    if (!(pitch > 0)) continue;
+    y += pitch;
+    ys.push(y);
+  }
+  return uniqueSortedYs(ys, SHARED_COLUMN_Y_EPS);
+}
+
+function formatHeightsLabel(heights) {
+  return (Array.isArray(heights) ? heights : []).map((h) => {
+    const n = Number(h);
+    return Number.isFinite(n) ? String(n) : String(h);
+  }).join("+");
+}
+
+function normalizeStageMatrix(enabledMatrix, stageMatrix) {
+  const depth = (enabledMatrix || []).length;
+  const width = (enabledMatrix[0] || []).length;
+  const makeDefaultCell = () => ({ stages: 1, heights: [300] });
+  const src = Array.isArray(stageMatrix) ? stageMatrix : null;
+
+  return Array.from({ length: depth }, (_, z) =>
+    Array.from({ length: width }, (_, x) => {
+      if (!enabledMatrix[z]?.[x]) return null;
+      const cell = src?.[z]?.[x];
+      if (!cell || !Array.isArray(cell.heights)) return makeDefaultCell();
+      const heights = cell.heights
+        .map((v) => parseFloat(v))
+        .filter((v) => Number.isFinite(v) && v > 0);
+      if (!heights.length) return makeDefaultCell();
+      return {
+        stages: Number.isFinite(+cell.stages) ? +cell.stages : heights.length,
+        heights,
+      };
+    })
+  );
+}
+
+function collectSharedColumnChains(depthCount, widthCount, enabledMatrix, stageData, stageBaseY) {
+  const columns = [];
+  for (let zi = 0; zi <= depthCount; zi++) {
+    for (let xi = 0; xi <= widthCount; xi++) {
+      const chains = [];
+      const neighbors = [
+        [zi - 1, xi - 1],
+        [zi - 1, xi],
+        [zi, xi - 1],
+        [zi, xi],
+      ];
+      for (let n = 0; n < neighbors.length; n++) {
+        const zr = neighbors[n][0];
+        const xc = neighbors[n][1];
+        if (zr < 0 || xc < 0 || zr >= depthCount || xc >= widthCount) continue;
+        if (!enabledMatrix[zr]?.[xc]) continue;
+        const info = stageData[zr]?.[xc];
+        const pitchList = info?.heights;
+        if (!Array.isArray(pitchList) || !pitchList.length) continue;
+        chains.push({
+          zr,
+          xc,
+          heights: pitchList.slice(),
+          ys: cellStageYLevels(pitchList, stageBaseY),
+        });
+      }
+      if (!chains.length) continue;
+      columns.push({ xi, zi, chains });
+    }
+  }
+  return columns;
+}
+
+function resolveSharedColumnYs(chains, eps) {
+  const list = Array.isArray(chains) ? chains : [];
+  if (!list.length) return { ok: true, ys: [] };
+  let best = null;
+  for (let i = 0; i < list.length; i++) {
+    const ch = list[i];
+    let coversAll = true;
+    for (let j = 0; j < list.length; j++) {
+      if (!ySetContains(ch.ys, list[j].ys, eps)) {
+        coversAll = false;
+        break;
+      }
+    }
+    if (coversAll && (!best || ch.ys.length > best.ys.length)) best = ch;
+  }
+  if (best) return { ok: true, ys: best.ys, source: best };
+  return { ok: false, chains: list };
+}
+
+function planSharedColumnPoles(opts) {
+  const src = opts && typeof opts === "object" ? opts : {};
+  const depthCount = src.depthCount | 0;
+  const widthCount = src.widthCount | 0;
+  const columns = collectSharedColumnChains(
+    depthCount,
+    widthCount,
+    src.enabledMatrix || [],
+    src.stageData || [],
+    Number(src.stageBaseY) || 0
+  );
+  const resolved = [];
+  const conflicts = [];
+  for (let i = 0; i < columns.length; i++) {
+    const col = columns[i];
+    const plan = resolveSharedColumnYs(col.chains);
+    if (plan.ok) resolved.push({ xi: col.xi, zi: col.zi, ys: plan.ys, chains: col.chains });
+    else conflicts.push({ xi: col.xi, zi: col.zi, chains: col.chains });
+  }
+  return {
+    ok: conflicts.length === 0,
+    columns: resolved,
+    conflicts,
+  };
+}
+
+function describeSharedColumnConflict(conflicts, xPos, zPos) {
+  const lines = [
+    "共有柱の段構成が一致しないため、自動レイアウトを中止しました。",
+    "既存のCADは変更していません。",
+    "",
+    "中間ジョイントの高さが異なる柱があります。POLE600 と POLE200+400 のように一方が他方を分割できる場合は生成できますが、POLE200+400 と POLE300+300 のように中間位置がずれる場合は生成できません。",
+    "",
+    "競合する柱:",
+  ];
+  (conflicts || []).forEach((col, idx) => {
+    const x = Array.isArray(xPos) && Number.isFinite(xPos[col.xi]) ? xPos[col.xi] : col.xi;
+    const z = Array.isArray(zPos) && Number.isFinite(zPos[col.zi]) ? zPos[col.zi] : col.zi;
+    const labels = [];
+    (col.chains || []).forEach((ch) => {
+      const label = "ベイ(" + (ch.xc + 1) + "列," + (ch.zr + 1) + "行) " + formatHeightsLabel(ch.heights);
+      if (labels.indexOf(label) < 0) labels.push(label);
+    });
+    lines.push("・柱" + (idx + 1) + "（X=" + x + ", Z=" + z + "）: " + labels.join(" / "));
+  });
+  return lines.join("\n");
+}
+
+function notifySharedColumnConflict(message, conflicts) {
+  window.__lastAutoLayoutConflict = {
+    message,
+    conflicts: conflicts || [],
+  };
+  if (typeof window.alert === "function") window.alert(message);
+  console.warn("[autolayout] shared-column pole conflict", window.__lastAutoLayoutConflict);
 }
 
 function applySelectModeAfterAutolayout() {
@@ -151,9 +343,6 @@ function buildAutoLayoutFromMatrix(cfg, mode = "replace") {
     return;
   }
 
-  // ★ 自動レイアウト開始：見積もり抑制ON
-  window.__buildingAutoLayout = true;
-
   const widthLens     = cfg.widthLens || [];
   const depthLens     = cfg.depthLens || [];
   const enabledMatrix = cfg.enabledMatrix || [];
@@ -196,52 +385,44 @@ function buildAutoLayoutFromMatrix(cfg, mode = "replace") {
     if (typeof window.addPoleConnection === "function") window.addPoleConnection(a, b);
   };
 
-    // ---- 0) 段データをグローバルに保持（あとで使えるように） ----
-  // cellStageData が未宣言でも保持できるよう、globalThis を正本にする
-  // ※ ここで enabledMatrix と同じサイズに正規化しておく（参照ズレ防止）
-  {
-    const depth = enabledMatrix.length;                 // = depthCount
-    const width = (enabledMatrix[0] || []).length;      // = widthCount
+  // ---- 0) 段データを正規化（CAD変更の前に柱構成を検証する） ----
+  const cellStageData = normalizeStageMatrix(enabledMatrix, stageMatrix);
 
-    const makeDefaultCell = () => ({ stages: 1, heights: [300] });
+  const xPos = [0];
+  widthLens.forEach((len) => {
+    xPos.push(xPos[xPos.length - 1] + len);
+  });
 
-    const normalizeStageMatrix = (src) => {
-      const out = Array.from({ length: depth }, (_, z) =>
-        Array.from({ length: width }, (_, x) => {
-          // OFF マスは必ず null
-          const isOn = !!enabledMatrix[z]?.[x];
-          if (!isOn) return null;
+  const zPos = [0];
+  depthLens.forEach((len) => {
+    zPos.push(zPos[zPos.length - 1] + len);
+  });
 
-          const cell = src?.[z]?.[x];
-          if (!cell || !Array.isArray(cell.heights)) return makeDefaultCell();
+  const baseY = 0;
+  const raiseOpts = resolveRaiseBottomOptions(cfg);
+  const raiseBottom = !!raiseOpts.raiseBottom;
+  const bottomBeams = raiseOpts.bottomBeams !== false;
+  const raiseHeightMm = raiseOpts.raiseHeightMm; // SKU（既定 100）
+  const raiseY = baseY + poleStagePitchMm(raiseHeightMm);
+  const stageBaseYForPlan = raiseBottom ? raiseY : baseY;
 
-          // heights を数値化・正の値のみ採用（順番は維持）
-          const heights = cell.heights
-            .map((v) => parseFloat(v))
-            .filter((v) => Number.isFinite(v) && v > 0);
-
-          if (!heights.length) return makeDefaultCell();
-
-          return {
-            stages: Number.isFinite(+cell.stages) ? +cell.stages : heights.length,
-            heights,
-          };
-        })
-      );
-      return out;
-    };
-
-    if (Array.isArray(stageMatrix)) {
-      // 平面ツールから stageMatrix が来た場合：deep copy + 正規化
-      globalThis.cellStageData = normalizeStageMatrix(stageMatrix);
-    } else {
-      // 互換用：stageMatrix が無い場合は ON マスだけ 1段 300mm で初期化
-      globalThis.cellStageData = normalizeStageMatrix(null);
-    }
-
-    // 以降の処理は cellStageData ローカル参照で読む（正本は globalThis）
-    var cellStageData = globalThis.cellStageData;
+  const columnPolePlan = planSharedColumnPoles({
+    depthCount,
+    widthCount,
+    enabledMatrix,
+    stageData: cellStageData,
+    stageBaseY: stageBaseYForPlan,
+  });
+  if (!columnPolePlan.ok) {
+    const message = describeSharedColumnConflict(columnPolePlan.conflicts, xPos, zPos);
+    notifySharedColumnConflict(message, columnPolePlan.conflicts);
+    return { ok: false, conflict: true, conflicts: columnPolePlan.conflicts };
   }
+  window.__lastAutoLayoutConflict = null;
+
+  // ★ 自動レイアウト開始：見積もり抑制ON（検証通過後だけシーンを触る）
+  window.__buildingAutoLayout = true;
+  globalThis.cellStageData = cellStageData;
 
   // ---- 1) 既存シーンをクリア（置き換えモードのときだけ） ----
   if (mode === "replace") {
@@ -284,24 +465,6 @@ function buildAutoLayoutFromMatrix(cfg, mode = "replace") {
     const maxX = Math.max(...xs);
     baseOffsetX = maxX + 300;
   }
-
-  // ---- 2) グリッド座標を計算（X/Z） ----
-  const xPos = [0];
-  widthLens.forEach((len) => {
-    xPos.push(xPos[xPos.length - 1] + len);
-  });
-
-  const zPos = [0];
-  depthLens.forEach((len) => {
-    zPos.push(zPos[zPos.length - 1] + len);
-  });
-
-  const baseY = 0;
-  const raiseOpts = resolveRaiseBottomOptions(cfg);
-  const raiseBottom = !!raiseOpts.raiseBottom;
-  const bottomBeams = raiseOpts.bottomBeams !== false;
-  const raiseHeightMm = raiseOpts.raiseHeightMm; // SKU（既定 100）
-  const raiseY = baseY + poleStagePitchMm(raiseHeightMm);
 
   // ---- 3) どの交点にジョイントが必要かマークする（床レベル） ----
   // jointIndexGrid[zi][xi] = その位置の床ジョイントindex or null
@@ -350,7 +513,7 @@ function buildAutoLayoutFromMatrix(cfg, mode = "replace") {
 
   // ---- 5) 床レベル（LEG直上）のマスごとにビームを張る（ONマスだけ） ----
   // 立ち上げ＋下部Beamなしのときだけ、この y=baseY のビームを省略する。
-  // JointBall / LEG / POLE100 / 上段ビームは省略しない。
+  // JointBall / LEG / 立ち上げPOLE / 上段ビームは省略しない。
   if (!raiseBottom || bottomBeams) {
     for (let zr = 0; zr < depthCount; zr++) {
       for (let xc = 0; xc < widthCount; xc++) {
@@ -374,7 +537,7 @@ function buildAutoLayoutFromMatrix(cfg, mode = "replace") {
     }
   }
 
-  // ---- 5.5) 最下段立ち上げ：LEG直上ジョイント → POLE100 → 上端ジョイント ----
+  // ---- 5.5) 最下段立ち上げ：LEG直上ジョイント → 選択SKUのPOLE → 上端ジョイント ----
   const raiseJointIndexGrid = [];
   if (raiseBottom) {
     for (let zi = 0; zi <= depthCount; zi++) {
@@ -396,7 +559,7 @@ function buildAutoLayoutFromMatrix(cfg, mode = "replace") {
       raiseJointIndexGrid.push(row);
     }
 
-    // POLE100 上端側のビーム（下部Beam省略の対象外）
+    // 立ち上げPOLE 上端側のビーム（下部Beam省略の対象外）
     for (let zr = 0; zr < depthCount; zr++) {
       for (let xc = 0; xc < widthCount; xc++) {
         const rowFlags = enabledMatrix[zr] || [];
@@ -420,8 +583,7 @@ function buildAutoLayoutFromMatrix(cfg, mode = "replace") {
   const stageBaseGrid = raiseBottom ? raiseJointIndexGrid : jointIndexGrid;
 
   // ---- 6) 段設定から上方向にフレームを積み上げる（各段の「高さ＝ピッチ」として扱う） ----
-  // 仕様維持のため「ポールの繋ぎ方（prev→next）」はセル単位で従来どおり。
-  // 最適化として、同一Yレベルのジョイント生成/ビーム接続をまとめて処理する。
+  // JB / BEAM はセルの段Yを収集して生成する。POLE は共有柱を XZ 頂点単位で1回だけ繋ぐ。
   const stageData = globalThis.cellStageData;
   if (stageData && Array.isArray(stageData)) {
     const vertexKey = (xi, zi) => `${xi}|${zi}`;
@@ -522,59 +684,19 @@ function buildAutoLayoutFromMatrix(cfg, mode = "replace") {
       });
     }
 
-    // 3) ポールはセル単位で従来どおり（ただしジョイント生成は再利用）
-    for (let zr = 0; zr < depthCount; zr++) {
-      for (let xc = 0; xc < widthCount; xc++) {
-        if (!enabledMatrix[zr]?.[xc]) continue;
-
-        const info = stageData[zr]?.[xc];
-        const pitchList = info?.heights;
-        if (!Array.isArray(pitchList) || pitchList.length === 0) continue;
-
-        // 段積みの起点（立ち上げ時は POLE100 上端）
-        const baseJ00 = stageBaseGrid[zr][xc];
-        const baseJ10 = stageBaseGrid[zr][xc + 1];
-        const baseJ01 = stageBaseGrid[zr + 1][xc];
-        const baseJ11 = stageBaseGrid[zr + 1][xc + 1];
-        if (
-          baseJ00 == null ||
-          baseJ10 == null ||
-          baseJ01 == null ||
-          baseJ11 == null
-        ) {
-          continue;
-        }
-
-        const v00 = vertexKey(xc, zr);
-        const v10 = vertexKey(xc + 1, zr);
-        const v01 = vertexKey(xc, zr + 1);
-        const v11 = vertexKey(xc + 1, zr + 1);
-
-        let accumulatedY = stageBaseY;
-        let prevJ00 = baseJ00;
-        let prevJ10 = baseJ10;
-        let prevJ01 = baseJ01;
-        let prevJ11 = baseJ11;
-
-        for (let i = 0; i < pitchList.length; i++) {
-          accumulatedY += poleStagePitchMm(pitchList[i]);
-          const y = accumulatedY;
-
-          const j00 = getJointIndexAtVertexY(v00, y);
-          const j10 = getJointIndexAtVertexY(v10, y);
-          const j01 = getJointIndexAtVertexY(v01, y);
-          const j11 = getJointIndexAtVertexY(v11, y);
-
-          connectPole(prevJ00, j00);
-          connectPole(prevJ10, j10);
-          connectPole(prevJ01, j01);
-          connectPole(prevJ11, j11);
-
-          prevJ00 = j00;
-          prevJ10 = j10;
-          prevJ01 = j01;
-          prevJ11 = j11;
-        }
+    // 3) ポールは共有柱（XZ頂点）単位。包含関係は分割構成を採用済み。
+    const poleCols = columnPolePlan.columns || [];
+    for (let ci = 0; ci < poleCols.length; ci++) {
+      const col = poleCols[ci];
+      const baseJ = stageBaseGrid[col.zi]?.[col.xi];
+      if (baseJ == null) continue;
+      const vKey = vertexKey(col.xi, col.zi);
+      const ys = col.ys || [];
+      let prevJ = baseJ;
+      for (let i = 1; i < ys.length; i++) {
+        const nextJ = getJointIndexAtVertexY(vKey, ys[i]);
+        connectPole(prevJ, nextJ);
+        prevJ = nextJ;
       }
     }
   }
@@ -620,6 +742,7 @@ function buildAutoLayoutFromMatrix(cfg, mode = "replace") {
    if (typeof saveHistory === "function") saveHistory();
 
    applySelectModeAfterAutolayout();
+   return { ok: true };
 }
 
 // 外部（別ウィンドウ）からも呼べる 3D 自動レイアウト本体
@@ -1004,7 +1127,13 @@ function initAutoLayoutToolButton() {
 
 // グローバルに公開
 window.RAISE_BOTTOM_POLE_MM = RAISE_BOTTOM_POLE_MM;
+window.RAISE_BOTTOM_POLE_OPTIONS = RAISE_BOTTOM_POLE_OPTIONS;
+window.SHARED_COLUMN_Y_EPS = SHARED_COLUMN_Y_EPS;
 window.resolveRaiseBottomOptions = resolveRaiseBottomOptions;
+window.ySetContains = ySetContains;
+window.cellStageYLevels = cellStageYLevels;
+window.planSharedColumnPoles = planSharedColumnPoles;
+window.resolveSharedColumnYs = resolveSharedColumnYs;
 window.getAlignedJointIndices = getAlignedJointIndices;
 window.shiftClusterJointsOnSide = shiftClusterJointsOnSide;
 window.buildAutoLayoutFromMatrix = buildAutoLayoutFromMatrix;

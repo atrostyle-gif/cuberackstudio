@@ -367,23 +367,36 @@ function computeFrameDimensions() {
     outerDepth = coreDepth + JB + 2 * SC;
   }
   
-  // --- 外寸：高さ ---
-  // CAD ジョイント中心の高低差に製品端部（LEG 12.9 + 最下JB半分 9.1 + 上JB半分 9.1 + TC 2.2）を足す。
-  // 旧データの座標は変換せず、同じ端部定数で測る。
+  // --- 外寸：高さ（製品実寸。CAD span は実寸として使わない） ---
   const hasLeg = legs.length > 0;
   const spanY = (Number.isFinite(maxY) && Number.isFinite(minY)) ? (maxY - minY) : 0;
   let outerHeight;
-  if (typeof window.calcFrameOuterHeightMm === "function" && spanY >= 0 && joints.length > 0) {
-    outerHeight = window.calcFrameOuterHeightMm(spanY, hasLeg, true);
-  } else if (yPoleNominals.length > 0 && typeof window.calcPoleOuterHeightMm === "function") {
-    outerHeight = window.calcPoleOuterHeightMm(yPoleNominals);
-    if (!hasLeg) outerHeight -= window.getLegHeightMm();
-  } else {
-    const bottomOffsetWithLeg = REAL_STACK.floorToCenterWithLeg;
-    const bottomOffsetNoLeg = REAL_STACK.floorToCenterWithLeg - window.getLegHeightMm();
-    const bottomOffset = hasLeg ? bottomOffsetWithLeg : bottomOffsetNoLeg;
-    const topOffset = REAL_STACK.floorToTopCapWithLeg - REAL_STACK.floorToCenterWithLeg;
-    outerHeight = coreHeight + bottomOffset + topOffset;
+  let outerHeightText = null;
+  let outerHeightNote = null;
+  if (typeof window.collectVerticalPoleSkuColumns === "function"
+      && typeof window.summarizeRackProductHeightMm === "function") {
+    const cols = window.collectVerticalPoleSkuColumns(joints, window.poles);
+    const sum = window.summarizeRackProductHeightMm(cols, hasLeg, true);
+    if (sum && sum.unique && Number.isFinite(sum.value)) {
+      outerHeight = sum.value;
+    } else if (sum && !sum.unique && sum.text) {
+      outerHeightText = sum.text;
+      outerHeightNote = sum.note;
+    }
+  }
+  if (outerHeight == null && !outerHeightText) {
+    if (yPoleNominals.length > 0 && typeof window.calcPoleOuterHeightMm === "function") {
+      outerHeight = window.calcPoleOuterHeightMm(yPoleNominals);
+      if (!hasLeg && typeof window.getLegHeightMm === "function") outerHeight -= window.getLegHeightMm();
+    } else if (typeof window.calcFrameOuterHeightMm === "function" && spanY >= 0 && joints.length > 0) {
+      outerHeight = window.calcFrameOuterHeightMm(spanY, hasLeg, true);
+    } else {
+      const bottomOffsetWithLeg = REAL_STACK.floorToCenterWithLeg;
+      const bottomOffsetNoLeg = REAL_STACK.floorToCenterWithLeg - window.getLegHeightMm();
+      const bottomOffset = hasLeg ? bottomOffsetWithLeg : bottomOffsetNoLeg;
+      const topOffset = REAL_STACK.floorToTopCapWithLeg - REAL_STACK.floorToCenterWithLeg;
+      outerHeight = coreHeight + bottomOffset + topOffset;
+    }
   }
 
   if (window.__CR_DBG_DIM__) {
@@ -404,6 +417,8 @@ function computeFrameDimensions() {
     outerWidth,
     outerDepth,
     outerHeight,
+    outerHeightText,
+    outerHeightNote,
   };
 }
 
@@ -431,6 +446,8 @@ function updateDimensionPopup() {
       const el = document.getElementById(id);
       if (el) el.textContent = "-";
     });
+    const noteEmpty = document.getElementById("dim-outer-height-note");
+    if (noteEmpty) noteEmpty.textContent = "※ 外寸高さは製品実寸（図面有効長）。芯々はCAD配置です。";
     return;
   }
 
@@ -454,9 +471,19 @@ function updateDimensionPopup() {
       idx === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1)
     ).join("");
     
+    if (id === "dim-outer-height" && dim.outerHeightText) {
+      el.textContent = dim.outerHeightText + " mm";
+      return;
+    }
     const val = dim[key];
     el.textContent = formatMm(val);
   });
+  const noteEl = document.getElementById("dim-outer-height-note");
+  if (noteEl) {
+    noteEl.textContent = dim.outerHeightNote
+      ? dim.outerHeightNote
+      : "※ 外寸高さは製品実寸（図面有効長）。芯々はCAD配置です。";
+  }
 }
 
 // 見積計算とレンダリング
@@ -1461,6 +1488,24 @@ window.sendToEstimate = function (e) {
 
   const win = window.open("estimate.html", "_blank");
   if (win) {
+    try {
+      const staff = typeof window.isCubeRackStaffMode === "function" && window.isCubeRackStaffMode();
+      if (staff) {
+        const stock = {};
+        (payload.lines || []).forEach(function (row) {
+          const key = String(row && row.key || "") + "\t" + String(row && row.material || "");
+          const label = (window.v3EstimatePanel && typeof window.v3EstimatePanel.stockLabel === "function")
+            ? window.v3EstimatePanel.stockLabel(row)
+            : "—";
+          stock[key] = label;
+        });
+        win.sessionStorage.setItem("cuberack_print_show_stock", "1");
+        win.sessionStorage.setItem("cuberack_print_stock", JSON.stringify(stock));
+      } else {
+        win.sessionStorage.removeItem("cuberack_print_show_stock");
+        win.sessionStorage.removeItem("cuberack_print_stock");
+      }
+    } catch (_) {}
     try { win.opener = null; } catch (_) {}
   } else {
     alert(

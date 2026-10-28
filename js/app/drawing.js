@@ -73,7 +73,9 @@
     if (chart && (kind === "beam" || kind === "pole")) {
       const map = payload.preview && payload.preview.lengthColors;
       if (item && (item.isCustom || item.isOrder)) return (map && map.order) || "#7c3aed";
-      const len = item && (item.colorLengthMm || item.lengthMm);
+      const len = kind === "pole" && item && Number(item.lengthMm) > 0
+        ? item.lengthMm
+        : (item && (item.colorLengthMm || item.lengthMm));
       if (map && len != null) {
         const keys = Object.keys(map);
         for (let i = 0; i < keys.length; i++) {
@@ -1014,17 +1016,20 @@ if (mode === "iso") {
           Hmm = window.calcPoleOuterHeightMm(bestGroup);
         }
       }
-      if (typeof window.calcFrameOuterHeightMm === "function" && Array.isArray(joints) && joints.length) {
-        let minJY = Infinity;
-        let maxJY = -Infinity;
-        joints.forEach(function (j) {
-          if (!j || typeof j.y !== "number") return;
-          if (j.y < minJY) minJY = j.y;
-          if (j.y > maxJY) maxJY = j.y;
-        });
-        if (Number.isFinite(minJY) && Number.isFinite(maxJY)) {
-          const hasLeg = !!(payload.legs && payload.legs.length);
-          Hmm = window.calcFrameOuterHeightMm(maxJY - minJY, hasLeg, true);
+      let Hlabel = null;
+      if (typeof window.summarizeRackProductHeightMm === "function"
+          && typeof window.collectVerticalPoleSkuColumns === "function") {
+        const hasLeg = !!(payload.legs && payload.legs.length);
+        const sum = window.summarizeRackProductHeightMm(
+          window.collectVerticalPoleSkuColumns(joints, polesPayload),
+          hasLeg,
+          true
+        );
+        if (sum && sum.unique && Number.isFinite(sum.value)) {
+          Hmm = sum.value;
+        } else if (sum && !sum.unique && sum.text) {
+          if (Number.isFinite(sum.max)) Hmm = sum.max;
+          Hlabel = sum.text;
         }
       }
       
@@ -1032,6 +1037,7 @@ if (mode === "iso") {
         if (payload.overall.W != null) Wmm = payload.overall.W;
         if (payload.overall.D != null) Dmm = payload.overall.D;
         if (payload.overall.H != null) Hmm = payload.overall.H;
+        if (payload.overall.Htext) Hlabel = payload.overall.Htext;
       }
 
       // フォールバック：座標から直接計算（見積の整数丸めは使わない）
@@ -1173,7 +1179,7 @@ if (mode === "iso") {
           drawDimLine(ctx, pL.x, dimLineBottomY, pR.x, dimLineBottomY, `W ${fmtMm(Wmm)} mm`, dimOpt(widthKey));
           drawExt(pR.x, pHTop.y, dimLineHeightX, pHTop.y, dimOpt(heightKey));
           drawExt(pR.x, pHBottom.y, dimLineHeightX, pHBottom.y, dimOpt(heightKey));
-          drawDimLine(ctx, dimLineHeightX, pHTop.y, dimLineHeightX, pHBottom.y, `H ${fmtMm(Hmm)} mm`, dimOpt(heightKey));
+          drawDimLine(ctx, dimLineHeightX, pHTop.y, dimLineHeightX, pHBottom.y, `H ${Hlabel || fmtMm(Hmm)} mm`, dimOpt(heightKey));
         }
 
         if (dimKind === "side") {
@@ -1182,7 +1188,7 @@ if (mode === "iso") {
           drawDimLine(ctx, pL.x, dimLineBottomY, pR.x, dimLineBottomY, `D ${fmtMm(Dmm)} mm`, dimOpt(widthKey));
           drawExt(pR.x, pHTop.y, dimLineHeightX, pHTop.y, dimOpt(heightKey));
           drawExt(pR.x, pHBottom.y, dimLineHeightX, pHBottom.y, dimOpt(heightKey));
-          drawDimLine(ctx, dimLineHeightX, pHTop.y, dimLineHeightX, pHBottom.y, `H ${fmtMm(Hmm)} mm`, dimOpt(heightKey));
+          drawDimLine(ctx, dimLineHeightX, pHTop.y, dimLineHeightX, pHBottom.y, `H ${Hlabel || fmtMm(Hmm)} mm`, dimOpt(heightKey));
         }
       }
     }

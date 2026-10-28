@@ -6031,6 +6031,17 @@ function getPoleLength(p) {
   return Math.hypot(c.x - a.x, c.y - a.y, c.z - a.z);
 }
 
+function poleColorLengthMm(p) {
+  const cad = getPoleLength(p);
+  if (typeof window.getPoleColorLengthMm === "function") return window.getPoleColorLengthMm(p, cad);
+  if (typeof window.resolvePoleSkuForEstimate === "function") {
+    const resolved = window.resolvePoleSkuForEstimate(p, cad);
+    if (resolved && Number(resolved.skuMm) > 0) return Number(resolved.skuMm);
+  }
+  const stored = Number(p && p.lengthMm);
+  return stored > 0 ? stored : cad;
+}
+
 function getLengthColor(lengthMm) {
   const n = Number(lengthMm);
   if (!Number.isFinite(n) || !LENGTH_COLOR_MAP) return (LENGTH_COLOR_MAP && LENGTH_COLOR_MAP.order) || "#7c3aed";
@@ -6307,7 +6318,7 @@ function applyLengthColoring() {
     const mat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
     if (!mat) return;
 
-    const len = getPoleLength(p);
+    const len = poleColorLengthMm(p);
 
     if (p.isCustom) {
       applyOrderStripe(mesh, len);
@@ -7179,13 +7190,13 @@ function initMaterialApplyButtonsUI() {
 
       const out = { a: A, b: B };
       if (typeof c.lengthMm === "number") out.lengthMm = c.lengthMm;
-      const lenFn = c.type === "pole" || (window.poles && window.poles.indexOf(c) >= 0)
-        ? window.getPoleLength
-        : window.getBeamLength;
-      if (typeof lenFn === "function") {
-        const colorLen = lenFn(c);
-        if (Number.isFinite(colorLen) && colorLen > 0) out.colorLengthMm = colorLen;
-      }
+      const isPole = c.type === "pole" || (window.poles && window.poles.indexOf(c) >= 0);
+      const colorLen = isPole
+        ? (typeof window.getPoleColorLengthMm === "function"
+          ? window.getPoleColorLengthMm(c, typeof window.getPoleLength === "function" ? window.getPoleLength(c) : c.lengthMm)
+          : (Number(c.lengthMm) > 0 ? Number(c.lengthMm) : (typeof window.getPoleLength === "function" ? window.getPoleLength(c) : 0)))
+        : (typeof window.getBeamLength === "function" ? window.getBeamLength(c) : Number(c.lengthMm));
+      if (Number.isFinite(colorLen) && colorLen > 0) out.colorLengthMm = colorLen;
       if (typeof c.axis === "string") out.axis = c.axis;
       if (typeof c.isOrder === "boolean") out.isOrder = c.isOrder;
       if (typeof c.isCustom === "boolean") out.isCustom = c.isCustom;

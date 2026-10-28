@@ -52,7 +52,7 @@ ok("新規後に原点シードを置く", performSrc.indexOf("createJoint({ x: 
 ok("新規後に pool.sync", performSrc.indexOf("v3InstancePool.sync(true)") >= 0);
 ok("既存JSON復元は rebuild のまま", fileSrc.indexOf("function rebuildSceneFromData") >= 0 && fileSrc.indexOf("v3InstancePool.clear") >= 0);
 ok("保存形式はJSONのまま", fileSrc.indexOf("mfes-design") >= 0 && fileSrc.indexOf("application/json") >= 0);
-ok("キャッシュ更新", indexSrc.indexOf("main.js?v=20261027-h1") >= 0 && indexSrc.indexOf("v3-instance-pool.js?v=20261027-h1") >= 0);
+ok("キャッシュ更新", indexSrc.indexOf("main.js?v=20261028-sku1") >= 0 && indexSrc.indexOf("v3-instance-pool.js?v=20261028-sku1") >= 0);
 ok("Undoは履歴配列を読む", histSrc.indexOf("function undo") >= 0 && histSrc.indexOf("window.historyIndex <= 0") >= 0);
 ok("disposeHandle が共有破棄経路", meshSrc.indexOf("disposeHandle") >= 0 && meshSrc.indexOf("v3Instanced") >= 0);
 

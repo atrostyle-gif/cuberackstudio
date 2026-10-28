@@ -33,7 +33,7 @@ ok("sync 前にバッファサイズを確保する", poolSrc.indexOf("ensureIns
 ok("新規 register で即 setColorAt", /p\.handles\.push\(handle\);[\s\S]{0,180}setColorAt\(handle\.userData\.v3Slot/.test(poolSrc));
 ok("DynamicDrawUsage を instanceColor にも付ける", poolSrc.indexOf("attr.setUsage(THREE.DynamicDrawUsage)") >= 0);
 ok("診断機能は残す", diagSrc.indexOf("v3DiagJointSelect") >= 0 && indexSrc.indexOf("v3-diag-joint-select.js") >= 0);
-ok("pool キャッシュ更新", indexSrc.indexOf("v3-instance-pool.js?v=20261027-h1") >= 0);
+ok("pool キャッシュ更新", indexSrc.indexOf("v3-instance-pool.js?v=20261028-sku1") >= 0);
 ok("配置判定は維持", pickSrc.indexOf("function decideAddClick") >= 0);
 ok("ハイライト復元は維持", mainSrc.indexOf("function restoreSelectedJointVisual") >= 0);
 ok("setSelectedJoint 再実行を対症療法にしない", !/function hidePreview\(\) \{[\s\S]*?setSelectedJoint\(targetIndex\)/.test(mainSrc));

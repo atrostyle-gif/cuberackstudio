@@ -13,6 +13,7 @@
   const MARGIN = 8;
   const DEFAULT_LEN = 200;
   const DEFAULT_H = 300;
+  const DEFAULT_RAISE_H = 100;
   const MAX_STAGES = 10;
   const VIEW_H = 210;
   const PAD_L = 40;
@@ -59,6 +60,19 @@
     return fallback;
   }
 
+  function parseRaiseSku(raw) {
+    if (typeof window.resolveRaiseBottomOptions === "function") {
+      const n = window.resolveRaiseBottomOptions({ raiseHeightMm: raw }).raiseHeightMm;
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+    const n = parseLen(raw, DEFAULT_RAISE_H);
+    const opts = polePresets();
+    for (let i = 0; i < opts.length; i++) {
+      if (Math.abs(opts[i] - n) < 1e-6) return opts[i];
+    }
+    return DEFAULT_RAISE_H;
+  }
+
   function fmt(n) {
     if (window.formatDesignMm) return window.formatDesignMm(n);
     const v = Number(n);
@@ -97,6 +111,7 @@
       stages: [[copyStage(), copyStage()], [copyStage(), copyStage()]],
       raiseBottom: false,
       bottomBeams: true,
+      raiseHeightMm: DEFAULT_RAISE_H,
       bulkStages: 1,
       bulkHeights: [DEFAULT_H],
       sel: { r: 0, c: 0 },
@@ -163,9 +178,10 @@
       }
       const raise = window.resolveRaiseBottomOptions
         ? window.resolveRaiseBottomOptions(data)
-        : { raiseBottom: !!data.raiseBottom, bottomBeams: data.bottomBeams !== false };
+        : { raiseBottom: !!data.raiseBottom, bottomBeams: data.bottomBeams !== false, raiseHeightMm: parseRaiseSku(data.raiseHeightMm) };
       m.raiseBottom = !!raise.raiseBottom;
       m.bottomBeams = raise.bottomBeams !== false;
+      m.raiseHeightMm = parseRaiseSku(raise.raiseHeightMm);
       resizeModel(m, rows, cols);
     } catch (e) {
       console.warn("[v3-al] layout load failed", e);
@@ -184,6 +200,7 @@
       stageMatrix: model.stages.map((row) => row.map(copyStage)),
       raiseBottom: !!model.raiseBottom,
       bottomBeams: model.bottomBeams !== false,
+      raiseHeightMm: parseRaiseSku(model.raiseHeightMm),
       faceStageBulk: {
         stageCount: model.bulkStages,
         heights: model.bulkHeights.slice(),
@@ -200,7 +217,17 @@
     if (!model) model = defaultModel();
     model.raiseBottom = !!on;
     // 新しく立ち上げをONにしたときの下部Beam初期値は「なし」。手動の「あり」は data-al-bb で維持する。
-    if (model.raiseBottom) model.bottomBeams = false;
+    if (model.raiseBottom) {
+      model.bottomBeams = false;
+      model.raiseHeightMm = parseRaiseSku(model.raiseHeightMm);
+    }
+    renderChrome();
+  }
+
+  function setRaiseHeightMm(n) {
+    if (!model) model = defaultModel();
+    model.raiseHeightMm = parseRaiseSku(n);
+    renderChrome();
   }
 
   function getRaiseOptions() {
@@ -208,6 +235,7 @@
     return {
       raiseBottom: !!model.raiseBottom,
       bottomBeams: model.bottomBeams !== false,
+      raiseHeightMm: parseRaiseSku(model.raiseHeightMm),
     };
   }
 
@@ -221,6 +249,7 @@
       stageMatrix: model.stages.map((row) => row.map(copyStage)),
       raiseBottom: !!model.raiseBottom,
       bottomBeams: model.bottomBeams !== false,
+      raiseHeightMm: parseRaiseSku(model.raiseHeightMm),
       mode: mode === "append" ? "append" : "replace",
     };
   }
@@ -801,6 +830,86 @@
   }
 
   // 最上段がリスト先頭、最下段（1段目）が末尾。データ index 0 は最下段のまま。
+  // 立ち上げは段数に含めず、ON時だけ最下行にSKU呼び寸法ボタンを出す。
+  function renderRaiseHeightRow() {
+    if (!model || !model.raiseBottom) return "";
+    const sku = parseRaiseSku(model.raiseHeightMm);
+    return '<div class="v3-al-hrow v3-al-hrow-raise" id="v3-al-raise-hrow">' +
+      "<em>立ち上げ</em>" +
+      '<button type="button" class="v3-al-dim" data-al-h="raise" id="v3-al-raise-dim"' +
+      ' title="立ち上げPOLEの長さ">' + fmt(sku) + "</button></div>";
+  }
+
+  function stackFromHeights(heights) {
+    const list = (Array.isArray(heights) ? heights : [])
+      .map(function (n) { return Number(n); })
+      .filter(function (n) { return Number.isFinite(n) && n > 0; });
+    if (model && model.raiseBottom) return [parseRaiseSku(model.raiseHeightMm)].concat(list);
+    return list;
+  }
+
+  function collectPreviewPoleSkuColumns() {
+    if (!model) return [];
+    const columns = [];
+    const seen = {};
+    function add(stack) {
+      if (!stack || !stack.length) return;
+      const key = stack.join("+");
+      if (seen[key]) return;
+      seen[key] = true;
+      columns.push(stack);
+    }
+    add(stackFromHeights(model.bulkHeights));
+    const rows = model.rows | 0;
+    const cols = model.cols | 0;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (!model.enabled[r] || !model.enabled[r][c]) continue;
+        const st = model.stages[r] && model.stages[r][c];
+        add(stackFromHeights(st && st.heights));
+      }
+    }
+    return columns;
+  }
+
+  function formatOuterMm(n) {
+    if (typeof window.formatDim === "function") return window.formatDim(n, 1);
+    const v = Number(n);
+    if (!Number.isFinite(v)) return "-";
+    return v.toFixed(1) + " mm";
+  }
+
+  const OUTER_NOTE = "※ 製品実寸（Leg下端〜TopCap頂点）";
+
+  function previewOuterHeightSummary() {
+    const columns = collectPreviewPoleSkuColumns();
+    if (typeof window.summarizeRackProductHeightMm === "function") {
+      const sum = window.summarizeRackProductHeightMm(columns, true, true);
+      const max = sum && Number.isFinite(sum.max) ? sum.max
+        : (sum && Number.isFinite(sum.value) ? sum.value : null);
+      if (Number.isFinite(max)) {
+        return {
+          unique: !!(sum && sum.unique),
+          value: max,
+          min: Number.isFinite(sum.min) ? sum.min : max,
+          max: max,
+          text: formatOuterMm(max),
+          note: OUTER_NOTE,
+          columns: columns,
+        };
+      }
+    }
+    return { unique: false, value: null, min: null, max: null, text: "-", note: OUTER_NOTE, columns: columns };
+  }
+
+  function renderOuterHeight() {
+    const sum = previewOuterHeightSummary();
+    return '<div class="v3-al-outer" id="v3-al-outer-h">' +
+      '<div class="v3-al-hrow v3-al-hrow-outer"><em>外々高さ</em>' +
+      '<span class="v3-al-outer-val" id="v3-al-outer-val">' + sum.text + "</span></div>" +
+      '<p class="v3-al-outer-note" id="v3-al-outer-note">' + sum.note + "</p></div>";
+  }
+
   function renderHeightRows(prefix, count, heights) {
     let html = '<div class="v3-al-heights">';
     for (let i = count - 1; i >= 0; i--) {
@@ -808,17 +917,26 @@
         '<button type="button" class="v3-al-dim" data-al-h="' + prefix + '" data-i="' + i +
         '" title="下から' + (i + 1) + '段目の高さ">' + fmt(heights[i] || DEFAULT_H) + "</button></div>";
     }
+    if (prefix === "bulk") html += renderRaiseHeightRow();
     html += "</div>";
+    if (prefix === "bulk") html += renderOuterHeight();
     return html;
   }
 
   function renderRaise() {
     const on = !!model.raiseBottom;
     const beamsOn = model.bottomBeams !== false;
-    let html = '<label class="v3-al-check" title="LEG直上に POLE100 を挿入">' +
+    const raiseSku = parseRaiseSku(model.raiseHeightMm);
+    let html = '<label class="v3-al-check" title="LEG直上に選択したPOLEを挿入">' +
       '<input id="v3-al-raise" type="checkbox"' + (on ? " checked" : "") + ">" +
       "最下段の立ち上げ</label>";
     if (!on) return html;
+    html += '<div class="v3-al-inline"><label for="v3-al-raise-len">立ち上げPOLEの長さ</label>' +
+      '<select id="v3-al-raise-len" aria-label="立ち上げPOLEの長さ">';
+    polePresets().forEach(function (n) {
+      html += '<option value="' + n + '"' + (n === raiseSku ? " selected" : "") + ">" + n + " mm</option>";
+    });
+    html += "</select></div>";
     html += '<div class="v3-al-inline"><span>下部Beam</span><div class="v3-al-seg">' +
       '<button type="button" data-al-bb="1" class="' + (beamsOn ? "is-on" : "") +
       '" title="LEG直上の幅・奥行Beamを生成">あり</button>' +
@@ -1077,7 +1195,11 @@
     }
     if (t.dataset.alH) {
       const i = +t.dataset.i;
-      if (t.dataset.alH === "bulk") {
+      if (t.dataset.alH === "raise") {
+        showLenPop(t, parseRaiseSku(model.raiseHeightMm), polePresets(), function (n) {
+          model.raiseHeightMm = parseRaiseSku(n);
+        });
+      } else if (t.dataset.alH === "bulk") {
         showLenPop(t, model.bulkHeights[i], polePresets(), function (n) {
           model.bulkHeights[i] = n;
         });
@@ -1102,6 +1224,10 @@
       setRaiseBottom(t.checked);
       saveModel();
       render();
+    } else if (t.id === "v3-al-raise-len") {
+      setRaiseHeightMm(t.value);
+      saveModel();
+      renderChrome();
     }
   }
 
@@ -1314,7 +1440,12 @@
     },
     collectCfg,
     setRaiseBottom,
+    setRaiseHeightMm,
     getRaiseOptions,
+    getOuterHeightSummary: function () {
+      if (!model) model = defaultModel();
+      return previewOuterHeightSummary();
+    },
     fitView() {
       view.needFit = true;
       render();

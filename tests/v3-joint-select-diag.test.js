@@ -33,7 +33,7 @@ ok("inspect は選択判定を含む", poolSrc.indexOf("selectedByHandle: isSele
 ok("createJoint が診断に通知する", /path: "new"/.test(jointsSrc) && /path: "existing"/.test(jointsSrc));
 ok("setSelectedJoint が診断に通知する", /notifyJointDiag\("setSelectedJoint"/.test(jointsSrc));
 ok("診断スクリプトを index が読む", indexSrc.indexOf("js/ui/v3-diag-joint-select.js?v=20261026-diag1") >= 0);
-ok("pool / joints キャッシュ", indexSrc.indexOf("v3-instance-pool.js?v=20261027-h1") >= 0 && indexSrc.indexOf("joints.js?v=20261027-msdel1") >= 0);
+ok("pool / joints キャッシュ", indexSrc.indexOf("v3-instance-pool.js?v=20261028-sku1") >= 0 && indexSrc.indexOf("joints.js?v=20261027-msdel1") >= 0);
 ok("dump / capture / compare / help がある", ["dump:", "capture:", "compare:", "help:"].every(function (k) { return diagSrc.indexOf(k) >= 0; }));
 ok("3状態のキーがある", diagSrc.indexOf("after-new") >= 0 && diagSrc.indexOf("after-existing") >= 0 && diagSrc.indexOf("capture('first')") >= 0);
 ok("dump は setSelectedJoint を呼ばない", !/function snapshot[\s\S]*setSelectedJoint\(/.test(diagSrc) && diagSrc.indexOf("dump: function () { return logSnap(snapshot(\"live\")); }") >= 0);
