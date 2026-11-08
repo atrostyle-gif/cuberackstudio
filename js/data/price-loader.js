@@ -13,6 +13,14 @@
     "pole_500", "pole_600", "pole_800",
   ];
 
+  const BUNDLED_PARTS_CATALOG = (window.PARTS_CATALOG && typeof window.PARTS_CATALOG === "object")
+    ? JSON.parse(JSON.stringify(window.PARTS_CATALOG))
+    : {};
+
+  // IRON 850円は確定。BS 1,790 / SUS 1,385 は暫定参考値で、未設定のまま残す。
+  const BEAM_500_CONFIRMED_IRON = 850;
+  const BEAM_500_REFERENCE_PRICES = { BS: 1790, SUS: 1385 };
+
   const BASIC_PART_KEYS = [
     "jointBall", "jointCap", "topCap", "sideCap",
     "legBoss", "leg", "beamNut", "m5Screw",
@@ -46,6 +54,48 @@
       if (diff !== 0) return diff;
       return a.localeCompare(b);
     });
+  }
+
+  /**
+   * 価格管理表にコア部材行を必ず出す。欠けている価格は補間せず、
+   * Beam_500 の IRON 確定値だけを埋める。BS/SUS の暫定値は登録しない。
+   */
+  function ensureCorePriceParts(catalog) {
+    if (!isPlainObject(catalog)) return catalog;
+    if (!isPlainObject(catalog.partsCatalog)) catalog.partsCatalog = {};
+    if (!isPlainObject(catalog.partPriceByMaterial)) catalog.partPriceByMaterial = {};
+
+    CORE_PRICE_PART_KEYS.forEach((key) => {
+      const bundled = BUNDLED_PARTS_CATALOG[key];
+      if (!isPlainObject(catalog.partsCatalog[key])) {
+        catalog.partsCatalog[key] = bundled
+          ? {
+              label: bundled.label,
+              unitWeightG: bundled.unitWeightG,
+              unitPrice: bundled.unitPrice,
+            }
+          : { label: key, unitWeightG: 0, unitPrice: 0 };
+      } else {
+        const item = catalog.partsCatalog[key];
+        if (!item.label && bundled && bundled.label) item.label = bundled.label;
+        if ((item.unitWeightG == null || item.unitWeightG === "") && bundled) {
+          item.unitWeightG = bundled.unitWeightG;
+        }
+      }
+      if (!isPlainObject(catalog.partPriceByMaterial[key])) {
+        catalog.partPriceByMaterial[key] = {};
+      }
+    });
+
+    const beam500 = catalog.partPriceByMaterial.beam_500;
+    if (beam500 && typeof beam500.IRON !== "number") {
+      beam500.IRON = BEAM_500_CONFIRMED_IRON;
+    }
+    if (isPlainObject(catalog.partsCatalog.beam_500) && typeof beam500.IRON === "number") {
+      catalog.partsCatalog.beam_500.unitPrice = beam500.IRON;
+      if (!catalog.partsCatalog.beam_500.label) catalog.partsCatalog.beam_500.label = "Beam_500";
+    }
+    return catalog;
   }
 
   function isPlainObject(v) {
@@ -632,6 +682,9 @@
   window.checkPriceCatalogIntegrity = checkPriceCatalogIntegrity;
   window.CORE_PRICE_PART_KEYS = CORE_PRICE_PART_KEYS;
   window.sortPriceCatalogKeys = sortPriceCatalogKeys;
+  window.ensureCorePriceParts = ensureCorePriceParts;
+  window.BEAM_500_CONFIRMED_IRON = BEAM_500_CONFIRMED_IRON;
+  window.BEAM_500_REFERENCE_PRICES = BEAM_500_REFERENCE_PRICES;
   window.fetchRemoteCatalog = fetchRemoteCatalog;
   window.fetchSupabaseCatalog = fetchRemoteCatalog;
   window.loadPriceCatalog = loadPriceCatalog;

@@ -47,7 +47,7 @@ ok("再取得で価格区分をリセットしない", (function () {
   return start >= 0 && end > start && estSrc.slice(start, end).indexOf("resetEstimatePriceMode") < 0;
 })());
 ok("postMessageをorigin検査", estSrc.indexOf("ev.origin !== window.location.origin") >= 0);
-ok("キャッシュバンプ", indexSrc.indexOf("price-loader.js?v=20261027-pub1") >= 0 && indexSrc.indexOf("admin-menu.js?v=20261027-pub1") >= 0);
+ok("キャッシュバンプ", indexSrc.indexOf("price-loader.js?v=20261109-beam500") >= 0 && indexSrc.indexOf("admin-menu.js?v=20261027-pub1") >= 0);
 
 class CustomEvent {
   constructor(name, init) {

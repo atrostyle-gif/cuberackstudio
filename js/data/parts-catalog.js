@@ -63,7 +63,7 @@ window.PARTS_CATALOG = {
   beam_400: { label: "Beam_400", unitPrice: 680, unitWeightG: 425.1 },
   pole_400: { label: "Pole_400", unitPrice: 680, unitWeightG: 425.1 },
 
-  beam_500: { label: "Beam_500", unitPrice: 850, unitWeightG: 537.4 },
+  beam_500: { label: "Beam_500", unitPrice: 850, unitWeightG: 537.4 }, // IRON確定 850円。BS/SUSは価格管理の登録値を使う
   pole_500: { label: "Pole_500", unitPrice: 750, unitWeightG: 537.4 },
 
   beam_600: { label: "Beam_600", unitPrice: 800, unitWeightG: 642.9 },
@@ -188,7 +188,9 @@ window.PART_PRICE_BY_MATERIAL = {
   beam_200: { IRON: 500, BS: 920,  SUS: 830 },
   beam_300: { IRON: 580, BS: 1200, SUS: 1020 },
   beam_400: { IRON: 680, BS: 1380, SUS: 1200 },
-  beam_500: { IRON: 850, BS: 1790, SUS: 1385 },
+  // Beam_500: IRON 850円は確定。BS 1,790 / SUS 1,385 は暫定参考値であり、
+  // 価格管理へ無断登録しない。未設定のまま STAFF が入力する。
+  beam_500: { IRON: 850 },
   beam_600: { IRON: 800, BS: 2200, SUS: 1570 },
   beam_800: { IRON: 930, BS: 2570, SUS: 2020 },
 
@@ -610,6 +612,9 @@ window.pricePartForEstimate = function pricePartForEstimate(partKey, material, q
   const key = String(partKey || "");
   const n = Math.max(0, Math.round(Number(qty) || 0));
   const mode = priceMode === "wholesale" ? "wholesale" : "retail";
+  const mat = (typeof window.normalizeMaterial === "function")
+    ? window.normalizeMaterial(material)
+    : String(material || "IRON").toUpperCase();
 
   if (isOrderPartKeyForWholesale(key)) {
     const priced = (typeof window.priceOrderLineFromKey === "function")
@@ -635,6 +640,16 @@ window.pricePartForEstimate = function pricePartForEstimate(partKey, material, q
       return { kind: "stock", registered: false, order: false, unitPrice: null, sub: null };
     }
     const unit = Number(ws.value);
+    return { kind: "stock", registered: true, order: false, unitPrice: unit, sub: unit * n };
+  }
+
+  if (/^(beam|pole)_\d+$/i.test(key) && usesMaterialPriceMap(key)) {
+    const byMat = window.PART_PRICE_BY_MATERIAL && window.PART_PRICE_BY_MATERIAL[key];
+    const found = readRegisteredYen(byMat, mat);
+    if (!found.registered) {
+      return { kind: "stock", registered: false, order: false, unitPrice: null, sub: null };
+    }
+    const unit = Number(found.value);
     return { kind: "stock", registered: true, order: false, unitPrice: unit, sub: unit * n };
   }
 

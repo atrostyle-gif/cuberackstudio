@@ -120,7 +120,7 @@ const html = fs.readFileSync(path.join(root, "estimate.html"), "utf8");
 ok("見積画面も未登録をモード不問で見る", html.indexOf("else if (!isOrderPart)") >= 0 && html.indexOf("priced.registered === false") >= 0);
 
 const indexSrc = fs.readFileSync(path.join(root, "index.html"), "utf8");
-ok("キャッシュ m109", indexSrc.indexOf("estimate.js?v=20261028-est1") >= 0 && indexSrc.indexOf("dimension-utils.js?v=20261028-sku1") >= 0 && indexSrc.indexOf("file.js?v=20261027-sku1") >= 0 && indexSrc.indexOf("parts-catalog.js?v=20261027-sku1") >= 0);
+ok("キャッシュ m109", indexSrc.indexOf("estimate.js?v=20261028-est1") >= 0 && indexSrc.indexOf("dimension-utils.js?v=20261028-sku1") >= 0 && indexSrc.indexOf("file.js?v=20261027-sku1") >= 0 && indexSrc.indexOf("parts-catalog.js?v=20261109-beam500") >= 0);
 
 const outer4 = W.calcPoleOuterHeightMm([600, 600, 600, 600]);
 const outerRaise = W.calcPoleOuterHeightMm([100, 600, 600, 600, 600]);

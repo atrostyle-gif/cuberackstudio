@@ -40,7 +40,7 @@ ok("800mm以下／801mm以上の表示", adminHtml.indexOf("800mm以下 セッ�
 ok("保存時にA/Bを維持", adminHtml.indexOf("A: prevG.A") >= 0 && adminHtml.indexOf("B: prevG.B") >= 0);
 ok("既存RPCのまま", adminHtml.indexOf("savePriceCatalog") >= 0 && loaderSrc.indexOf("save_price_catalog") >= 0);
 ok("見積は共有ヘルパで卸を参照", estSrc.indexOf("pricePartForEstimate") >= 0);
-ok("キャッシュバンプ", indexSrc.indexOf("price-loader.js?v=20261027-pub1") >= 0 && indexSrc.indexOf("parts-catalog.js?v=20261027-sku1") >= 0);
+ok("キャッシュバンプ", indexSrc.indexOf("price-loader.js?v=20261109-beam500") >= 0 && indexSrc.indexOf("parts-catalog.js?v=20261109-beam500") >= 0);
 
 const orderFnStart = adminHtml.indexOf("function renderOrderTab");
 const orderFnEnd = adminHtml.indexOf("function readOrderPricingFromDom");

@@ -33,7 +33,7 @@ ok("残タブは材種別・棚板・壁板・オーダー", adminHtml.indexOf('
 ok("初回移行フラグ ironPriceUnified", loaderSrc.indexOf("ironPriceUnified") >= 0 && loaderSrc.indexOf("function unifyIronPrices") >= 0);
 ok("保存時にフラグを付ける", adminHtml.indexOf("catalog.ironPriceUnified = true") >= 0);
 ok("見積は共有ヘルパで卸を参照", estSrc.indexOf("pricePartForEstimate") >= 0);
-ok("キャッシュバンプ", indexSrc.indexOf("price-loader.js?v=20261027-pub1") >= 0);
+ok("キャッシュバンプ", indexSrc.indexOf("price-loader.js?v=20261109-beam500") >= 0);
 ok("キー列を出さない", adminHtml.indexOf(">キー<") < 0 && adminHtml.indexOf("部材名") >= 0);
 ok("価格入力は右揃え", adminHtml.indexOf("text-align: right") >= 0);
 
